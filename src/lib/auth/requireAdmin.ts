@@ -7,6 +7,11 @@ export type AdminUser = {
   id: string;
   email: string | null;
   role: AdminRole;
+  /** From public.users — nullable when an admin auth row has no
+   *  matching user profile (admin-only accounts never finish
+   *  onboarding). Falls back to email local-part at the call site. */
+  displayName: string | null;
+  username: string | null;
 };
 
 // Server-side gate. Call from any (dashboard) page or layout to guarantee
@@ -26,15 +31,57 @@ export async function requireAdmin(): Promise<AdminUser> {
     redirect("/login");
   }
 
-  const { data: role, error } = await supabase.rpc("admin_role");
+  // Two queries in parallel: the role check (auth gate) and the
+  // optional profile fetch (cosmetic). The profile lookup is
+  // best-effort — admin-only accounts don't always have a
+  // matching `public.users` row, and that's fine.
+  const [roleRes, profileRes] = await Promise.all([
+    supabase.rpc("admin_role"),
+    supabase
+      .from("users")
+      .select("display_name, username")
+      .eq("id", user.id)
+      .maybeSingle(),
+  ]);
 
-  if (error || !role) {
+  if (roleRes.error || !roleRes.data) {
     redirect("/unauthorized");
   }
 
   return {
     id: user.id,
     email: user.email ?? null,
-    role: role as AdminRole,
+    role: roleRes.data as AdminRole,
+    displayName: (profileRes.data?.display_name as string | undefined) ?? null,
+    username: (profileRes.data?.username as string | undefined) ?? null,
   };
+}
+
+/**
+ * Friendly display label for an admin. Tries display name, falls
+ * back to @username, then the email local-part. Never returns the
+ * full email — that's for the user-detail pill, not the greeting.
+ */
+export function adminDisplayLabel(admin: AdminUser): string {
+  if (admin.displayName && admin.displayName.trim().length > 0) {
+    return admin.displayName.trim();
+  }
+  if (admin.username && admin.username.trim().length > 0) {
+    return admin.username.trim();
+  }
+  if (admin.email) {
+    const local = admin.email.split("@")[0];
+    if (local && local.length > 0) return local;
+  }
+  return "admin";
+}
+
+/** Two-letter initials for avatar chips. */
+export function adminInitials(admin: AdminUser): string {
+  const label = adminDisplayLabel(admin);
+  const parts = label.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return label.slice(0, 2).toUpperCase();
 }

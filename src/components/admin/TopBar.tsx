@@ -2,19 +2,32 @@ import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/admin/ModeToggle";
 import { signOut } from "@/app/(dashboard)/actions";
-import type { AdminRole } from "@/lib/auth/requireAdmin";
+import {
+  type AdminRole,
+  type AdminUser,
+  adminDisplayLabel,
+  adminInitials,
+} from "@/lib/auth/requireAdmin";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  email: string | null;
-  role?: AdminRole | null;
+  admin: AdminUser;
 };
 
-export function TopBar({ email, role }: Props) {
+export function TopBar({ admin }: Props) {
   const isProd = process.env.NODE_ENV === "production";
-  const initials = (email ?? "?").trim().slice(0, 2).toUpperCase();
   const sha = (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7);
   const branch = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF;
+
+  const label = adminDisplayLabel(admin);
+  const initials = adminInitials(admin);
+  // Show @username under the display name if both exist and they differ;
+  // otherwise show the email as the secondary line.
+  const secondary =
+    admin.username && admin.displayName
+      ? `@${admin.username}`
+      : admin.email ?? null;
+
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-border/70 bg-paper-raised/75 px-6 backdrop-blur-md">
       <div className="flex min-w-0 items-center gap-3">
@@ -37,20 +50,25 @@ export function TopBar({ email, role }: Props) {
       </div>
       <div className="flex items-center gap-2">
         <QuickTools />
-        {role && <RoleBadge role={role} />}
-        {email && (
-          <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-paper-sunken/60 py-1 pr-3 pl-1 sm:flex">
-            <span
-              aria-hidden
-              className="flex size-6 items-center justify-center rounded-full bg-brand text-[10px] font-semibold uppercase tracking-wider text-brand-fg"
-            >
-              {initials}
+        <RoleBadge role={admin.role} />
+        <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-paper-sunken/60 py-1 pr-3 pl-1 sm:flex">
+          <span
+            aria-hidden
+            className="flex size-7 items-center justify-center rounded-full bg-brand text-[10px] font-semibold uppercase tracking-wider text-brand-fg"
+          >
+            {initials}
+          </span>
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="max-w-[160px] truncate text-xs font-semibold text-ink">
+              {label}
             </span>
-            <span className="max-w-[180px] truncate text-xs font-medium text-ink-2">
-              {email}
-            </span>
-          </div>
-        )}
+            {secondary && (
+              <span className="max-w-[160px] truncate text-[10px] text-ink-3">
+                {secondary}
+              </span>
+            )}
+          </span>
+        </div>
         <ModeToggle />
         <form action={signOut}>
           <Button type="submit" variant="ghost" size="sm">
@@ -107,8 +125,8 @@ function roleLabel(role: AdminRole): string {
 
 /**
  * Top-right cluster of external operator destinations. The full
- * list lives in the sidebar's Tools group; this is the
- * fast-path for the two we open daily.
+ * library lives in the sidebar's Tools shelf and on the overview;
+ * this is the fast-path for the two we open daily.
  */
 function QuickTools() {
   const links = [

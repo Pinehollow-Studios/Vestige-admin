@@ -71,13 +71,14 @@ export default async function DashboardLayout({
   };
 
   return (
-    <div className="flex min-h-dvh bg-background">
+    <div className="min-h-dvh bg-background">
+      {/* Sidebar is position:fixed at lg+; the right column gets
+          `lg:pl-64` to compensate so the main content never slides
+          under it. On <lg the sidebar is hidden entirely. */}
       <Sidebar counts={counts} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar email={admin.email} role={admin.role} />
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          {children}
-        </main>
+      <div className="flex min-h-dvh min-w-0 flex-col lg:pl-64">
+        <TopBar admin={admin} />
+        <main className="flex-1 p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

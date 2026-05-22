@@ -1,9 +1,5 @@
 import Link from "next/link";
 import {
-  AlertTriangle,
-  BookText,
-  Code2,
-  Database,
   ExternalLink,
   FileTerminal,
   type LucideIcon,
@@ -13,7 +9,8 @@ import {
 import { OverviewCard, PreviewList, StatusBreakdown } from "@/components/admin/OverviewCard";
 import { StatsStrip, type Stat } from "@/components/admin/StatsStrip";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { adminDisplayLabel, requireAdmin } from "@/lib/auth/requireAdmin";
+import { TOOL_GROUPS } from "@/lib/admin/tools";
 import { statusFor, type CuratedListStatus } from "./curated/types";
 
 export const dynamic = "force-dynamic";
@@ -266,7 +263,7 @@ export default async function OverviewPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-10">
       <HeroGreeting
-        email={admin.email}
+        name={adminDisplayLabel(admin)}
         queueLen={queue.length}
         flagsLen={safeguarding.length}
         feedbackLen={openFeedback.length}
@@ -493,20 +490,19 @@ export default async function OverviewPage() {
  * "what's hot today" pills keyed off live counts.
  */
 function HeroGreeting({
-  email,
+  name,
   queueLen,
   flagsLen,
   feedbackLen,
   usersTotal,
 }: {
-  email: string | null;
+  name: string;
   queueLen: number;
   flagsLen: number;
   feedbackLen: number;
   usersTotal: number;
 }) {
   const greeting = greetingFor(new Date());
-  const name = email?.split("@")[0] ?? "admin";
   return (
     <section className="surface-aurora relative rounded-3xl px-6 py-8 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.55)] sm:px-8 sm:py-10">
       <div
@@ -583,10 +579,14 @@ function HeroPill({
 }
 
 /**
- * Lower panel of operator-flavoured shortcuts: tools the team
- * actually opens (Supabase Studio, Sentry, Metabase, repos),
- * plus a polygon-coverage callout — the single most common data
- * hygiene job on the Fairways catalogue.
+ * The "Operator console" — the full library of external destinations
+ * grouped by job-to-be-done, alongside two always-on operator widgets
+ * (polygon hygiene callout + paste-able SQL snippets).
+ *
+ * Tool data comes from the central `TOOL_GROUPS` registry in
+ * `lib/admin/tools.ts` — the same source the sidebar's bottom
+ * shelf reads from, so adding a new tool in one place lights it up
+ * in both surfaces.
  */
 function OperatorTools({
   polygonGap,
@@ -595,50 +595,16 @@ function OperatorTools({
   polygonGap: number;
   usersTotal: number;
 }) {
-  const tools: Array<{
-    href: string;
-    label: string;
-    description: string;
-    icon: LucideIcon;
-    external?: boolean;
-  }> = [
-    {
-      href: "https://supabase.com/dashboard/project/_/sql/new",
-      label: "Supabase SQL editor",
-      description: "Ad-hoc queries against the live database. Read-only via `auth.uid()` policies.",
-      icon: Database,
-      external: true,
-    },
-    {
-      href: "https://sentry.io/organizations/fairways/issues/",
-      label: "Sentry issues",
-      description: "Stack traces, breadcrumbs, release health. Webhook ingests the index here.",
-      icon: AlertTriangle,
-      external: true,
-    },
-    {
-      href: "https://github.com/Fairways-app/Fairways-ios/blob/main/docs/admin-runbook.md",
-      label: "Admin runbook",
-      description: "Bootstrap, curated-list CRUD, polygon ingest, common queries. Source of truth.",
-      icon: BookText,
-      external: true,
-    },
-    {
-      href: "https://github.com/Fairways-app/Fairways-ios",
-      label: "iOS repo",
-      description: "Schema lives here — every admin RPC / column starts as a migration in this tree.",
-      icon: Code2,
-      external: true,
-    },
-  ];
-
   return (
     <section className="space-y-4">
       <SectionLabel
-        title="Operator tools"
-        subtitle="Shortcuts to the systems behind the dashboard."
+        title="Operator console"
+        subtitle="Tools the team opens daily — grouped, in one place."
         accent="insights"
       />
+
+      {/* Two always-on operator widgets up top. These are local to
+          the dashboard — not external links. */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="surface-glass rounded-2xl p-5">
           <div className="flex items-start justify-between gap-3">
@@ -652,7 +618,7 @@ function OperatorTools({
               <p className="text-xs leading-relaxed text-ink-2">
                 Courses without polygons don&apos;t shade on the Atlas map. The
                 ingest script lives in{" "}
-                <code className="rounded bg-paper-sunken px-1 py-px text-[11px] font-mono text-ink">
+                <code className="rounded bg-paper-sunken px-1 py-px font-mono text-[11px] text-ink">
                   Fairways-ios/scripts/
                 </code>
                 .
@@ -663,7 +629,10 @@ function OperatorTools({
             </span>
           </div>
           <p className="mt-4 text-[11px] text-ink-3">
-            Courses still missing a polygon. {usersTotal > 0 ? "Live users will not see these on the map." : "Will block onboarding once users are live."}
+            Courses still missing a polygon.{" "}
+            {usersTotal > 0
+              ? "Live users will not see these on the map."
+              : "Will block onboarding once users are live."}
           </p>
         </div>
         <div className="surface-glass rounded-2xl p-5">
@@ -693,44 +662,68 @@ function OperatorTools({
             />
           </ul>
         </div>
+      </div>
 
-        {tools.map((tool) => {
-          const Icon = tool.icon;
-          const body = (
-            <article className="group/tool surface-glass flex h-full items-start gap-3 rounded-2xl p-4 transition-all hover:-translate-y-px hover:border-brand/30">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-paper-sunken text-brand">
-                <Icon className="size-4" />
-              </span>
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className="flex items-center gap-1 font-heading text-sm font-semibold text-ink">
-                  {tool.label}
-                  {tool.external && (
-                    <ExternalLink
-                      aria-hidden
-                      className="size-3 text-ink-3 transition-transform group-hover/tool:translate-x-0.5 group-hover/tool:-translate-y-0.5"
-                    />
-                  )}
-                </p>
-                <p className="text-[11px] leading-relaxed text-ink-2">
-                  {tool.description}
-                </p>
-              </div>
-            </article>
-          );
-          return tool.external ? (
-            <a
-              key={tool.href}
-              href={tool.href}
-              target="_blank"
-              rel="noreferrer"
-              className="block"
+      {/* External tool groups — one panel per group. Each panel
+          renders its links as compact rows with description + arrow
+          affordance. Lights up the same items the sidebar shows so
+          they're discoverable for new admins, not buried. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {TOOL_GROUPS.map((group) => {
+          const GroupIcon = group.icon;
+          return (
+            <article
+              key={group.key}
+              className="surface-glass flex flex-col gap-3 rounded-2xl p-5"
             >
-              {body}
-            </a>
-          ) : (
-            <Link key={tool.href} href={tool.href} className="block">
-              {body}
-            </Link>
+              <header className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-paper-sunken text-brand">
+                  <GroupIcon className="size-4" />
+                </span>
+                <div className="min-w-0 space-y-0.5">
+                  <h3 className="font-heading text-base font-semibold text-ink">
+                    {group.label}
+                  </h3>
+                  <p className="text-[11px] leading-relaxed text-ink-2">
+                    {group.description}
+                  </p>
+                </div>
+              </header>
+              <ul className="space-y-1">
+                {group.links.map((tool) => {
+                  const Icon = tool.icon;
+                  return (
+                    <li key={tool.href}>
+                      <a
+                        href={tool.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group/tool flex items-start gap-2.5 rounded-lg border border-transparent px-2.5 py-2 transition-all hover:border-border/60 hover:bg-paper-sunken/40"
+                      >
+                        <Icon
+                          aria-hidden
+                          className="mt-0.5 size-3.5 shrink-0 text-ink-3 group-hover/tool:text-brand"
+                        />
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <p className="flex items-center gap-1 text-[13px] font-medium text-ink">
+                            {tool.label}
+                            <ExternalLink
+                              aria-hidden
+                              className="size-3 text-ink-3/60 transition-transform group-hover/tool:translate-x-0.5 group-hover/tool:-translate-y-0.5 group-hover/tool:text-brand"
+                            />
+                          </p>
+                          {tool.description && (
+                            <p className="text-[11px] leading-snug text-ink-3">
+                              {tool.description}
+                            </p>
+                          )}
+                        </div>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </article>
           );
         })}
       </div>

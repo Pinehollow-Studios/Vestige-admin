@@ -5,16 +5,11 @@ import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
   BarChart3,
-  Bug,
-  Code2,
-  Database,
   ExternalLink,
-  Globe,
   Images,
   LayoutDashboard,
   ListChecks,
   type LucideIcon,
-  Map as MapIcon,
   MapPin,
   MessageSquareWarning,
   Shield,
@@ -22,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TOOL_GROUPS } from "@/lib/admin/tools";
 
 type NavItem = {
   href: string;
@@ -95,52 +91,11 @@ const GROUPS: Array<{ key: NavItem["group"]; label: string }> = [
   { key: "insights", label: "Insights" },
 ];
 
-type ToolLink = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-};
-
-/**
- * Hard-coded external links to operator tooling. These are static
- * because they belong to the brand, not the user — every admin
- * uses the same Supabase project, the same iOS repo, the same
- * marketing site. Per-environment overrides could come later via
- * NEXT_PUBLIC_* env vars; not needed yet.
- */
-const TOOLS: ToolLink[] = [
-  {
-    href: "https://supabase.com/dashboard/project/_/editor",
-    label: "Supabase Studio",
-    icon: Database,
-  },
-  {
-    href: "https://sentry.io/organizations/fairways/issues/",
-    label: "Sentry issues",
-    icon: Bug,
-  },
-  {
-    href: "https://github.com/Fairways-app/Fairways-ios",
-    label: "iOS repo",
-    icon: Code2,
-  },
-  {
-    href: "https://fairways.app",
-    label: "Marketing site",
-    icon: Globe,
-  },
-  {
-    href: "https://account.mapbox.com/",
-    label: "Mapbox",
-    icon: MapIcon,
-  },
-];
-
 export function Sidebar({ counts }: { counts?: Record<string, number | undefined> }) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-border/70 bg-sidebar text-sidebar-foreground lg:flex">
+    <aside className="hidden flex-col border-r border-border/70 bg-sidebar text-sidebar-foreground lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-64">
       <BrandHeader />
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
         {GROUPS.map((group) => (
@@ -189,32 +144,43 @@ export function Sidebar({ counts }: { counts?: Record<string, number | undefined
           </div>
         ))}
 
-        <div>
-          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-3/90">
-            Tools
-          </p>
-          <ul className="space-y-0.5">
-            {TOOLS.map((tool) => {
-              const Icon = tool.icon;
-              return (
-                <li key={tool.href}>
-                  <a
-                    href={tool.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group/nav flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
-                  >
-                    <Icon className="size-4 shrink-0 text-ink-3 group-hover/nav:text-ink-2" />
-                    <span className="min-w-0 flex-1 truncate">{tool.label}</span>
-                    <ExternalLink
-                      aria-hidden
-                      className="size-3 shrink-0 text-ink-3/60 transition-colors group-hover/nav:text-ink-2"
-                    />
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
+        {/* Bottom Tools shelf — categorised. Mirrors the rich
+            "Operator console" on the overview page; this is the
+            in-reach version. */}
+        <div className="space-y-5 border-t border-border/70 pt-5">
+          {TOOL_GROUPS.map((group) => {
+            const GroupIcon = group.icon;
+            return (
+              <div key={group.key}>
+                <p className="flex items-center gap-1.5 px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-3/90">
+                  <GroupIcon className="size-3" aria-hidden />
+                  {group.label}
+                </p>
+                <ul className="space-y-0.5">
+                  {group.links.map((tool) => {
+                    const Icon = tool.icon;
+                    return (
+                      <li key={tool.href}>
+                        <a
+                          href={tool.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="group/nav flex items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
+                        >
+                          <Icon className="size-3.5 shrink-0 text-ink-3 group-hover/nav:text-ink-2" />
+                          <span className="min-w-0 flex-1 truncate">{tool.label}</span>
+                          <ExternalLink
+                            aria-hidden
+                            className="size-3 shrink-0 text-ink-3/60 transition-colors group-hover/nav:text-ink-2"
+                          />
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       </nav>
       <SidebarFooter />
@@ -226,7 +192,7 @@ function BrandHeader() {
   return (
     <Link
       href="/"
-      className="flex h-16 items-center gap-3 border-b border-border/70 px-5"
+      className="flex h-16 shrink-0 items-center gap-3 border-b border-border/70 px-5"
     >
       <BrandMark className="size-9" />
       <div className="min-w-0 leading-tight">
@@ -315,7 +281,7 @@ function SidebarFooter() {
   const env = process.env.NODE_ENV === "production" ? "Production" : "Dev";
   const sha = (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7);
   return (
-    <div className="border-t border-border/70 px-5 py-4">
+    <div className="shrink-0 border-t border-border/70 px-5 py-4">
       <p className="flex items-center gap-2 text-[11px] leading-snug text-ink-3">
         <span aria-hidden className="size-1.5 rounded-full bg-brand" />
         Fairways Admin · {env}

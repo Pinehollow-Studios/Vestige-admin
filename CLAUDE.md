@@ -150,3 +150,15 @@ canonical write-up lives on disk.
   `/lists` (user-list verification) and `/safeguarding` (the
   explicit replacement) are unaffected — different systems.
   Long-form in `CHANGELOG.md`.
+- **2026-05-23** — Workbench polish: sidebar hard-mounted via
+  `position: fixed` at `lg+` (main column gets `lg:pl-64`); nav
+  scrolls independently; document scroll drives content. Greeting
+  + TopBar avatar pill now address the admin by `display_name`
+  (with `@username` / email local-part fallback ladder) — new
+  `requireAdmin()` fetches from `public.users` via a left join, with
+  helpers `adminDisplayLabel()` / `adminInitials()`. New
+  `src/lib/admin/tools.ts` registry — 4 grouped categories (Data,
+  Observability, Code & docs, External), ~20 links — is the single
+  source of truth for external destinations; both the sidebar
+  Tools shelf and the overview "Operator console" read from it.
+  Long-form in `CHANGELOG.md`.

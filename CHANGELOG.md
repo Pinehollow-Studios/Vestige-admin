@@ -5,6 +5,66 @@
 
 ---
 
+## 2026-05-23 — Fixed sidebar, personalised greeting, integrated tools registry
+
+Three coupled changes that turn the shell from "static frame" into
+"workbench". The sidebar stops drifting with the page, the greeting
+addresses the admin by name, and every external destination lives in
+one central registry surfaced both compactly in the sidebar and richly
+on the overview.
+
+### Fixed-mount sidebar
+
+- Sidebar is `position: fixed` at `lg+`; the right column gets
+  `lg:pl-64` to compensate. The nav scrolls independently inside
+  `overflow-y-auto`; brand header and footer stay pinned.
+- Main content is normal-flow now (no `overflow-y-auto` wrapper on
+  `<main>`), so the document scroll drives the page. TopBar's
+  `sticky top-0` still pins to the viewport.
+- The pattern: shell is fixed furniture, content is a scrolling
+  document. Less jank, less re-layout, no flicker.
+
+### Personalised greeting
+
+- `requireAdmin()` now fetches `display_name` + `username` from
+  `public.users` (left join, nullable for admin-only auth rows
+  that never finished onboarding). New `AdminUser` shape exposes
+  both, plus two helpers — `adminDisplayLabel(admin)` and
+  `adminInitials(admin)` — with a fallback ladder: display_name →
+  @username → email local-part → "admin".
+- TopBar avatar pill shows the display label as the primary line,
+  with `@username` (or email) as the secondary. The hero greeting
+  on the overview ("Welcome back, Tom") uses the same label.
+
+### Central tools registry
+
+- New `src/lib/admin/tools.ts` — typed `TOOL_GROUPS` with four
+  categories: **Data**, **Observability**, **Code & docs**,
+  **External**. ~20 links total, with descriptions, icons, and
+  enough metadata for both compact (sidebar) and rich (overview)
+  renderings.
+- Sidebar tool shelf now renders the same registry, grouped by
+  category, with section headers — replaces the flat 5-link list.
+- Overview "Operator console" (renamed from "Operator tools")
+  renders one card per group, each with a header + per-link
+  description + arrow affordance. New admins discover what tools
+  exist without trial and error.
+- Adding a new tool now means editing one file — sidebar and
+  overview both light it up.
+
+### Categories at a glance
+
+- **Data** — Supabase SQL editor, Table editor, Auth users,
+  Storage buckets, Edge functions, Logs explorer.
+- **Observability** — Sentry issues / releases / performance,
+  Vercel deployments / logs.
+- **Code & docs** — iOS repo, Admin repo, Marketing repo, Admin
+  runbook, iOS changelog.
+- **External** — Marketing site, Mapbox, App Store Connect,
+  Resend.
+
+---
+
 ## 2026-05-22 — Remove round verification surface
 
 Followed the iOS app's 2026-05-19 decision to scrap the four-method
