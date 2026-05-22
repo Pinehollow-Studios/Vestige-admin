@@ -53,12 +53,6 @@ type SafeguardingRow = {
   state: string;
 };
 
-type ScorecardRow = {
-  id: string;
-  state: "awaiting_review" | "in_review" | "approved" | "rejected";
-  created_at: string;
-};
-
 type PhotoRow = {
   id: string;
   taken_at: string | null;
@@ -90,7 +84,6 @@ export default async function OverviewPage() {
     curatedRes,
     feedbackRes,
     safeguardingRes,
-    scorecardRes,
     photosRes,
     crashesRes,
     // Platform-health raw counts:
@@ -116,12 +109,6 @@ export default async function OverviewPage() {
     supabase
       .rpc("admin_safeguarding_queue", { p_state_filter: "pending", p_limit: 6 })
       .returns<SafeguardingRow[]>(),
-    supabase
-      .from("scorecard_review_queue")
-      .select("id, state, created_at")
-      .in("state", ["awaiting_review", "in_review"])
-      .order("created_at", { ascending: false })
-      .limit(6),
     supabase
       .from("photos")
       .select("id, taken_at, created_at, moderation_state")
@@ -161,7 +148,6 @@ export default async function OverviewPage() {
     (feedbackRes.data as FeedbackPreviewRow[] | null) ?? [];
   const safeguarding: SafeguardingRow[] =
     (safeguardingRes.data as SafeguardingRow[] | null) ?? [];
-  const scorecards: ScorecardRow[] = (scorecardRes.data as ScorecardRow[] | null) ?? [];
   const photos: PhotoRow[] = (photosRes.data as PhotoRow[] | null) ?? [];
   const crashes: CrashRow[] = (crashesRes.data as CrashRow[] | null) ?? [];
 
@@ -398,33 +384,9 @@ export default async function OverviewPage() {
           </OverviewCard>
 
           <OverviewCard
-            href="/scorecards"
-            title="Scorecard verification"
-            description="Manual evidence path for rounds without GPS coverage. Reviewer confirms scorecard photo against entered scores."
-            status="live"
-            count={scorecards.length}
-            accent={scorecards.length === 0 ? "All clear" : "to review"}
-            ctaLabel={
-              scorecards.length === 0
-                ? "Open queue"
-                : `Review ${scorecards.length}`
-            }
-          >
-            <PreviewList
-              items={scorecards.slice(0, 4).map((row) => ({
-                key: row.id,
-                primary: row.state === "in_review" ? "In review" : "Awaiting review",
-                secondary: "Scorecard photo + entered scores",
-                trailing: relativeTime(row.created_at),
-              }))}
-              emptyLabel="No scorecards awaiting review."
-            />
-          </OverviewCard>
-
-          <OverviewCard
             href="/photos"
             title="Photo moderation"
-            description="User-uploaded round + scorecard photos awaiting moderation before they show on course pages."
+            description="User-uploaded round photos awaiting moderation before they show on course pages."
             status="live"
             count={photos.length}
             accent={photos.length === 0 ? "All clear" : "pending"}

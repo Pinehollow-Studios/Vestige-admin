@@ -163,7 +163,7 @@ function SoonStamp() {
 /**
  * Inline list rendered inside a live OverviewCard's preview slot.
  * Each row is a label + secondary line + trailing meta — generic
- * enough to render lists, scorecards, photos, anything.
+ * enough to render lists, photos, safeguarding flags, anything.
  */
 export function PreviewList({
   items,

@@ -26,7 +26,6 @@ export default async function DashboardLayout({
     coursesRes,
     feedbackRes,
     photosRes,
-    scorecardsRes,
     safeguardingRes,
     usersRes,
     crashesRes,
@@ -48,10 +47,6 @@ export default async function DashboardLayout({
       .select("id", { count: "exact", head: true })
       .eq("moderation_state", "pending"),
     supabase
-      .from("scorecard_review_queue")
-      .select("id", { count: "exact", head: true })
-      .in("state", ["awaiting_review", "in_review"]),
-    supabase
       .from("safeguarding_flags")
       .select("id", { count: "exact", head: true })
       .eq("state", "pending"),
@@ -70,7 +65,6 @@ export default async function DashboardLayout({
     courses: coursesRes.count ?? 0,
     feedback: feedbackRes.count ?? 0,
     photos: photosRes.count ?? 0,
-    scorecards: scorecardsRes.count ?? 0,
     safeguarding: safeguardingRes.count ?? 0,
     users: usersRes.count ?? 0,
     crashes: crashesRes.count ?? 0,

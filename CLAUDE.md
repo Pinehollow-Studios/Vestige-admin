@@ -140,3 +140,13 @@ canonical write-up lives on disk.
   `/scorecards`, `/analytics` lit up from "Soon" to live counts. No
   schema changes — every new query reads existing tables or RPCs from
   `Fairways-ios/supabase/migrations/`. Long-form in `CHANGELOG.md`.
+- **2026-05-22** — Remove round-verification surface to follow the
+  iOS app's 2026-05-19 decision (`Fairways-ios` migration
+  `20260519110000_drop_verification.sql`). Deleted `/scorecards`
+  page + sidebar entry + layout count; stripped the Scorecards
+  `OverviewCard` from the overview; collapsed `/photos` from
+  two-axis (`moderation_state` × `verification_state`) to
+  single-axis since the verification column was dropped.
+  `/lists` (user-list verification) and `/safeguarding` (the
+  explicit replacement) are unaffected — different systems.
+  Long-form in `CHANGELOG.md`.

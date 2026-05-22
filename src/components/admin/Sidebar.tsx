@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   BarChart3,
   Bug,
-  ClipboardCheck,
   Code2,
   Database,
   ExternalLink,
@@ -43,14 +42,6 @@ const NAV: NavItem[] = [
     ready: true,
     icon: ListChecks,
     countKey: "verification",
-  },
-  {
-    href: "/scorecards",
-    label: "Scorecards",
-    group: "queues",
-    ready: true,
-    icon: ClipboardCheck,
-    countKey: "scorecards",
   },
   {
     href: "/photos",

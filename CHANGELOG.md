@@ -5,6 +5,49 @@
 
 ---
 
+## 2026-05-22 — Remove round verification surface
+
+Followed the iOS app's 2026-05-19 decision to scrap the four-method
+round verification ladder (geotag check-in, attestation, geotagged
+photo, admin-verified scorecard). The iOS migration
+`20260519110000_drop_verification.sql` dropped the supporting tables,
+columns, enums, and RPCs; admin needed to follow suit so it stops
+querying tables that no longer exist.
+
+### Removed
+
+- **`/scorecards` page** — entirely deleted. The
+  `scorecard_review_queue` table is gone; the
+  `admin_claim_scorecard_review` / `admin_approve_scorecard` /
+  `admin_reject_scorecard` RPCs are gone. Manual scorecard review is
+  no longer a concept.
+- **Sidebar** — removed the Scorecards nav item and its
+  `ClipboardCheck` icon import.
+- **(dashboard)/layout.tsx** — removed the
+  `scorecard_review_queue` count query and the `scorecards` key
+  from the badge counts object.
+- **Overview** — removed the Scorecards `OverviewCard`, the
+  `ScorecardRow` type, the `scorecard_review_queue` query, and the
+  `scorecards` array.
+- **Photos page** — collapsed from two-axis (moderation_state ×
+  verification_state) to single-axis. `photos.verification_state`
+  was dropped in the same migration. Kept `moderation_state` —
+  photo moderation is independent of round verification and stays.
+  `photos.kind` enum lost the `scorecard` value (rows converted to
+  `roundPhoto`); the page now only displays `roundPhoto` / `avatar`.
+
+### Kept (intentional, do not confuse with round verification)
+
+- **`/lists` + `admin_list_verification_queue()`** — this is
+  *list* verification (verifying user-created collections for the
+  curated catalogue), a completely separate system that survives.
+- **`/safeguarding`** — the explicit replacement for round
+  verification per Fairways-ios §4.6 / §6.3. Trust the user, watch
+  for abuse server-side, action it out-of-sight via the safeguarding
+  queue.
+
+---
+
 ## 2026-05-22 — Atlas-aligned visual refresh + dev surfaces
 
 Pulled the admin dashboard into the same visual family as the iOS app
