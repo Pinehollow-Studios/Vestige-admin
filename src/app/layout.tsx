@@ -38,8 +38,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fairways Admin",
-  description: "Operational queues and editorial surfaces for Fairways.",
+  title: "Vestige Admin",
+  description: "Operational queues and editorial surfaces for Vestige.",
 };
 
 export default function RootLayout({

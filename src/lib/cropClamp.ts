@@ -1,6 +1,6 @@
 /**
  * Drag-bound math shared by every photo cropper. Direct port of
- * the iOS-side `Fairways/DesignSystem/CropClamp.swift` — same
+ * the iOS-side `Vestige/DesignSystem/CropClamp.swift` — same
  * formulas, same hard-clamp semantics, so the cropping UX is
  * identical across the two clients.
  *

@@ -409,7 +409,7 @@ export default async function OverviewPage() {
       <section className="space-y-4">
         <SectionLabel
           title="Editorial"
-          subtitle="Content under Fairways' own byline."
+          subtitle="Content under Vestige' own byline."
           accent="editorial"
         />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -619,7 +619,7 @@ function OperatorTools({
                 Courses without polygons don&apos;t shade on the Atlas map. The
                 ingest script lives in{" "}
                 <code className="rounded bg-paper-sunken px-1 py-px font-mono text-[11px] text-ink">
-                  Fairways-ios/scripts/
+                  Vestige-ios/scripts/
                 </code>
                 .
               </p>

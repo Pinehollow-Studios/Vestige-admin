@@ -1,8 +1,8 @@
-# Fairways Admin — source of truth
+# Vestige Admin — source of truth
 
-> Single source of truth for the Fairways admin dashboard. Read in full
+> Single source of truth for the Vestige admin dashboard. Read in full
 > before contributing. The companion iOS app's `CLAUDE.md` (in
-> `Fairways-ios/`) is the source of truth for everything cross-cutting —
+> `Vestige-ios/`) is the source of truth for everything cross-cutting —
 > data model, verification rules, hard rules, scope fences. This document
 > defers to it on every shared topic.
 
@@ -13,16 +13,16 @@
 - **Scope:** the admin dashboard web app only.
 - **Status:** Living document.
 - **Owners:** Tom (lead) and Jack.
-- **Companion docs:** `Fairways-ios/CLAUDE.md` (cross-cutting),
-  `Fairways-ios/CHANGELOG.md` (decision history),
-  `Fairways-ios/docs/admin-runbook.md` (current SQL-based admin workflows
+- **Companion docs:** `Vestige-ios/CLAUDE.md` (cross-cutting),
+  `Vestige-ios/CHANGELOG.md` (decision history),
+  `Vestige-ios/docs/admin-runbook.md` (current SQL-based admin workflows
   the dashboard will eventually replace).
 
 ---
 
 ## 1. What this is
 
-A web app for Fairways operational and editorial work — list verification,
+A web app for Vestige operational and editorial work — list verification,
 photo moderation, scorecard verification, feedback triage, course/curated
 list editing, plus an embed of Metabase for analytics. Used primarily by
 Tom and Jack on desktop. Not user-facing. Not a marketing site.
@@ -40,14 +40,14 @@ couple of times a week, it earns a real screen here.
 | Framework | Next.js 16 (App Router, Turbopack) |
 | Language | TypeScript |
 | UI | React 19 + Tailwind 4 + shadcn/ui (neutral base) |
-| Backend | Supabase (same project as iOS — `Fairways-iOS-Dev` in dev, `fairways-ios-prod` in prod) |
+| Backend | Supabase (same project as iOS — `Vestige-iOS-Dev` in dev, `vestige-ios-prod` in prod) |
 | Auth | Supabase magic link, gated by an `admins` table (TODO migration) |
 | Hosting | Vercel |
-| CI | GitHub Actions (per `Fairways-ios` §3.1) |
+| CI | GitHub Actions (per `Vestige-ios` §3.1) |
 
 The iOS app is the source of all schema. This repo never writes
 migrations. If a feature here needs a new column, table, or RPC, it lands
-in `Fairways-ios/supabase/migrations/` first.
+in `Vestige-ios/supabase/migrations/` first.
 
 ---
 
@@ -92,17 +92,17 @@ No bespoke fetch helpers. No client-side admin RPCs without a
 
 ## 4. Hard rules
 
-1. **No AI/tool attribution anywhere.** Same as `Fairways-ios` §3.9 — no
+1. **No AI/tool attribution anywhere.** Same as `Vestige-ios` §3.9 — no
    `Co-Authored-By: Claude …`, no robot emojis, no "Generated with…"
    lines, retroactively. Apply to commits, PRs, code comments, docs.
 2. **No git mutations without explicit instruction from Tom.** No
    proactive commits, pushes, merges, or remote operations.
 3. **No migrations live here.** Schema changes belong in
-   `Fairways-ios/supabase/migrations/`.
+   `Vestige-ios/supabase/migrations/`.
 4. **No production deploys until the `admins` table gate is live.** The
    `requireAdmin` stub is a dev-only allowance.
 5. **No B2B export tooling without legal sign-off** on aggregation
-   thresholds (per `Fairways-ios` §12.2).
+   thresholds (per `Vestige-ios` §12.2).
 
 ---
 
@@ -110,7 +110,7 @@ No bespoke fetch helpers. No client-side admin RPCs without a
 
 When a meaningful slice closes, append a one-line entry to §6 below
 *and* a long-form write-up to a new `CHANGELOG.md` in this repo (mirror
-the `Fairways-ios` pattern). Don't paste long-form into chat — the
+the `Vestige-ios` pattern). Don't paste long-form into chat — the
 canonical write-up lives on disk.
 
 ---
@@ -121,14 +121,14 @@ canonical write-up lives on disk.
   Supabase SSR clients + middleware session refresh; `(dashboard)` route
   group with sidebar shell; one live route (`/lists`) and five "Soon"
   placeholders; magic-link login; `requireAdmin` stub pending the
-  `admins` table migration in `Fairways-ios`.
+  `admins` table migration in `Vestige-ios`.
 - **2026-05-02** — Auth gate goes live: `requireAdmin()` swapped from
   any-authenticated-user stub to a `supabase.rpc('admin_role')` call
-  backed by `Fairways-ios` migration `20260502140000_admins.sql`. Three
+  backed by `Vestige-ios` migration `20260502140000_admins.sql`. Three
   roles (super_admin / moderator / editor); fail-closed redirect to
   `/unauthorized` on null/error. Returned `AdminRole` rides up to the
   TopBar so future role-gated UI can branch on it. Bootstrap procedure
-  documented in `Fairways-ios/docs/admin-runbook.md` → "Setup — admin
+  documented in `Vestige-ios/docs/admin-runbook.md` → "Setup — admin
   roster".
 - **2026-05-22** — Atlas-aligned visual refresh + dev surfaces:
   globals.css repainted in the iOS Atlas dark / mint palette (default
@@ -139,9 +139,9 @@ canonical write-up lives on disk.
   shelf; new `/safeguarding` and `/users` pages (read-only); `/photos`,
   `/scorecards`, `/analytics` lit up from "Soon" to live counts. No
   schema changes — every new query reads existing tables or RPCs from
-  `Fairways-ios/supabase/migrations/`. Long-form in `CHANGELOG.md`.
+  `Vestige-ios/supabase/migrations/`. Long-form in `CHANGELOG.md`.
 - **2026-05-22** — Remove round-verification surface to follow the
-  iOS app's 2026-05-19 decision (`Fairways-ios` migration
+  iOS app's 2026-05-19 decision (`Vestige-ios` migration
   `20260519110000_drop_verification.sql`). Deleted `/scorecards`
   page + sidebar entry + layout count; stripped the Scorecards
   `OverviewCard` from the overview; collapsed `/photos` from

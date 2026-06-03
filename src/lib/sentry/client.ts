@@ -10,11 +10,11 @@
  * ENVIRONMENT
  *   - SENTRY_AUTH_TOKEN  — Internal Integration auth token. Mint at
  *                          sentry.io → pinehollow-studios → Settings →
- *                          Developer Settings → fairways-admin →
+ *                          Developer Settings → vestige-admin →
  *                          Tokens. Permissions: Project: Read,
  *                          Issue & Event: Read, Member: Read.
  *   - SENTRY_ORG_SLUG    — `pinehollow-studios`.
- *   - SENTRY_PROJECT_SLUG — `fairways-ios`.
+ *   - SENTRY_PROJECT_SLUG — `vestige-ios`.
  *
  * All three live in `.env.local` (dev) and Vercel env (prod). Never
  * committed.

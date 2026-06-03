@@ -18,7 +18,7 @@ export type AdminUser = {
 // the request is from a signed-in admin. Redirects when not.
 //
 // Backed by the `public.admins` table + `is_admin()` / `admin_role()`
-// helpers introduced in Fairways-ios migration 20260502140000_admins.sql.
+// helpers introduced in Vestige-ios migration 20260502140000_admins.sql.
 // Bootstrap a first super_admin via docs/admin-runbook.md → "Setup —
 // admin roster" before anyone can sign in.
 export async function requireAdmin(): Promise<AdminUser> {

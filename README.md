@@ -1,11 +1,11 @@
-# Fairways Admin
+# Vestige Admin
 
-Internal admin dashboard for Fairways — operational queues and editorial
+Internal admin dashboard for Vestige — operational queues and editorial
 surfaces, consuming the same Supabase backend as the iOS app with elevated
 RLS. Web-only, desktop-first, Next.js + TypeScript + Tailwind + shadcn/ui,
 deployed to Vercel.
 
-The companion iOS app lives in [`Fairways-ios`](https://github.com/Pinehollow-Studios/Fairways-ios).
+The companion iOS app lives in [`Vestige-ios`](https://github.com/Pinehollow-Studios/Vestige-ios).
 Anything architectural that says "see CLAUDE.md §X" refers to the iOS repo's
 `CLAUDE.md` unless it's prefixed `admin §X`. This repo's `CLAUDE.md` is the
 admin-side source of truth.
@@ -15,7 +15,7 @@ admin-side source of truth.
 ```sh
 cp .env.example .env.local
 # fill in NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY
-# from the Fairways-iOS-Dev project (Supabase dashboard → Settings → API)
+# from the Vestige-iOS-Dev project (Supabase dashboard → Settings → API)
 npm install
 npm run dev
 # http://localhost:3000
@@ -25,7 +25,7 @@ npm run dev
 
 Magic-link sign-in via Supabase. The dashboard layout calls `requireAdmin()`
 which currently passes any authenticated user — the proper `admins` table
-gate lands when the matching migration is added in `Fairways-ios`. Do not
+gate lands when the matching migration is added in `Vestige-ios`. Do not
 deploy to a public origin until that migration is live.
 
 ## Stack
@@ -37,9 +37,9 @@ deploy to a public origin until that migration is live.
 
 ## Repo conventions
 
-- Same Conventional Commits + trunk-based branching as `Fairways-ios`
+- Same Conventional Commits + trunk-based branching as `Vestige-ios`
   (`<type>/<short-kebab>` → squash-merge to `main`).
 - No AI/tool attribution anywhere — `Co-Authored-By` trailers, "Generated
   with…" lines, robot emojis are all forbidden, retroactively.
-- Migrations stay in `Fairways-ios/supabase/migrations/`; this repo only
+- Migrations stay in `Vestige-ios/supabase/migrations/`; this repo only
   reads them.

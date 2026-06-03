@@ -3,7 +3,7 @@
  * page, and the linked-crash card on `/feedback/[id]`.
  *
  * Mirrors the Postgres `crash_reports` table introduced by
- * `Fairways-ios/supabase/migrations/20260507150000_crash_reports.sql`.
+ * `Vestige-ios/supabase/migrations/20260507150000_crash_reports.sql`.
  * Sentry remains the canonical store for stack traces, breadcrumbs,
  * and release-health metrics; this dashboard joins our local handle
  * back to the Sentry issue via the `Open in Sentry` deep-link and

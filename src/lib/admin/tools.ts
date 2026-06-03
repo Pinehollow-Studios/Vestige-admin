@@ -61,7 +61,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     key: "data",
     label: "Data",
-    description: "Supabase surfaces. Schema lives in Fairways-ios; queries live here.",
+    description: "Supabase surfaces. Schema lives in Vestige-ios; queries live here.",
     icon: Database,
     links: [
       {
@@ -109,31 +109,31 @@ export const TOOL_GROUPS: ToolGroup[] = [
     icon: Bug,
     links: [
       {
-        href: "https://sentry.io/organizations/fairways/issues/",
+        href: "https://sentry.io/organizations/vestige/issues/",
         label: "Sentry issues",
         description: "Stack traces, breadcrumbs, release health. Webhook ingests the local index at /crashes.",
         icon: Bug,
       },
       {
-        href: "https://sentry.io/organizations/fairways/releases/",
+        href: "https://sentry.io/organizations/vestige/releases/",
         label: "Sentry releases",
         description: "Per-build crash-free %, regression tracking. Tie issues to commits.",
         icon: Rocket,
       },
       {
-        href: "https://sentry.io/organizations/fairways/performance/",
+        href: "https://sentry.io/organizations/vestige/performance/",
         label: "Sentry performance",
         description: "Transactions, slow queries, app-launch traces.",
         icon: Gauge,
       },
       {
-        href: "https://vercel.com/pinehollow-studios/fairways-admin/deployments",
+        href: "https://vercel.com/pinehollow-studios/vestige-admin/deployments",
         label: "Vercel deployments",
         description: "This dashboard's deploy history. Inspect a build, roll back if needed.",
         icon: LineChart,
       },
       {
-        href: "https://vercel.com/pinehollow-studios/fairways-admin/logs",
+        href: "https://vercel.com/pinehollow-studios/vestige-admin/logs",
         label: "Vercel logs",
         description: "Edge runtime logs — server actions, route handlers, middleware.",
         icon: ScrollText,
@@ -147,31 +147,31 @@ export const TOOL_GROUPS: ToolGroup[] = [
     icon: Code2,
     links: [
       {
-        href: "https://github.com/Pinehollow-Studios/Fairways-ios",
+        href: "https://github.com/Pinehollow-Studios/Vestige-ios",
         label: "iOS repo",
         description: "Schema lives here — every admin RPC / column starts as a migration in this tree.",
         icon: Code2,
       },
       {
-        href: "https://github.com/Pinehollow-Studios/Fairways-admin",
+        href: "https://github.com/Pinehollow-Studios/Vestige-admin",
         label: "Admin repo",
         description: "This dashboard. Branch off main, open a PR; Vercel ships a preview per branch.",
         icon: Code2,
       },
       {
-        href: "https://github.com/Pinehollow-Studios/Fairways-marketing",
+        href: "https://github.com/Pinehollow-Studios/Vestige-marketing",
         label: "Marketing repo",
-        description: "fairways.app — landing page + waitlist server actions + design experiments.",
+        description: "vestige.app — landing page + waitlist server actions + design experiments.",
         icon: Code2,
       },
       {
-        href: "https://github.com/Pinehollow-Studios/Fairways-ios/blob/main/docs/admin-runbook.md",
+        href: "https://github.com/Pinehollow-Studios/Vestige-ios/blob/main/docs/admin-runbook.md",
         label: "Admin runbook",
         description: "Bootstrap, curated-list CRUD, polygon ingest, common queries. The on-call manual.",
         icon: BookOpen,
       },
       {
-        href: "https://github.com/Pinehollow-Studios/Fairways-ios/blob/main/CHANGELOG.md",
+        href: "https://github.com/Pinehollow-Studios/Vestige-ios/blob/main/CHANGELOG.md",
         label: "iOS changelog",
         description: "Decision history with rationale. The 'why did we do X' answer lives here.",
         icon: ScrollText,
@@ -185,7 +185,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     icon: Globe,
     links: [
       {
-        href: "https://fairways.app",
+        href: "https://vestige.app",
         label: "Marketing site",
         description: "Live landing page. Waitlist signups go through this; counts surface in Resend.",
         icon: Globe,

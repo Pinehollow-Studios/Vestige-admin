@@ -135,7 +135,7 @@ function QuickTools() {
       label: "Supabase",
     },
     {
-      href: "https://sentry.io/organizations/fairways/issues/",
+      href: "https://sentry.io/organizations/vestige/issues/",
       label: "Sentry",
     },
   ];

@@ -5,10 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /* =========================================================
-   Fairways Admin — Atlas palette.
+   Vestige Admin — Atlas palette.
 
    Aligned with the iOS app's Atlas design system + the
-   marketing site (fairways-marketing/src/components/marketing
+   marketing site (vestige-marketing/src/components/marketing
    /palette.ts). Atlas is a dark-first identity: deep "paper"
    ocean backgrounds, warm cream "ink" for text, a mint accent
    for primary action, with amber + claret as secondary signals.

@@ -197,7 +197,7 @@ function BrandHeader() {
       <BrandMark className="size-9" />
       <div className="min-w-0 leading-tight">
         <p className="font-heading text-base font-semibold tracking-tight text-ink">
-          Fairways
+          Vestige
         </p>
         <p className="text-[11px] uppercase tracking-[0.18em] text-ink-3">
           Atlas · Admin
@@ -208,7 +208,7 @@ function BrandHeader() {
 }
 
 /**
- * The Fairways flag mark — pin/flag silhouette in brand mint
+ * The Vestige flag mark — pin/flag silhouette in brand mint
  * with a deep ocean fill. Mirrors the iOS splash + the marketing
  * `FwMark` lockup. Square so it works at favicon size.
  */
@@ -284,11 +284,11 @@ function SidebarFooter() {
     <div className="shrink-0 border-t border-border/70 px-5 py-4">
       <p className="flex items-center gap-2 text-[11px] leading-snug text-ink-3">
         <span aria-hidden className="size-1.5 rounded-full bg-brand" />
-        Fairways Admin · {env}
+        Vestige Admin · {env}
         {sha && <span className="font-mono text-ink-3/70">· {sha}</span>}
       </p>
       <p className="mt-1 text-[11px] leading-snug text-ink-3/70">
-        Editorial &amp; ops surface for the Fairways iOS app.
+        Editorial &amp; ops surface for the Vestige iOS app.
       </p>
     </div>
   );

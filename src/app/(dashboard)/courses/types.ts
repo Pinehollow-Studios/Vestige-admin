@@ -1,8 +1,8 @@
 /**
  * Shared types for the courses admin surface.
  *
- * Mirrors the iOS-side `Course` + `CourseDTO` (`Fairways/Models/Course.swift`,
- * `Fairways/Repositories/Course/CourseDTO.swift`) so field names + meanings
+ * Mirrors the iOS-side `Course` + `CourseDTO` (`Vestige/Models/Course.swift`,
+ * `Vestige/Repositories/Course/CourseDTO.swift`) so field names + meanings
  * stay aligned across the two clients reading the same Supabase table. The
  * DB columns are documented in the cross-stack courses build migrations
  * (20260504200000…20260504200500).

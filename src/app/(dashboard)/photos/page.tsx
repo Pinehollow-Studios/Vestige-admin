@@ -29,7 +29,7 @@ const MODERATION_BUCKETS: PhotoModerationState[] = [
  *
  * Single-axis moderation queue. The verification axis on
  * `photos.verification_state` was dropped 2026-05-19 alongside the
- * rest of the round verification system (Fairways-ios migration
+ * rest of the round verification system (Vestige-ios migration
  * 20260519110000_drop_verification.sql) — integrity is now an admin
  * concern surfaced via /safeguarding, not a per-photo evidence tag.
  *

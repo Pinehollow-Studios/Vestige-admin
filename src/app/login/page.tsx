@@ -35,7 +35,7 @@ export default function LoginPage() {
           <BrandMark className="size-10" />
           <div className="leading-tight">
             <p className="font-heading text-lg font-semibold tracking-tight">
-              Fairways
+              Vestige
             </p>
             <p className="text-[11px] uppercase tracking-[0.18em] text-brand-fg/70">
               Admin
@@ -51,7 +51,7 @@ export default function LoginPage() {
           </h1>
           <p className="text-sm text-brand-fg/85">
             Verifying lists, moderating photos, curating editorial collections —
-            everything Fairways needs from the inside.
+            everything Vestige needs from the inside.
           </p>
         </div>
         <p className="relative text-[11px] uppercase tracking-[0.2em] text-brand-fg/55">
@@ -72,7 +72,7 @@ export default function LoginPage() {
         <div className="relative w-full max-w-sm space-y-6">
           <div className="space-y-2 lg:hidden">
             <BrandMark className="size-10" />
-            <p className="font-heading text-base font-semibold">Fairways Admin</p>
+            <p className="font-heading text-base font-semibold">Vestige Admin</p>
           </div>
 
           <div className="space-y-1.5">

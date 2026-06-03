@@ -1,4 +1,4 @@
-# Fairways Admin — Changelog
+# Vestige Admin — Changelog
 
 > Long-form decision history. The one-line summary lives in
 > `CLAUDE.md §6`. New entries at the top.
@@ -102,7 +102,7 @@ querying tables that no longer exist.
   *list* verification (verifying user-created collections for the
   curated catalogue), a completely separate system that survives.
 - **`/safeguarding`** — the explicit replacement for round
-  verification per Fairways-ios §4.6 / §6.3. Trust the user, watch
+  verification per Vestige-ios §4.6 / §6.3. Trust the user, watch
   for abuse server-side, action it out-of-sight via the safeguarding
   queue.
 
@@ -195,5 +195,5 @@ actually happening in the platform without leaving the browser.
 ### Notes
 
 - No schema changes — every new query reads existing tables or RPCs
-  that already live in `Fairways-ios/supabase/migrations/`.
+  that already live in `Vestige-ios/supabase/migrations/`.
 - TypeScript clean, ESLint clean, `next build` green.

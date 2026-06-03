@@ -6,7 +6,7 @@
  * These literal-union types mirror the iOS `FeedbackCategory` /
  * `FeedbackStatus` / `FeedbackSeverity` / `FeedbackMessageKind` /
  * `FeedbackMessageAuthorRole` enums (see
- * `Fairways-ios/Fairways/Models/FeedbackReport.swift`) and the SQL
+ * `Vestige-ios/Vestige/Models/FeedbackReport.swift`) and the SQL
  * enum / CHECK constraints introduced by
  * `20260504210000_feedback_v2_schema.sql`. Any drift here must be
  * matched on both sides.

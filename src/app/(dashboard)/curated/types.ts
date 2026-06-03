@@ -2,7 +2,7 @@
  * Shared types for the curated-list admin surface.
  *
  * Mirrors the iOS-side `CuratedList` + `CuratedListSummary` types
- * (`Fairways/Models/CuratedList.swift`) so the field names + meaning
+ * (`Vestige/Models/CuratedList.swift`) so the field names + meaning
  * stay aligned across the two clients reading the same Supabase
  * tables. The DB columns themselves are documented in
  * `20260503120000_curated_lists_richer_publishing.sql`.
