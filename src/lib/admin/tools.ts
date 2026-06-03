@@ -161,7 +161,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
       {
         href: "https://github.com/Pinehollow-Studios/Vestige-marketing",
         label: "Marketing repo",
-        description: "vestige.app — landing page + waitlist server actions + design experiments.",
+        description: "vestige.golf — landing page + waitlist server actions + design experiments.",
         icon: Code2,
       },
       {
@@ -185,7 +185,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     icon: Globe,
     links: [
       {
-        href: "https://vestige.app",
+        href: "https://vestige.golf",
         label: "Marketing site",
         description: "Live landing page. Waitlist signups go through this; counts surface in Resend.",
         icon: Globe,
