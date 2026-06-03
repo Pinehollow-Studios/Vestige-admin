@@ -109,19 +109,19 @@ export const TOOL_GROUPS: ToolGroup[] = [
     icon: Bug,
     links: [
       {
-        href: "https://sentry.io/organizations/vestige/issues/",
+        href: "https://sentry.io/organizations/pinehollow-studios/issues/",
         label: "Sentry issues",
         description: "Stack traces, breadcrumbs, release health. Webhook ingests the local index at /crashes.",
         icon: Bug,
       },
       {
-        href: "https://sentry.io/organizations/vestige/releases/",
+        href: "https://sentry.io/organizations/pinehollow-studios/releases/",
         label: "Sentry releases",
         description: "Per-build crash-free %, regression tracking. Tie issues to commits.",
         icon: Rocket,
       },
       {
-        href: "https://sentry.io/organizations/vestige/performance/",
+        href: "https://sentry.io/organizations/pinehollow-studios/performance/",
         label: "Sentry performance",
         description: "Transactions, slow queries, app-launch traces.",
         icon: Gauge,
