@@ -5,6 +5,95 @@
 
 ---
 
+## 2026-06-06 — Dev/prod env switch + editorial dev→prod mirror (`/sync`)
+
+Two paired features that close the gap between authoring (dev) and live
+TestFlight data (prod). Until now the dashboard read/wrote a single
+project fixed by `NEXT_PUBLIC_SUPABASE_URL/_ANON_KEY` (dev locally), so
+live user data (feedback, crashes, safeguarding, users, photos) on prod
+was invisible, and editorial authored on dev (curated lists, badges)
+had no way to reach prod. The hard constraint throughout: course /
+county / club / badge-definition UUIDs **differ across the two
+projects** (the import never sets `id`; badge defs were seeded
+independently — proven: badge slug `bucket-25` is `01808dbf…` on dev,
+`c25ad290…` on prod), so nothing can be copied by UUID.
+
+### Part A — dev/prod connection switch (view/triage)
+
+The dashboard is now environment-aware. A per-request cookie
+(`vestige_admin_env`, default `dev`) selects which Supabase project
+every client talks to.
+
+- **`lib/supabase/env.ts`** — isomorphic registry (no `next/headers`, so
+  it's safe in the browser bundle). Reads `NEXT_PUBLIC_SUPABASE_URL_DEV
+  / _ANON_KEY_DEV / _URL_PROD / _ANON_KEY_PROD`; falls back to the
+  legacy unsuffixed vars for dev so nothing breaks before the new vars
+  are set. `isEnvConfigured` hides prod when it's unconfigured. Anon
+  keys are public + RLS-gated, so both are safe as `NEXT_PUBLIC`.
+- **`lib/supabase/env-server.ts`** (`server-only`) — `activeEnvKey()`,
+  `activeEnvConfig()`, `activeStorageBase()`, and `assertEditableEnv()`
+  (the editorial write guard).
+- **`server.ts` / `middleware.ts` / `client.ts`** now build their client
+  from the active env. Supabase auth tokens are project-ref-scoped
+  (`sb-<ref>-auth-token`), so dev + prod sessions coexist — switching
+  just activates the other; the first prod switch prompts a prod login.
+- **`storage.ts`** — env-aware base URL. Client reads the cookie; server
+  callers pass `activeStorageBase()` (added an optional `baseUrl` arg).
+- **`components/admin/EnvSwitch.tsx`** + TopBar — replaced the static
+  `NODE_ENV` badge with a real dev/prod toggle (claret for prod). Calls
+  the new `setAdminEnv` server action and reloads. Sidebar footer +
+  `/sync` nav entry are env/role aware (the entry is super_admin-only).
+- **Editorial read-only on prod** — `MirrorBanner` on the curated /
+  badges / courses surfaces, backed by `assertEditableEnv()` guards at
+  the top of every editorial write action (defence-in-depth; prod is a
+  mirror so nothing is authored there). Operational actions
+  (feedback / safeguarding / users / photos, and badge grant / revoke /
+  backfill which act on real users) are deliberately NOT gated.
+
+### Part B — editorial dev→prod mirror (`/sync`, super_admin only)
+
+A new surface that mirrors all editorial content dev→prod, remapping
+every reference through natural keys, with a dry-run preview before
+apply. Always runs dev→prod regardless of the viewed env.
+
+- **`lib/sync/clients.ts`** — dev + prod **service-role** clients (read
+  dev / write prod, bypassing RLS). Keys are server-only
+  (`SUPABASE_SERVICE_ROLE_KEY_DEV/_PROD`), never `NEXT_PUBLIC`, never in
+  the repo. `syncConfigStatus()` tells the UI what's missing.
+- **`lib/sync/engine.ts`** — the mirror, in dependency order:
+  1. **Course editorial overlay** — UPDATE-by-key only (matched by
+     `legacy_fid` → `slug`); never inserts/deletes (the import owns
+     course rows). Mirrors description / par / yards / style /
+     established / type / tier / hole_count + first-time hero-photo copy.
+  2. **Curated lists** — full mirror by slug (create / update / delete),
+     cover blobs re-keyed + copied to the prod list id, membership
+     resolved dev course id → slug → prod course id and replaced
+     wholesale (unresolvable members skipped + warned).
+  3. **Badge definitions** — full mirror by slug; `criteria` jsonb UUIDs
+     (`course_id` / `county_id` / `curated_list_id` / `scope.county_id`)
+     rewritten via natural keys (unresolvable → skip + warn, never write
+     a dangling ref); art re-keyed + copied; audit columns nulled.
+     **Earned-safe deletes:** `badges.definition_id` is
+     `ON DELETE CASCADE`, so a delete that would wipe earned badges is
+     downgraded to an archive (`is_archived = true`) + warning.
+  Idempotent: a second run reports zero changes.
+- **`/sync`** — super_admin gate, config-needed panel when keys are
+  unset, dry-run → diff report (per-entity create / update / delete /
+  archive / skip counts + capped detail rows + warnings) → Apply with an
+  inline confirm.
+
+**No migrations** — the mirror uses existing tables + service-role
+direct writes (per the "iOS owns all schema" rule).
+
+**Verified:** `tsc --noEmit`, `eslint`, and `next build` all green.
+
+**Tom-action before the live sync/switch runs end-to-end:** (1) bootstrap
+Tom (+ Jack) into prod's `admins` table as super_admin (else the prod
+switch bounces to `/unauthorized`); (2) set `SUPABASE_SERVICE_ROLE_KEY_DEV
+/ _PROD` (server-only) + the four `NEXT_PUBLIC_*_DEV/_PROD` URL+anon vars
+in Vercel and local `.env.local`; (3) confirm the `list-covers` /
+`badge-art` / `course-covers` buckets exist on prod.
+
 ## 2026-06-05 — Badges editor (`/badges`)
 
 New editorial surface for designing the badges users earn — paired with

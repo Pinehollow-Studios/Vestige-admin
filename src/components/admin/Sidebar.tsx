@@ -13,12 +13,15 @@ import {
   type LucideIcon,
   MapPin,
   MessageSquareWarning,
+  RefreshCw,
   Shield,
   Sparkles,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TOOL_GROUPS } from "@/lib/admin/tools";
+import type { AdminRole } from "@/lib/auth/requireAdmin";
+import type { AdminEnvKey } from "@/lib/supabase/env";
 
 type NavItem = {
   href: string;
@@ -28,6 +31,8 @@ type NavItem = {
   icon: LucideIcon;
   /** Optional dynamic count rendered in the right-side pill. */
   countKey?: string;
+  /** When true, only render for super_admin (e.g. the prod sync). */
+  superAdminOnly?: boolean;
 };
 
 const NAV: NavItem[] = [
@@ -83,6 +88,14 @@ const NAV: NavItem[] = [
   { href: "/curated", label: "Curated lists", group: "editorial", ready: true, icon: Sparkles, countKey: "curated" },
   { href: "/badges", label: "Badges", group: "editorial", ready: true, icon: Award },
   { href: "/courses", label: "Courses", group: "editorial", ready: true, icon: MapPin, countKey: "courses" },
+  {
+    href: "/sync",
+    label: "Sync to prod",
+    group: "editorial",
+    ready: true,
+    icon: RefreshCw,
+    superAdminOnly: true,
+  },
   { href: "/analytics", label: "Analytics", group: "insights", ready: true, icon: BarChart3 },
 ];
 
@@ -93,7 +106,15 @@ const GROUPS: Array<{ key: NavItem["group"]; label: string }> = [
   { key: "insights", label: "Insights" },
 ];
 
-export function Sidebar({ counts }: { counts?: Record<string, number | undefined> }) {
+export function Sidebar({
+  counts,
+  adminRole,
+  env,
+}: {
+  counts?: Record<string, number | undefined>;
+  adminRole?: AdminRole;
+  env?: AdminEnvKey;
+}) {
   const pathname = usePathname();
 
   return (
@@ -106,7 +127,9 @@ export function Sidebar({ counts }: { counts?: Record<string, number | undefined
               {group.label}
             </p>
             <ul className="space-y-0.5">
-              {NAV.filter((n) => n.group === group.key).map((item) => {
+              {NAV.filter((n) => n.group === group.key)
+                .filter((n) => !n.superAdminOnly || adminRole === "super_admin")
+                .map((item) => {
                 const active =
                   item.href === "/"
                     ? pathname === "/"
@@ -185,7 +208,7 @@ export function Sidebar({ counts }: { counts?: Record<string, number | undefined
           })}
         </div>
       </nav>
-      <SidebarFooter />
+      <SidebarFooter env={env} />
     </aside>
   );
 }
@@ -279,14 +302,18 @@ function NavTrailing({
   );
 }
 
-function SidebarFooter() {
-  const env = process.env.NODE_ENV === "production" ? "Production" : "Dev";
+function SidebarFooter({ env }: { env?: AdminEnvKey }) {
+  const isProd = env === "prod";
+  const label = isProd ? "Prod" : "Dev";
   const sha = (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7);
   return (
     <div className="shrink-0 border-t border-border/70 px-5 py-4">
       <p className="flex items-center gap-2 text-[11px] leading-snug text-ink-3">
-        <span aria-hidden className="size-1.5 rounded-full bg-brand" />
-        Vestige Admin · {env}
+        <span
+          aria-hidden
+          className={cn("size-1.5 rounded-full", isProd ? "bg-alert" : "bg-brand")}
+        />
+        Vestige Admin · {label}
         {sha && <span className="font-mono text-ink-3/70">· {sha}</span>}
       </p>
       <p className="mt-1 text-[11px] leading-snug text-ink-3/70">

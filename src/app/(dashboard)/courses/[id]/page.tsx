@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar, Hash } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
+import { MirrorBanner } from "@/components/admin/MirrorBanner";
 import { createClient } from "@/lib/supabase/server";
 import { courseCoverURL } from "@/lib/storage";
 import { CourseEditor } from "./CourseEditor";
@@ -56,11 +57,11 @@ export default async function CourseDetailPage(props: { params: RouteParams }) {
   if (data.last_edited_by_admin_id) {
     const { data: userRow } = await supabase
       .from("users")
-      .select("first_name,username")
+      .select("display_name,username")
       .eq("id", data.last_edited_by_admin_id)
       .maybeSingle();
     if (userRow) {
-      lastEditedByName = userRow.first_name || userRow.username || "Admin";
+      lastEditedByName = userRow.display_name || userRow.username || "Admin";
     }
   }
 
@@ -105,6 +106,7 @@ export default async function CourseDetailPage(props: { params: RouteParams }) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
+      <MirrorBanner />
       <Link
         href="/courses"
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-deep hover:text-brand dark:text-brand-soft"

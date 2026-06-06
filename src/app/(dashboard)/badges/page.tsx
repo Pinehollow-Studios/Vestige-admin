@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
+import { MirrorBanner } from "@/components/admin/MirrorBanner";
 import { BadgeMedallion } from "@/components/badges/BadgeMedallion";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ export default async function BadgesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
+      <MirrorBanner />
       <SectionHeader
         eyebrow="Editorial"
         title="Badges"

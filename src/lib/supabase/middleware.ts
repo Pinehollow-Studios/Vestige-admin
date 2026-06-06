@@ -1,14 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { ADMIN_ENV_COOKIE, envConfig, resolveEnvKey } from "./env";
 
 const PUBLIC_PATHS = ["/login", "/auth", "/unauthorized"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // Refresh the session for whichever project the env cookie selects.
+  const env = envConfig(resolveEnvKey(request.cookies.get(ADMIN_ENV_COOKIE)?.value));
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    env.url,
+    env.anonKey,
     {
       cookies: {
         getAll() {

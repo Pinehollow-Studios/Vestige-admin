@@ -15,33 +15,58 @@
  *                  (cover_storage_key on user_lists is the
  *                  full path + query)
  *
+ * **Environment-aware base** (dev/prod switch): the `<supabase-url>`
+ * comes from the active env, not a fixed build-time var, so an admin
+ * viewing prod sees prod-hosted images. On the client the active env
+ * is read from `document.cookie`; on the server it can't be read
+ * synchronously here, so server callers pass the active base explicitly
+ * (`await activeStorageBase()` from `@/lib/supabase/env-server`) as the
+ * trailing `baseUrl` arg. With no arg the server falls back to dev (the
+ * authoring env), which is correct for every dev-side render.
+ *
  * Mirrors the iOS-side `AvatarURLProvider` /
  * `LiveListCoverURLProvider` so admins see exactly what users see.
  */
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+import { envConfig, parseEnvCookie } from "./supabase/env";
+
+/** Resolve the storage base URL: explicit override → client cookie →
+ *  dev fallback (server with no override). */
+function resolveBase(explicit?: string): string {
+  if (explicit) return explicit;
+  if (typeof document !== "undefined") {
+    return envConfig(parseEnvCookie(document.cookie)).url;
+  }
+  return envConfig("dev").url;
+}
 
 export function avatarURL(
   userId: string | null | undefined,
   photoId: string | null | undefined,
+  baseUrl?: string,
 ): string | null {
-  if (!userId || !photoId || !SUPABASE_URL) return null;
+  const base = resolveBase(baseUrl);
+  if (!userId || !photoId || !base) return null;
   // The iOS client downcases its `UUID.uuidString` to match
   // `auth.uid()::text` (lowercase per Postgres). Storage paths
   // were written with that convention, so read with it too.
   const folder = userId.toLowerCase();
-  return `${SUPABASE_URL}/storage/v1/object/public/avatars/${folder}/avatar.jpg?v=${photoId}`;
+  return `${base}/storage/v1/object/public/avatars/${folder}/avatar.jpg?v=${photoId}`;
 }
 
-export function listCoverURL(key: string | null | undefined): string | null {
-  if (!key || !SUPABASE_URL) return null;
+export function listCoverURL(
+  key: string | null | undefined,
+  baseUrl?: string,
+): string | null {
+  const base = resolveBase(baseUrl);
+  if (!key || !base) return null;
   // The storage key may include a `?v=<UUID>` cache-buster query
   // suffix — split + re-mount the parts so the URL is well-formed
   // (path doesn't contain `?`, query slot carries the buster).
   // Mirrors `LiveListCoverURLProvider.coverURL(forStorageKey:)`.
   const [path, query] = key.split("?", 2);
-  const base = `${SUPABASE_URL}/storage/v1/object/public/list-covers/${path}`;
-  return query ? `${base}?${query}` : base;
+  const out = `${base}/storage/v1/object/public/list-covers/${path}`;
+  return query ? `${out}?${query}` : out;
 }
 
 /**
@@ -73,11 +98,15 @@ export function curatedCoverStorageKey(
  * `?v=<UUID>` cache-buster suffix so a fresh upload invalidates
  * iOS's Nuke cache + browsers' HTTP caches.
  */
-export function courseCoverURL(key: string | null | undefined): string | null {
-  if (!key || !SUPABASE_URL) return null;
+export function courseCoverURL(
+  key: string | null | undefined,
+  baseUrl?: string,
+): string | null {
+  const base = resolveBase(baseUrl);
+  if (!key || !base) return null;
   const [path, query] = key.split("?", 2);
-  const base = `${SUPABASE_URL}/storage/v1/object/public/course-covers/${path}`;
-  return query ? `${base}?${query}` : base;
+  const out = `${base}/storage/v1/object/public/course-covers/${path}`;
+  return query ? `${out}?${query}` : out;
 }
 
 /**

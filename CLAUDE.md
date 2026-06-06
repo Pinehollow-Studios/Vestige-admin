@@ -162,3 +162,19 @@ canonical write-up lives on disk.
   source of truth for external destinations; both the sidebar
   Tools shelf and the overview "Operator console" read from it.
   Long-form in `CHANGELOG.md`.
+- **2026-06-05** — Badges editor (`/badges`): editorial surface for
+  designing badge definitions (visual composer + criteria builder +
+  lifecycle + manual grant/backfill), paired with the iOS
+  `20260605140000_editorial_badge_system.sql` migration. Long-form in
+  `CHANGELOG.md`.
+- **2026-06-06** — Dev/prod env switch + editorial dev→prod mirror
+  (`/sync`): cookie-driven env switch (`vestige_admin_env`) so the
+  dashboard reads/writes dev or prod (TopBar toggle, project-scoped
+  sessions coexist); editorial surfaces go read-only on prod
+  (`MirrorBanner` + `assertEditableEnv()` action guards). New super_admin
+  `/sync` mirrors all editorial (curated lists + badge defs + course
+  editorial fields + cover/art blobs) dev→prod, remapping every
+  course/county/list reference by slug (UUIDs differ across projects),
+  full-mirror with earned-badge-safe deletes, dry-run preview → apply.
+  Service-role keys are server-only; no migrations. Long-form in
+  `CHANGELOG.md`.

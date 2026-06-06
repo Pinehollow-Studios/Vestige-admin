@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, Hash, MapPin, Search } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
+import { MirrorBanner } from "@/components/admin/MirrorBanner";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/server";
 import { courseCoverURL } from "@/lib/storage";
@@ -93,10 +94,10 @@ export default async function CoursesPage(props: { searchParams: SearchParams })
   if (adminIds.length > 0) {
     const { data: usersData } = await supabase
       .from("users")
-      .select("id,first_name,username")
+      .select("id,display_name,username")
       .in("id", adminIds);
     for (const user of usersData ?? []) {
-      adminNames[user.id] = user.first_name || user.username || "Admin";
+      adminNames[user.id] = user.display_name || user.username || "Admin";
     }
   }
 
@@ -135,6 +136,7 @@ export default async function CoursesPage(props: { searchParams: SearchParams })
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
+      <MirrorBanner />
       <SectionHeader
         eyebrow="Editorial"
         title="Courses"

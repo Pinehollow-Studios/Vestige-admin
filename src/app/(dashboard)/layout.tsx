@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/admin/Sidebar";
 import { TopBar } from "@/components/admin/TopBar";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createClient } from "@/lib/supabase/server";
+import { activeEnvKey } from "@/lib/supabase/env-server";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -15,6 +16,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const admin = await requireAdmin();
+  const env = await activeEnvKey();
 
   // Lightweight counts in parallel for sidebar badges. Each result
   // is independently nullable — a failed query just hides the
@@ -75,7 +77,7 @@ export default async function DashboardLayout({
       {/* Sidebar is position:fixed at lg+; the right column gets
           `lg:pl-64` to compensate so the main content never slides
           under it. On <lg the sidebar is hidden entirely. */}
-      <Sidebar counts={counts} />
+      <Sidebar counts={counts} adminRole={admin.role} env={env} />
       <div className="flex min-h-dvh min-w-0 flex-col lg:pl-64">
         <TopBar admin={admin} />
         <main className="flex-1 p-6 lg:p-8">{children}</main>

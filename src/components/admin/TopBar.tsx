@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/admin/ModeToggle";
+import { EnvSwitch } from "@/components/admin/EnvSwitch";
 import { signOut } from "@/app/(dashboard)/actions";
 import {
   type AdminRole,
@@ -8,14 +9,16 @@ import {
   adminDisplayLabel,
   adminInitials,
 } from "@/lib/auth/requireAdmin";
-import { cn } from "@/lib/utils";
+import { isEnvConfigured } from "@/lib/supabase/env";
+import { activeEnvKey } from "@/lib/supabase/env-server";
 
 type Props = {
   admin: AdminUser;
 };
 
-export function TopBar({ admin }: Props) {
-  const isProd = process.env.NODE_ENV === "production";
+export async function TopBar({ admin }: Props) {
+  const env = await activeEnvKey();
+  const prodAvailable = isEnvConfigured("prod");
   const sha = (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7);
   const branch = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF;
 
@@ -31,7 +34,7 @@ export function TopBar({ admin }: Props) {
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-border/70 bg-paper-raised/75 px-6 backdrop-blur-md">
       <div className="flex min-w-0 items-center gap-3">
-        <EnvBadge isProd={isProd} />
+        <EnvSwitch active={env} prodAvailable={prodAvailable} />
         {(sha || branch) && (
           <span className="hidden items-center gap-1.5 rounded-full border border-border/60 bg-paper-sunken/60 px-2.5 py-1 text-[10px] font-medium text-ink-3 md:inline-flex">
             {branch && (
@@ -77,28 +80,6 @@ export function TopBar({ admin }: Props) {
         </form>
       </div>
     </header>
-  );
-}
-
-function EnvBadge({ isProd }: { isProd: boolean }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wider",
-        isProd
-          ? "border-alert/40 bg-alert/15 text-alert"
-          : "border-brand/30 bg-brand/10 text-brand",
-      )}
-    >
-      <span
-        aria-hidden
-        className={cn(
-          "size-1.5 rounded-full pulse-dot",
-          isProd ? "bg-alert" : "bg-brand",
-        )}
-      />
-      {isProd ? "Production" : "Dev"}
-    </span>
   );
 }
 

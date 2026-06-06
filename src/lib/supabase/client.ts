@@ -1,8 +1,11 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { envConfig, parseEnvCookie } from "./env";
 
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  // Browser client picks the active project from the env cookie
+  // (document.cookie). Falls back to dev during SSR / when unset.
+  const env = envConfig(
+    typeof document !== "undefined" ? parseEnvCookie(document.cookie) : "dev",
   );
+  return createBrowserClient(env.url, env.anonKey);
 }
