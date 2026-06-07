@@ -1,11 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { envConfig, parseEnvCookie } from "./env";
+import { envConfig } from "./env";
 
+// Dev-only dashboard — the browser client always uses the dev project.
 export function createClient() {
-  // Browser client picks the active project from the env cookie
-  // (document.cookie). Falls back to dev during SSR / when unset.
-  const env = envConfig(
-    typeof document !== "undefined" ? parseEnvCookie(document.cookie) : "dev",
-  );
+  const env = envConfig("dev");
   return createBrowserClient(env.url, env.anonKey);
 }

@@ -1,27 +1,22 @@
 /**
- * Environment registry for the dev/prod connection switch.
+ * Environment registry.
  *
- * The admin dashboard reads/writes against ONE Supabase project at a
- * time, chosen per-request by the `vestige_admin_env` cookie. Editorial
- * authoring happens against dev; live TestFlight user data (feedback,
- * crashes, safeguarding, users, photos) lives in prod, so an admin
- * toggles to prod to triage it. The dev→prod editorial mirror (/sync)
- * is a separate, always-dev→prod flow that ignores this cookie.
+ * The admin dashboard is a DEV-ONLY tool: it always reads/writes the dev
+ * Supabase project (the workshop). Its only relationship to prod is the
+ * dev→prod promotion console (`/sync`), which reads prod's state to show
+ * whether the two are synced and pushes dev→prod on demand — it never
+ * operates against prod as a session. So the main app client is always
+ * dev; the `prod` config here exists only for the sync/status layer.
  *
  * This module is ISOMORPHIC — it must NOT import `next/headers` because
- * it is pulled into the browser bundle via `supabase/client.ts`. Cookie
- * reading is the caller's job: `server.ts` / `middleware.ts` read the
- * request cookie store; `client.ts` parses `document.cookie`.
+ * it is pulled into the browser bundle via `supabase/client.ts`.
  *
  * Anon keys are public + RLS-gated (they already ship inside the iOS
- * binary), so exposing both envs' anon keys as `NEXT_PUBLIC` is safe.
- * Service-role keys are NEVER referenced here — those live only in the
- * server-only sync engine.
+ * binary). Service-role keys are NEVER referenced here — those live only
+ * in the server-only sync engine.
  */
 
 export type AdminEnvKey = "dev" | "prod";
-
-export const ADMIN_ENV_COOKIE = "vestige_admin_env";
 
 export type AdminEnvConfig = {
   key: AdminEnvKey;
@@ -55,23 +50,8 @@ export function isEnvConfigured(key: AdminEnvKey): boolean {
   return Boolean(e.url && e.anonKey);
 }
 
-/** Coerce an arbitrary cookie value to a valid env key. Defaults to dev,
- *  and refuses prod when prod isn't configured. */
-export function resolveEnvKey(raw: string | null | undefined): AdminEnvKey {
-  return raw === "prod" && isEnvConfigured("prod") ? "prod" : "dev";
-}
-
 /** The (url, anonKey) pair for an env, falling back to dev when the
  *  requested env isn't configured. */
 export function envConfig(key: AdminEnvKey): AdminEnvConfig {
   return isEnvConfigured(key) ? ENVS[key] : ENVS.dev;
-}
-
-/** Parse the env cookie out of a raw `document.cookie` string (client). */
-export function parseEnvCookie(cookieHeader: string | undefined): AdminEnvKey {
-  if (!cookieHeader) return "dev";
-  const match = cookieHeader.match(
-    new RegExp(`(?:^|;\\s*)${ADMIN_ENV_COOKIE}=([^;]+)`),
-  );
-  return resolveEnvKey(match ? decodeURIComponent(match[1]) : undefined);
 }

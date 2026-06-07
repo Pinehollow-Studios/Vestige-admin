@@ -15,29 +15,19 @@
  *                  (cover_storage_key on user_lists is the
  *                  full path + query)
  *
- * **Environment-aware base** (dev/prod switch): the `<supabase-url>`
- * comes from the active env, not a fixed build-time var, so an admin
- * viewing prod sees prod-hosted images. On the client the active env
- * is read from `document.cookie`; on the server it can't be read
- * synchronously here, so server callers pass the active base explicitly
- * (`await activeStorageBase()` from `@/lib/supabase/env-server`) as the
- * trailing `baseUrl` arg. With no arg the server falls back to dev (the
- * authoring env), which is correct for every dev-side render.
+ * Dev-only dashboard: the `<supabase-url>` base is always the dev project.
+ * The optional trailing `baseUrl` arg is retained for callers that need to
+ * point at a specific project (none today).
  *
  * Mirrors the iOS-side `AvatarURLProvider` /
  * `LiveListCoverURLProvider` so admins see exactly what users see.
  */
 
-import { envConfig, parseEnvCookie } from "./supabase/env";
+import { envConfig } from "./supabase/env";
 
-/** Resolve the storage base URL: explicit override → client cookie →
- *  dev fallback (server with no override). */
+/** Storage base URL. Dev-only dashboard → always the dev project. */
 function resolveBase(explicit?: string): string {
-  if (explicit) return explicit;
-  if (typeof document !== "undefined") {
-    return envConfig(parseEnvCookie(document.cookie)).url;
-  }
-  return envConfig("dev").url;
+  return explicit ?? envConfig("dev").url;
 }
 
 export function avatarURL(

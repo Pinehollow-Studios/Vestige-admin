@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { assertEditableEnv } from "@/lib/supabase/env-server";
 import { curatedCoverStorageKey } from "@/lib/storage";
 
 export type ActionResult<T = void> =
@@ -23,8 +22,6 @@ export async function createCuratedList(name: string): Promise<ActionResult<stri
   const trimmed = name.trim();
   if (!trimmed) return { ok: false, message: "Name is required." };
 
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const baseSlug = slugify(trimmed);
   const slug = await uniqueSlug(supabase, baseSlug);
@@ -64,8 +61,6 @@ export async function updateCuratedList(
     is_ordered?: boolean;
   },
 ): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const update: Record<string, unknown> = {};
   if (patch.name !== undefined) {
@@ -107,8 +102,6 @@ export async function setPublishState(
   publishedAt: string | null,
   unpublishedAt: string | null = null,
 ): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { error } = await supabase
     .from("curated_lists")
@@ -125,8 +118,6 @@ export async function setPublishState(
 }
 
 export async function archiveList(listId: string): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { error } = await supabase
     .from("curated_lists")
@@ -139,8 +130,6 @@ export async function archiveList(listId: string): Promise<ActionResult> {
 }
 
 export async function unarchiveList(listId: string): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { error } = await supabase
     .from("curated_lists")
@@ -153,8 +142,6 @@ export async function unarchiveList(listId: string): Promise<ActionResult> {
 }
 
 export async function deleteCuratedList(listId: string): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { error } = await supabase.from("curated_lists").delete().eq("id", listId);
   if (error) return { ok: false, message: error.message };
@@ -171,8 +158,6 @@ export async function addCourseToList(
   listId: string,
   courseId: string,
 ): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   // Find the next position by querying the current max.
   const { data: maxRow, error: maxErr } = await supabase
@@ -203,8 +188,6 @@ export async function removeCourseFromList(
   listId: string,
   courseId: string,
 ): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { error } = await supabase
     .from("curated_list_courses")
@@ -226,8 +209,6 @@ export async function reorderCourses(
   listId: string,
   orderedCourseIds: string[],
 ): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const rows = orderedCourseIds.map((id, index) => ({
     curated_list_id: listId,
@@ -252,8 +233,6 @@ export async function setEditorNote(
   courseId: string,
   note: string | null,
 ): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const trimmed = note?.trim() || null;
   const { error } = await supabase
@@ -286,8 +265,6 @@ export async function uploadCuratedCover(
   if (!(file instanceof File)) return { ok: false, message: "No file provided." };
   if (file.size === 0) return { ok: false, message: "File is empty." };
 
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { path, key } = curatedCoverStorageKey(listId);
   const arrayBuffer = await file.arrayBuffer();
@@ -312,8 +289,6 @@ export async function uploadCuratedCover(
 }
 
 export async function removeCuratedCover(listId: string): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { path } = curatedCoverStorageKey(listId);
   // Storage 404 (object never existed) is benign — null the row

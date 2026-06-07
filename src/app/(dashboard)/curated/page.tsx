@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, Hash, Sparkles, Tag } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
-import { MirrorBanner } from "@/components/admin/MirrorBanner";
 import { createClient } from "@/lib/supabase/server";
 import { listCoverURL } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -64,7 +63,6 @@ export default async function CuratedListsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <MirrorBanner />
       <SectionHeader
         eyebrow="Editorial"
         title="Curated lists"

@@ -178,3 +178,13 @@ canonical write-up lives on disk.
   full-mirror with earned-badge-safe deletes, dry-run preview → apply.
   Service-role keys are server-only; no migrations. Long-form in
   `CHANGELOG.md`.
+- **2026-06-07** — Dev-only dashboard + dev→prod promotion console
+  (supersedes the 2026-06-06 toggle): the dashboard is a dev-only
+  workshop (single dev login, no switch); its only prod relationship is
+  the `/sync` console — show whether dev+prod are synced and push
+  dev→prod. Removed `EnvSwitch` / `MirrorBanner` / `env-server.ts` /
+  `setAdminEnv` / the env cookie / `assertEditableEnv`; clients hard-wired
+  to dev. Schema/migrations + functions push via the iOS-repo
+  `prod-deploy` GitHub Action (held migrations excluded via
+  `prod-migration-hold.txt`); editorial via the service-role mirror;
+  TopBar sync-status chip. Long-form in `CHANGELOG.md`.

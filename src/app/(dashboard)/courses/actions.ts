@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assertEditableEnv } from "@/lib/supabase/env-server";
 import { courseCoverStorageKey } from "@/lib/storage";
 import type { CourseLayout, CourseTier } from "./types";
 
@@ -39,8 +38,6 @@ export async function updateCourse(
     hole_count?: number;
   },
 ): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
 
   const {
@@ -107,8 +104,6 @@ export async function uploadCourseCover(
   courseId: string,
   formData: FormData,
 ): Promise<ActionResult<string>> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const file = formData.get("cover");
   if (!(file instanceof File)) return { ok: false, message: "No file provided." };
   if (file.size === 0) return { ok: false, message: "File is empty." };
@@ -150,8 +145,6 @@ export async function uploadCourseCover(
 }
 
 export async function removeCourseCover(courseId: string): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
 
   const {

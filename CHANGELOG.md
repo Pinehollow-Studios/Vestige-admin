@@ -5,6 +5,37 @@
 
 ---
 
+## 2026-06-07 — Dev-only dashboard + dev→prod promotion console
+
+Reframe (supersedes the 2026-06-06 env toggle): the dashboard is a **dev-only
+workshop**. It always reads/writes the dev project — single dev login, no
+toggle. Its *only* relationship to prod is the promotion console: show whether
+dev and prod are in sync, and push dev→prod on demand. It never operates
+against prod as a session.
+
+- **Removed the env switch entirely** — deleted `EnvSwitch`, `MirrorBanner`,
+  `env-server.ts`, the `setAdminEnv` action, the `vestige_admin_env` cookie,
+  and the `assertEditableEnv` guards on the editorial actions. `server.ts` /
+  `client.ts` / `middleware.ts` / `storage.ts` are now hard-wired to dev via
+  `envConfig("dev")`. No per-surface routing, no double-login.
+- **Promotion console (`/sync`, super_admin)** — three sections:
+  - **Schema & functions** — diffs dev vs prod migrations via the
+    `admin_applied_migrations` RPC on each project; flags **held** migrations
+    (`prod-migration-hold.txt`); pushes via the iOS-repo `prod-deploy` GitHub
+    Action (`db push` + `functions deploy`), which excludes held migrations
+    server-side. Live run status polled.
+  - **Editorial** — the existing curated/badge/course service-role mirror.
+  - **Config/seed** — placeholder (next).
+- **Sync-status chip** in the TopBar (replaces the toggle): `DEV` + schema sync
+  state (in sync / N to push), linking super_admins to `/sync`.
+- New libs: `lib/github/dispatch.ts` (workflow_dispatch + run polling +
+  hold-list read), `lib/sync/migrations.ts` (the dev↔prod migration diff),
+  `lib/sync/status.ts` (the chip summary).
+
+Needs (Tom-actions): `SUPABASE_ACCESS_TOKEN` on the iOS repo (the other two
+Supabase secrets are set) + `GITHUB_DISPATCH_TOKEN` in Vercel. `tsc` / `eslint`
+/ `build` green.
+
 ## 2026-06-06 — Dev/prod env switch + editorial dev→prod mirror (`/sync`)
 
 Two paired features that close the gap between authoring (dev) and live

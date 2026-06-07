@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, Hash, MapPin, Search } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
-import { MirrorBanner } from "@/components/admin/MirrorBanner";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/server";
 import { courseCoverURL } from "@/lib/storage";
@@ -136,7 +135,6 @@ export default async function CoursesPage(props: { searchParams: SearchParams })
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <MirrorBanner />
       <SectionHeader
         eyebrow="Editorial"
         title="Courses"

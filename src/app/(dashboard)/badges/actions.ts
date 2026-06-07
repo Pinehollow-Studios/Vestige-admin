@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { assertEditableEnv } from "@/lib/supabase/env-server";
 import type {
   BadgeCategory, BadgeEffect, BadgeShape, BadgeTheme, BadgeTier, Criteria,
 } from "./types";
@@ -21,8 +20,6 @@ export async function createBadge(name: string): Promise<ActionResult<string>> {
   const trimmed = name.trim();
   if (!trimmed) return { ok: false, message: "Name is required." };
 
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const slug = await uniqueSlug(supabase, slugify(trimmed));
 
@@ -69,8 +66,6 @@ export type BadgePatch = {
 };
 
 export async function updateBadge(id: string, patch: BadgePatch): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const update: Record<string, unknown> = {};
 
@@ -110,8 +105,6 @@ export async function updateBadge(id: string, patch: BadgePatch): Promise<Action
 }
 
 export async function setBadgePublished(id: string, published: boolean): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { error } = await supabase
     .from("badge_definitions")
@@ -124,8 +117,6 @@ export async function setBadgePublished(id: string, published: boolean): Promise
 }
 
 export async function setBadgeArchived(id: string, archived: boolean): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { error } = await supabase
     .from("badge_definitions")
@@ -138,8 +129,6 @@ export async function setBadgeArchived(id: string, archived: boolean): Promise<A
 }
 
 export async function deleteBadge(id: string): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   const { error } = await supabase.from("badge_definitions").delete().eq("id", id);
   if (error) return { ok: false, message: error.message };
@@ -197,8 +186,6 @@ export async function revokeBadgeFromUser(
  * `badges/<id>/art.png` and patch `custom_image_key` with a cache-buster.
  */
 export async function uploadBadgeArt(id: string, formData: FormData): Promise<ActionResult<string>> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const file = formData.get("art");
   if (!(file instanceof File)) return { ok: false, message: "No file provided." };
   if (file.size === 0) return { ok: false, message: "File is empty." };
@@ -224,8 +211,6 @@ export async function uploadBadgeArt(id: string, formData: FormData): Promise<Ac
 }
 
 export async function removeBadgeArt(id: string): Promise<ActionResult> {
-  const guard = await assertEditableEnv();
-  if (!guard.ok) return guard;
   const supabase = await createClient();
   await supabase.storage.from("badge-art").remove([`badges/${id}/art.png`]);
   const { error } = await supabase

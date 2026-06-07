@@ -21,7 +21,6 @@ import {
 import { cn } from "@/lib/utils";
 import { TOOL_GROUPS } from "@/lib/admin/tools";
 import type { AdminRole } from "@/lib/auth/requireAdmin";
-import type { AdminEnvKey } from "@/lib/supabase/env";
 
 type NavItem = {
   href: string;
@@ -109,11 +108,9 @@ const GROUPS: Array<{ key: NavItem["group"]; label: string }> = [
 export function Sidebar({
   counts,
   adminRole,
-  env,
 }: {
   counts?: Record<string, number | undefined>;
   adminRole?: AdminRole;
-  env?: AdminEnvKey;
 }) {
   const pathname = usePathname();
 
@@ -208,7 +205,7 @@ export function Sidebar({
           })}
         </div>
       </nav>
-      <SidebarFooter env={env} />
+      <SidebarFooter />
     </aside>
   );
 }
@@ -302,18 +299,13 @@ function NavTrailing({
   );
 }
 
-function SidebarFooter({ env }: { env?: AdminEnvKey }) {
-  const isProd = env === "prod";
-  const label = isProd ? "Prod" : "Dev";
+function SidebarFooter() {
   const sha = (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7);
   return (
     <div className="shrink-0 border-t border-border/70 px-5 py-4">
       <p className="flex items-center gap-2 text-[11px] leading-snug text-ink-3">
-        <span
-          aria-hidden
-          className={cn("size-1.5 rounded-full", isProd ? "bg-alert" : "bg-brand")}
-        />
-        Vestige Admin · {label}
+        <span aria-hidden className="size-1.5 rounded-full bg-brand" />
+        Vestige Admin · Dev
         {sha && <span className="font-mono text-ink-3/70">· {sha}</span>}
       </p>
       <p className="mt-1 text-[11px] leading-snug text-ink-3/70">

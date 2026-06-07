@@ -95,7 +95,12 @@ export async function fetchProdMigrationHold(): Promise<Set<string>> {
   if (!TOKEN) return new Set();
   const res = await fetch(
     `${API}/repos/${REPO}/contents/supabase/prod-migration-hold.txt?ref=${REF}`,
-    { headers: { ...headers(), Accept: "application/vnd.github.raw" }, cache: "no-store" },
+    {
+      headers: { ...headers(), Accept: "application/vnd.github.raw" },
+      // The hold-list rarely changes; cache 5 min so the per-page sync chip
+      // doesn't hit the GitHub API on every navigation.
+      next: { revalidate: 300 },
+    },
   );
   if (!res.ok) return new Set();
   const text = await res.text();

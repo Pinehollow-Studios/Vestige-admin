@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { MirrorBanner } from "@/components/admin/MirrorBanner";
 import { BadgeEditor } from "./BadgeEditor";
 import type {
   BadgeDefinitionRow,
@@ -49,7 +48,6 @@ export default async function BadgeEditorPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <MirrorBanner />
       <Link
         href="/badges"
         className="inline-flex items-center gap-1.5 text-sm text-ink-2 transition-colors hover:text-ink"
