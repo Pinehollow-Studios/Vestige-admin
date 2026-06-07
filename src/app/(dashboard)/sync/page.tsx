@@ -3,14 +3,19 @@ import { SectionHeader } from "@/components/admin/SectionHeader";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { isEnvConfigured } from "@/lib/supabase/env";
 import { syncConfigStatus } from "@/lib/sync/clients";
+import { migrationStatus } from "@/lib/sync/migrations";
+import { githubConfigured, latestProdDeployRun } from "@/lib/github/dispatch";
 import { SyncRunner } from "./SyncRunner";
+import { SchemaDeploy } from "./SchemaDeploy";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Editorial dev→prod mirror. Always operates dev→prod regardless of the
- * dashboard's currently-viewed env. Super_admin only. The actual writes
- * run server-side via service-role clients (see `lib/sync`).
+ * Dev→prod promotion console. Dev is the workshop; prod is the live app.
+ * Review + push the *built product* — schema migrations, editorial content,
+ * and (next) config/seed — from dev up to prod. Never touches live user data.
+ * Super_admin only; schema applies via the prod-deploy GitHub Action, editorial
+ * via the service-role mirror.
  */
 export default async function SyncPage() {
   const admin = await requireAdmin();
@@ -18,7 +23,7 @@ export default async function SyncPage() {
   if (admin.role !== "super_admin") {
     return (
       <div className="mx-auto max-w-3xl space-y-6">
-        <SectionHeader eyebrow="Editorial" title="Sync to prod" />
+        <SectionHeader eyebrow="Promotion" title="Deploy to prod" />
         <div className="flex items-start gap-3 rounded-2xl border border-alert/40 bg-alert/10 px-4 py-3 text-sm text-alert">
           <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           <p>This surface is restricted to super_admins.</p>
@@ -27,17 +32,52 @@ export default async function SyncPage() {
     );
   }
 
-  const status = syncConfigStatus();
+  const syncStatus = syncConfigStatus();
   const prodConfigured = isEnvConfigured("prod");
+  const [schema, latestRun] = await Promise.all([migrationStatus(), latestProdDeployRun()]);
+  const githubReady = githubConfigured();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-8">
       <SectionHeader
-        eyebrow="Editorial"
-        title="Sync to prod"
-        description="Mirror all editorial content — curated lists, badge definitions, and course editorial fields — from dev to prod. Every course / county / list reference is re-resolved by slug, so the differing UUIDs across the two projects line up. Prod is a pure downstream mirror: anything not in dev is removed (earned badges are protected — their definitions are archived, never deleted). Run a dry run first to preview the diff."
+        eyebrow="Promotion"
+        title="Deploy to prod"
+        description="Dev is the workshop — everything is built and tested there. Prod is the live app and only ever receives pushes. Review each section and push the built product (schema, editorial, config) from dev up to prod. Live user data (accounts, feedback, rounds, photos…) is never touched."
       />
-      <SyncRunner status={status} prodConfigured={prodConfigured} />
+
+      <Section title="Schema & functions" subtitle="Database migrations + Edge Functions — applied to prod via the prod-deploy GitHub Action. Held migrations are excluded automatically.">
+        <SchemaDeploy initial={{ status: schema, githubReady, latestRun }} />
+      </Section>
+
+      <Section title="Editorial content" subtitle="Curated lists, badge definitions, and course editorial fields — mirrored dev→prod by slug. Dry-run first, then apply.">
+        <SyncRunner status={syncStatus} prodConfigured={prodConfigured} />
+      </Section>
+
+      <Section title="Config & seed" subtitle="Server-tunable config + seed tables.">
+        <div className="rounded-2xl border border-dashed border-border/70 bg-paper-raised/60 px-4 py-6 text-center text-sm text-ink-2">
+          Config + seed-table promotion is coming next.
+        </div>
+      </Section>
     </div>
+  );
+}
+
+function Section({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="font-heading text-lg font-semibold text-ink">{title}</h2>
+        <p className="text-xs text-ink-3">{subtitle}</p>
+      </div>
+      {children}
+    </section>
   );
 }
