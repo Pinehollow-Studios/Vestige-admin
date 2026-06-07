@@ -124,6 +124,30 @@ export function courseCoverStorageKey(
 }
 
 /**
+ * Rendered round-photo public URL builder. The photo-processing Edge Function
+ * (`Vestige-ios/supabase/functions/process-photo`) writes sized variants
+ * (`thumb` / `medium` / `large`) into the public-read `photos-rendered` bucket
+ * (`20260425200005_storage_buckets.sql`), keyed by
+ * `<uploader_user_id>/<photo_id>/<variant>.jpg`. The key comes straight from
+ * the `photos.variants` jsonb (`thumb_storage_key` / `medium_storage_key` /
+ * `large_storage_key`). Unsigned + cacheable; the bytes are immutable per key,
+ * so no cache-buster is needed.
+ *
+ * Pass `baseUrl` from `activeStorageBaseUrl()` so the URL points at the same
+ * Supabase project the page read its data from.
+ */
+export function photosRenderedURL(
+  key: string | null | undefined,
+  baseUrl?: string,
+): string | null {
+  const base = resolveBase(baseUrl);
+  if (!key || !base) return null;
+  const [path, query] = key.split("?", 2);
+  const out = `${base}/storage/v1/object/public/photos-rendered/${path}`;
+  return query ? `${out}?${query}` : out;
+}
+
+/**
  * Announcement hero image public URL builder. Mirrors `courseCoverURL`'s
  * shape but reads from the public `announcement-media` bucket (created by
  * `20260607100000_announcements.sql`). The `image_storage_key` column carries

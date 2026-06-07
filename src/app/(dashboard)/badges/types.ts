@@ -50,6 +50,18 @@ export const TIER_RING: Record<BadgeTier, string[]> = {
 
 export const THEMES: BadgeTheme[] = Object.keys(THEME_COLORS) as BadgeTheme[];
 export const TIERS: BadgeTier[] = ["bronze", "silver", "gold", "platinum", "legendary"];
+
+/** Display labels for the rarity tiers. */
+export const TIER_LABELS: Record<BadgeTier, string> = {
+  bronze: "Bronze",
+  silver: "Silver",
+  gold: "Gold",
+  platinum: "Platinum",
+  legendary: "Legendary",
+};
+
+/** Catalogue grouping order — rarest (most prestigious) first. */
+export const TIER_ORDER: BadgeTier[] = ["legendary", "platinum", "gold", "silver", "bronze"];
 export const SHAPES: BadgeShape[] = ["rosette", "shield", "coin", "hexagon", "seal"];
 export const EFFECTS: BadgeEffect[] = ["none", "glow", "metallic", "holographic"];
 export const CATEGORIES: BadgeCategory[] = [

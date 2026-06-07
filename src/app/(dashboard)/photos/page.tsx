@@ -1,19 +1,39 @@
-import { ImageIcon } from "lucide-react";
+import Link from "next/link";
+import { ImageIcon, MapPin } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
-import { createClient } from "@/lib/supabase/server";
+import {
+  activeStorageBaseUrl,
+  tryCreateServiceClient,
+} from "@/lib/supabase/admin";
+import { photosRenderedURL } from "@/lib/storage";
+import { cn } from "@/lib/utils";
+import { PhotoModerationActions } from "./PhotoModerationActions";
 
 export const dynamic = "force-dynamic";
 
 type PhotoModerationState = "pending" | "approved" | "rejected" | "flagged";
 type PhotoKind = "roundPhoto" | "avatar";
 
+type Variants = {
+  thumb_storage_key?: string;
+  medium_storage_key?: string;
+  large_storage_key?: string;
+} | null;
+
 type Row = {
   id: string;
-  storage_key: string | null;
+  original_storage_key: string | null;
+  variants: Variants;
   kind: PhotoKind;
   moderation_state: PhotoModerationState;
-  user_id: string | null;
-  taken_at: string | null;
+  uploader_user_id: string | null;
+  exif_taken_at: string | null;
+  exif_gps_lat: number | null;
+  exif_gps_lng: number | null;
+  round_id: string | null;
+  course_id: string | null;
+  width: number | null;
+  height: number | null;
   created_at: string;
 };
 
@@ -24,21 +44,44 @@ const MODERATION_BUCKETS: PhotoModerationState[] = [
   "flagged",
 ];
 
+type SearchParams = Promise<{ state?: string }>;
+
 /**
- * Photo moderation surface — read-only v1.
+ * Photo moderation surface — the NSFW / safety review queue for user-uploaded
+ * round photos. A photo stays `pending` until an admin approves it; the
+ * verdict gates whether it surfaces on course pages and friend activity.
  *
- * Single-axis moderation queue. The verification axis on
- * `photos.verification_state` was dropped 2026-05-19 alongside the
- * rest of the round verification system (Vestige-ios migration
- * 20260519110000_drop_verification.sql) — integrity is now an admin
- * concern surfaced via /safeguarding, not a per-photo evidence tag.
- *
- * Approve / reject controls land with the moderation policy slice
- * (open question §16.13).
+ * Reads go through the service-role client: `public.photos` has only a
+ * `photos_select_own` RLS policy (no admin SELECT), so the admin's session
+ * would see ~zero rows. Service-role bypasses RLS and is gated by the layout's
+ * `requireAdmin()`. Single moderation axis — the verification axis on
+ * `photos.verification_state` was dropped 2026-05-19 (Vestige-ios migration
+ * 20260519110000_drop_verification.sql).
  */
-export default async function PhotosPage() {
-  const supabase = await createClient();
-  const [modCountsRes, recentRes] = await Promise.all([
+export default async function PhotosPage(props: { searchParams: SearchParams }) {
+  const params = await props.searchParams;
+  const active = MODERATION_BUCKETS.includes(params.state as PhotoModerationState)
+    ? (params.state as PhotoModerationState)
+    : "pending";
+
+  const supabase = await tryCreateServiceClient();
+
+  if (!supabase) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6">
+        <SectionHeader
+          eyebrow="Queues · Photo moderation"
+          title="Photo moderation"
+          description="Review user-uploaded round photos before they appear on course pages."
+        />
+        <ConfigNotice />
+      </div>
+    );
+  }
+
+  const baseUrl = await activeStorageBaseUrl();
+
+  const [modCountsRes, listRes] = await Promise.all([
     Promise.all(
       MODERATION_BUCKETS.map(async (state) => {
         const { count } = await supabase
@@ -50,36 +93,42 @@ export default async function PhotosPage() {
     ),
     supabase
       .from("photos")
-      .select("id, storage_key, kind, moderation_state, user_id, taken_at, created_at")
-      .eq("moderation_state", "pending")
+      .select(
+        "id, original_storage_key, variants, kind, moderation_state, uploader_user_id, exif_taken_at, exif_gps_lat, exif_gps_lng, round_id, course_id, width, height, created_at",
+      )
+      .eq("moderation_state", active)
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(60),
   ]);
 
   const modCounts = Object.fromEntries(modCountsRes) as Record<PhotoModerationState, number>;
-  const pending: Row[] = (recentRes.data as Row[] | null) ?? [];
+  const rows: Row[] = (listRes.data as Row[] | null) ?? [];
+
+  // Resolve uploader + course display names in one round-trip each — the tile
+  // needs human names, not UUIDs. Same approach as courses/page.tsx.
+  const uploaderIds = uniq(rows.map((r) => r.uploader_user_id));
+  const courseIds = uniq(rows.map((r) => r.course_id));
+  const [uploaderNames, courseNames] = await Promise.all([
+    resolveUploaderNames(supabase, uploaderIds),
+    resolveCourseNames(supabase, courseIds),
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <SectionHeader
         eyebrow="Queues · Photo moderation"
         title="Photo moderation"
-        description="Single-axis moderation queue — counts and contents are live, approve / reject controls land next."
+        description="Review user-uploaded round photos before they appear on course pages. Approve, reject, or flag each one."
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {MODERATION_BUCKETS.map((state) => (
           <StatTile
             key={state}
+            state={state}
             label={prettyMod(state)}
             value={modCounts[state]}
-            tone={
-              state === "pending"
-                ? "brand"
-                : state === "rejected" || state === "flagged"
-                  ? "alert"
-                  : undefined
-            }
+            active={state === active}
           />
         ))}
       </div>
@@ -88,24 +137,34 @@ export default async function PhotosPage() {
         <div className="flex items-end justify-between gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-2">
-              Pending queue
+              {prettyMod(active)} queue
             </h2>
-            <span className="text-[11px] tabular-nums text-ink-3">
-              {pending.length}
-            </span>
+            <span className="text-[11px] tabular-nums text-ink-3">{rows.length}</span>
           </div>
-          <p className="text-xs text-ink-3">Read-only — actions ship next.</p>
+          {listRes.error && (
+            <p className="text-xs text-alert">Failed to load: {listRes.error.message}</p>
+          )}
         </div>
 
-        {pending.length === 0 ? (
+        {rows.length === 0 ? (
           <EmptyState
-            title="Nothing to moderate"
-            subtitle="No photos are awaiting review."
+            title={active === "pending" ? "Nothing to moderate" : `No ${prettyMod(active).toLowerCase()} photos`}
+            subtitle={
+              active === "pending"
+                ? "No photos are awaiting review."
+                : "Nothing in this bucket yet."
+            }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {pending.map((row) => (
-              <PhotoTile key={row.id} row={row} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map((row) => (
+              <PhotoTile
+                key={row.id}
+                row={row}
+                baseUrl={baseUrl}
+                uploaderName={row.uploader_user_id ? uploaderNames[row.uploader_user_id] : null}
+                courseName={row.course_id ? courseNames[row.course_id] : null}
+              />
             ))}
           </div>
         )}
@@ -114,55 +173,110 @@ export default async function PhotosPage() {
   );
 }
 
-function PhotoTile({ row }: { row: Row }) {
+function PhotoTile({
+  row,
+  baseUrl,
+  uploaderName,
+  courseName,
+}: {
+  row: Row;
+  baseUrl: string;
+  uploaderName: string | null;
+  courseName: string | null;
+}) {
+  const thumb = photosRenderedURL(
+    row.variants?.medium_storage_key ?? row.variants?.thumb_storage_key,
+    baseUrl,
+  );
+  const full = photosRenderedURL(row.variants?.large_storage_key, baseUrl) ?? thumb;
+  const geotagged = row.exif_gps_lat != null && row.exif_gps_lng != null;
+
   return (
-    <figure className="overflow-hidden rounded-xl glass-panel">
-      <div className="flex aspect-square items-center justify-center bg-paper-sunken/60 text-ink-3">
-        <ImageIcon className="size-6" aria-hidden />
-      </div>
-      <figcaption className="space-y-2 p-3">
+    <figure className="flex flex-col overflow-hidden rounded-xl glass-panel">
+      {full ? (
+        <a
+          href={full}
+          target="_blank"
+          rel="noreferrer"
+          className="group/img relative block aspect-square bg-paper-sunken"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={thumb ?? full}
+            alt={`Round photo by ${uploaderName ?? "user"}`}
+            className="size-full object-cover transition-opacity group-hover/img:opacity-90"
+          />
+          {geotagged && (
+            <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+              <MapPin className="size-2.5" aria-hidden /> Geotagged
+            </span>
+          )}
+        </a>
+      ) : (
+        <div className="flex aspect-square items-center justify-center bg-paper-sunken/60 text-ink-3">
+          <ImageIcon className="size-6" aria-hidden />
+        </div>
+      )}
+
+      <figcaption className="flex flex-1 flex-col gap-2 p-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-ink">{prettyKind(row.kind)}</span>
+          <span className="truncate text-xs font-medium text-ink">
+            {uploaderName ?? "Unknown user"}
+          </span>
           <StateChip state={row.moderation_state} />
         </div>
-        <p className="truncate font-mono text-[10px] text-ink-3">
-          {row.storage_key ? truncate(row.storage_key, 28) : "—"}
+        <p className="truncate text-[11px] text-ink-2">
+          {courseName ?? (row.round_id ? "Round photo" : prettyKind(row.kind))}
         </p>
         <p className="text-[11px] tabular-nums text-ink-3">
-          {row.taken_at ? relativeTime(row.taken_at) : "no exif"} · submitted{" "}
+          {row.width && row.height ? `${row.width}×${row.height} · ` : ""}
+          {row.exif_taken_at ? `taken ${relativeTime(row.exif_taken_at)}` : "no exif"} · added{" "}
           {relativeTime(row.created_at)}
         </p>
+        <div className="mt-auto pt-1">
+          <PhotoModerationActions photoId={row.id} current={row.moderation_state} />
+        </div>
       </figcaption>
     </figure>
   );
 }
 
 function StatTile({
+  state,
   label,
   value,
-  tone,
+  active,
 }: {
+  state: PhotoModerationState;
   label: string;
   value: number;
-  tone?: "brand" | "amber" | "alert";
+  active: boolean;
 }) {
+  const tone =
+    state === "pending"
+      ? "brand"
+      : state === "rejected" || state === "flagged"
+        ? "alert"
+        : undefined;
   const numClass =
     tone === "brand" && value > 0
       ? "text-brand"
       : tone === "alert" && value > 0
         ? "text-alert"
-        : tone === "amber" && value > 0
-          ? "text-amber"
-          : "text-ink";
+        : "text-ink";
   return (
-    <div className="rounded-xl glass-panel p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-3">
-        {label}
-      </p>
+    <Link
+      href={`/photos?state=${state}`}
+      className={cn(
+        "rounded-xl glass-panel p-4 transition-colors hover:border-brand/40",
+        active && "border-brand/50 ring-1 ring-brand/30",
+      )}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-3">{label}</p>
       <p className={"mt-2 font-hero text-3xl leading-none tabular-nums " + numClass}>
         {value.toLocaleString()}
       </p>
-    </div>
+    </Link>
   );
 }
 
@@ -178,7 +292,7 @@ function StateChip({ state }: { state: PhotoModerationState }) {
   return (
     <span
       className={
-        "inline-flex rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider " +
+        "inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider " +
         cls
       }
     >
@@ -197,6 +311,53 @@ function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
       <p className="text-sm text-ink-2">{subtitle}</p>
     </div>
   );
+}
+
+function ConfigNotice() {
+  return (
+    <div className="rounded-xl border border-amber/40 bg-amber/10 p-4 text-sm text-ink-2">
+      Photo moderation needs the service-role key for the active environment.
+      Set <code className="font-mono text-xs">SUPABASE_SERVICE_ROLE_KEY_DEV</code> /{" "}
+      <code className="font-mono text-xs">SUPABASE_SERVICE_ROLE_KEY_PROD</code> (server-only) to
+      read the queue — <code className="font-mono text-xs">public.photos</code> has no admin SELECT
+      policy, so the session client can&apos;t see other users&apos; photos.
+    </div>
+  );
+}
+
+type SupabaseClient = NonNullable<Awaited<ReturnType<typeof tryCreateServiceClient>>>;
+
+function uniq(values: Array<string | null>): string[] {
+  return Array.from(new Set(values.filter((v): v is string => typeof v === "string")));
+}
+
+/** Resolve uploader ids → display name (display_name › username › "User"). */
+async function resolveUploaderNames(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  if (ids.length === 0) return out;
+  const { data } = await supabase
+    .from("users")
+    .select("id, display_name, username")
+    .in("id", ids);
+  for (const row of data ?? []) {
+    out[row.id] = row.display_name || row.username || "User";
+  }
+  return out;
+}
+
+/** Resolve course ids → course name via one IN query. */
+async function resolveCourseNames(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  if (ids.length === 0) return out;
+  const { data } = await supabase.from("courses").select("id, name").in("id", ids);
+  for (const row of data ?? []) out[row.id] = row.name;
+  return out;
 }
 
 function prettyMod(state: PhotoModerationState): string {
@@ -231,8 +392,4 @@ function relativeTime(iso: string): string {
   const diffDays = Math.round(diffHours / 24);
   if (diffDays < 30) return `${diffDays}d`;
   return `${Math.round(diffDays / 30)}mo`;
-}
-
-function truncate(s: string, n: number): string {
-  return s.length <= n ? s : "…" + s.slice(-n + 1);
 }
