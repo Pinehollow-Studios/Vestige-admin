@@ -26,12 +26,13 @@ export default async function DashboardLayout({
   // is independently nullable — a failed query just hides the
   // matching pip. None of these are blocking critical-path data.
   const supabase = await createClient();
-  // The users count is read through the service-role client when available:
-  // `public.users` has no admin SELECT policy, so the anon session would
-  // undercount to only public/friend profiles. Falls back to the session
-  // client when service-role isn't configured (pill just shows the slice).
+  // Users + photos counts are read through the service-role client when
+  // available: neither `public.users` nor `public.photos` has an admin SELECT
+  // policy, so the anon session undercounts (only public/friend profiles; only
+  // the admin's own photos). Falls back to the session client when service-role
+  // isn't configured (pills just show the visible slice).
   const svc = await tryCreateServiceClient();
-  const usersClient = svc ?? supabase;
+  const adminRead = svc ?? supabase;
   const [
     queueRes,
     curatedRes,
@@ -55,7 +56,7 @@ export default async function DashboardLayout({
       .from("feedback_reports")
       .select("id", { count: "exact", head: true })
       .in("status", ["new", "triaged", "inProgress"]),
-    supabase
+    adminRead
       .from("photos")
       .select("id", { count: "exact", head: true })
       .eq("moderation_state", "pending"),
@@ -63,7 +64,7 @@ export default async function DashboardLayout({
       .from("safeguarding_flags")
       .select("id", { count: "exact", head: true })
       .eq("state", "pending"),
-    usersClient
+    adminRead
       .from("users")
       .select("id", { count: "exact", head: true }),
     supabase

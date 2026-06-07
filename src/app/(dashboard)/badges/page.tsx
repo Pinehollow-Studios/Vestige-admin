@@ -11,8 +11,12 @@ import {
   STATUS_CHIP,
   STATUS_DOT,
   STATUS_LABELS,
+  TIER_LABELS,
+  TIER_ORDER,
+  TIER_RING,
   type BadgeDefinitionRow,
   type BadgeStatus,
+  type BadgeTier,
 } from "./types";
 
 export const dynamic = "force-dynamic";
@@ -59,13 +63,63 @@ export default async function BadgesPage() {
       {!error && defs.length === 0 && <EmptyState />}
 
       {defs.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {defs.map((row) => (
-            <BadgeCard key={row.id} row={row} lookups={lookups} />
-          ))}
+        <div className="space-y-8">
+          {TIER_ORDER.map((tier) => {
+            const rows = defs.filter((row) => row.tier === tier);
+            if (rows.length === 0) return null;
+            return (
+              <TierSection key={tier} tier={tier} rows={rows} lookups={lookups} />
+            );
+          })}
         </div>
       )}
     </div>
+  );
+}
+
+/** One rarity bucket — a tier header (label + count + ring swatch) over the
+ *  badge grid for that tier. Tiers iterate rarest-first per `TIER_ORDER`. */
+function TierSection({
+  tier,
+  rows,
+  lookups,
+}: {
+  tier: BadgeTier;
+  rows: BadgeDefinitionRow[];
+  lookups: Lookups;
+}) {
+  return (
+    <section className="space-y-3">
+      <header className="flex items-center gap-3">
+        <TierSwatch tier={tier} />
+        <h2 className="font-heading text-sm font-semibold uppercase tracking-[0.16em] text-ink">
+          {TIER_LABELS[tier]}
+        </h2>
+        <span className="text-xs tabular-nums text-ink-3">{rows.length}</span>
+        <span aria-hidden className="h-px flex-1 bg-border" />
+      </header>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((row) => (
+          <BadgeCard key={row.id} row={row} lookups={lookups} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Small metallic disc using the tier's ring gradient — anchors the rarity
+ *  of each section visually (matches the medallion frame colours). */
+function TierSwatch({ tier }: { tier: BadgeTier }) {
+  const ring = TIER_RING[tier];
+  const stops = ring
+    .map((c, i) => `${c} ${(i / (ring.length - 1)) * 100}%`)
+    .join(", ");
+  return (
+    <span
+      aria-hidden
+      className="size-4 shrink-0 rounded-full ring-1 ring-inset ring-white/25"
+      style={{ background: `linear-gradient(135deg, ${stops})` }}
+    />
   );
 }
 

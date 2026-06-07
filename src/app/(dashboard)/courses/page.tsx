@@ -51,7 +51,7 @@ export default async function CoursesPage(props: { searchParams: SearchParams })
       "id,legacy_fid,name,slug,club_id,county_id,tier,type,hole_count,par,yards,style,established,description,curated_list_ids,hero_photo_storage_key,last_edited_by_admin_id,last_edited_at,updated_at,created_at,clubs(name),counties(id,name)",
     )
     .order("name", { ascending: true })
-    .limit(500);
+    .limit(1500);
 
   if (q) {
     query = query.ilike("name", `%${q}%`);
@@ -160,14 +160,96 @@ export default async function CoursesPage(props: { searchParams: SearchParams })
 
       {!coursesResult.error && rows.length === 0 && <EmptyState />}
 
-      {rows.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {rows.map((row) => (
-            <CourseRowCard key={row.id} row={row} />
-          ))}
-        </div>
-      )}
+      {rows.length > 0 && <CountyGroupedList groups={groupByCounty(rows)} />}
     </div>
+  );
+}
+
+const NO_COUNTY = "__no_county__";
+
+type CountyGroup = {
+  /** Stable anchor id — the county UUID, or a sentinel for orphans. */
+  key: string;
+  name: string;
+  courses: CourseRow[];
+};
+
+/**
+ * Group the (name-sorted) rows into counties, sorted alphabetically with a
+ * trailing "No county" bucket for orphans. Courses keep their incoming
+ * name order within each county.
+ */
+function groupByCounty(rows: CourseRow[]): CountyGroup[] {
+  const byKey = new Map<string, CountyGroup>();
+  for (const row of rows) {
+    const key = row.county_id ?? NO_COUNTY;
+    const name = row.county_name ?? "No county";
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, name, courses: [] };
+      byKey.set(key, group);
+    }
+    group.courses.push(row);
+  }
+  return Array.from(byKey.values()).sort((a, b) => {
+    // Orphans always sort last; otherwise alphabetical by name.
+    if (a.key === NO_COUNTY) return 1;
+    if (b.key === NO_COUNTY) return -1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/** County index bar + one sticky-headed section per county. */
+function CountyGroupedList({ groups }: { groups: CountyGroup[] }) {
+  return (
+    <div className="space-y-6">
+      {groups.length > 1 && <CountyIndexBar groups={groups} />}
+      <div className="space-y-8">
+        {groups.map((group) => (
+          <CountySection key={group.key} group={group} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Pure-anchor jump bar — no JS. Each chip scrolls to its county section. */
+function CountyIndexBar({ groups }: { groups: CountyGroup[] }) {
+  return (
+    <nav
+      aria-label="Jump to county"
+      className="flex flex-wrap gap-1.5 rounded-xl glass-panel p-3"
+    >
+      {groups.map((group) => (
+        <a
+          key={group.key}
+          href={`#county-${group.key}`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-paper-sunken/40 px-2.5 py-1 text-xs text-ink-2 transition-colors hover:border-brand/40 hover:text-ink"
+        >
+          {group.name}
+          <span className="tabular-nums text-ink-3">{group.courses.length}</span>
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+function CountySection({ group }: { group: CountyGroup }) {
+  return (
+    <section id={`county-${group.key}`} className="scroll-mt-20 space-y-3">
+      <header className="sticky top-16 z-10 -mx-1 flex items-center gap-2 rounded-lg border border-border bg-paper-raised/85 px-3 py-1.5 backdrop-blur-md">
+        <MapPin aria-hidden className="size-3.5 text-brand" />
+        <h2 className="font-heading text-sm font-semibold text-ink">{group.name}</h2>
+        <span className="text-xs tabular-nums text-ink-3">
+          {group.courses.length} {group.courses.length === 1 ? "course" : "courses"}
+        </span>
+      </header>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {group.courses.map((row) => (
+          <CourseRowCard key={row.id} row={row} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -243,7 +325,7 @@ function Filters({
       </div>
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-ink-3">
-          Showing {totalRows.toLocaleString()} {totalRows === 1 ? "course" : "courses"} (cap 500).
+          Showing {totalRows.toLocaleString()} {totalRows === 1 ? "course" : "courses"} (cap 1,500).
         </p>
         <button
           type="submit"
@@ -299,9 +381,7 @@ function CourseRowCard({ row }: { row: CourseRow }) {
               {TIER_LABELS[row.tier]}
             </span>
           </div>
-          <p className="line-clamp-1 text-xs text-ink-2">
-            {row.club_name ?? "—"} · {row.county_name ?? "no county"}
-          </p>
+          <p className="line-clamp-1 text-xs text-ink-2">{row.club_name ?? "—"}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
           <Chip>{LAYOUT_LABELS[row.layout]}</Chip>

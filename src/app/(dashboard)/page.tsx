@@ -3,6 +3,7 @@ import { OverviewCard, PreviewList, StatusBreakdown } from "@/components/admin/O
 import { SectionHeader } from "@/components/admin/SectionHeader";
 import { StatsStrip, type Stat } from "@/components/admin/StatsStrip";
 import { createClient } from "@/lib/supabase/server";
+import { tryCreateServiceClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { TOOL_GROUPS } from "@/lib/admin/tools";
 import { statusFor, type CuratedListStatus } from "./curated/types";
@@ -46,7 +47,7 @@ type SafeguardingRow = {
 
 type PhotoRow = {
   id: string;
-  taken_at: string | null;
+  exif_taken_at: string | null;
   created_at: string;
   moderation_state: "pending" | "approved" | "rejected" | "flagged";
 };
@@ -68,6 +69,10 @@ function isoMsAgo(ms: number): string {
 export default async function OverviewPage() {
   const supabase = await createClient();
   await requireAdmin();
+  // `public.photos` has no admin SELECT policy, so the session client only
+  // sees the admin's own uploads. Read the queue via service-role (gated by
+  // the requireAdmin above); fall back to the session client when unconfigured.
+  const adminRead = (await tryCreateServiceClient()) ?? supabase;
   const sevenDaysAgo = isoMsAgo(WEEK_MS);
 
   const [
@@ -75,6 +80,7 @@ export default async function OverviewPage() {
     curatedRes,
     feedbackRes,
     safeguardingRes,
+    photosPendingCountRes,
     photosRes,
     crashesRes,
     // Platform-health raw counts:
@@ -100,9 +106,13 @@ export default async function OverviewPage() {
     supabase
       .rpc("admin_safeguarding_queue", { p_state_filter: "pending", p_limit: 6 })
       .returns<SafeguardingRow[]>(),
-    supabase
+    adminRead
       .from("photos")
-      .select("id, taken_at, created_at, moderation_state")
+      .select("id", { count: "exact", head: true })
+      .eq("moderation_state", "pending"),
+    adminRead
+      .from("photos")
+      .select("id, exif_taken_at, created_at, moderation_state")
       .eq("moderation_state", "pending")
       .order("created_at", { ascending: false })
       .limit(6),
@@ -140,6 +150,7 @@ export default async function OverviewPage() {
   const safeguarding: SafeguardingRow[] =
     (safeguardingRes.data as SafeguardingRow[] | null) ?? [];
   const photos: PhotoRow[] = (photosRes.data as PhotoRow[] | null) ?? [];
+  const photosPending = photosPendingCountRes.count ?? 0;
   const crashes: CrashRow[] = (crashesRes.data as CrashRow[] | null) ?? [];
 
   const curatedByStatus = bucketCurated(curated);
@@ -243,15 +254,15 @@ export default async function OverviewPage() {
             title="Photo moderation"
             description="Round photos awaiting moderation before they show on course pages."
             status="live"
-            count={photos.length}
-            accent={photos.length === 0 ? "All clear" : "pending"}
-            ctaLabel={photos.length === 0 ? "Open queue" : `Moderate ${photos.length}`}
+            count={photosPending}
+            accent={photosPending === 0 ? "All clear" : "pending"}
+            ctaLabel={photosPending === 0 ? "Open queue" : `Moderate ${photosPending}`}
           >
             <PreviewList
               items={photos.slice(0, 4).map((row) => ({
                 key: row.id,
                 primary: "Pending photo",
-                secondary: row.taken_at ? `taken ${relativeTime(row.taken_at)}` : "no exif",
+                secondary: row.exif_taken_at ? `taken ${relativeTime(row.exif_taken_at)}` : "no exif",
                 trailing: relativeTime(row.created_at),
               }))}
               emptyLabel="No photos awaiting moderation."
