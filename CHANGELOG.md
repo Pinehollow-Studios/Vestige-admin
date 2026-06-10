@@ -5,6 +5,44 @@
 
 ---
 
+## 2026-06-10 — Analytics consumption surface (Phase 3): the dashboard side
+
+Built the full read surface for the app analytics programme — the consumption
+half of `Vestige-ios/docs/analytics-vocabulary.md`. The emit side (Phase 0 +
+the P1 events) shipped in the iOS repo; this is where that data is read.
+
+- **Four routes under `/analytics`** with a server-rendered tab bar
+  (`AnalyticsNav`): **Overview** (platform stats + live event stream + an
+  activation snapshot + a B2B headline + Metabase/SQL slots), **Product**
+  (engagement — active users / sessions / events-per-user / a hand-rolled SVG
+  DAU sparkline; the full activation funnel; feature adoption by event type;
+  discovery attribution), **B2B preview** (bucket→played conversion, volume by
+  club, catchment by home county), and **Events** (the raw stream, filterable
+  by type with a per-row properties preview).
+- **Data layer** `src/lib/analytics/{config,queries}.ts` — server-only, reads
+  `app_events` + the domain tables (`played_markers`, `bucket_list_items`,
+  `logged_rounds`, `users`, `courses`, `clubs`, `counties`) through the
+  service-role client (those tables have no admin SELECT policy, so the session
+  client reads zero rows). Rollups (funnel / DAU / volume / discovery / B2B)
+  computed in code over a bounded window; a `TODO` marks the move to versioned
+  `b2b_*` SQL views in the iOS migrations before any external export.
+- **B2B privacy contract enforced in the query layer:** every aggregate
+  excludes opted-out users *before* aggregation and suppresses any cell
+  covering fewer than `MIN_COHORT_N` (= 5) users. The preview is framed
+  explicitly as internal-only; external delivery (self-serve / report) is
+  Phase 4, legal-gated.
+- **Viz** `src/components/admin/analytics/` — `FunnelBars`, `BarList`, a
+  no-dependency SVG `Sparkline`, and `EventFeed`, all in the glass-panel / mint
+  idiom. No new packages.
+- Replaces the old `/analytics` holding page (counts + starter SQL); the
+  Metabase embed slot (`NEXT_PUBLIC_METABASE_DASHBOARD_URL`) is preserved for
+  the hybrid exploration half.
+
+No schema changes — reads existing tables. Reads the active env (prod by
+default; the dev switch points it at the dev project where Debug-build events
+land). Mostly empty states until instrumented builds run. Verified
+`tsc` / `eslint` / `next build` clean.
+
 ## 2026-06-10 — Admin display names moved off public.users (admins aren't users)
 
 The earlier same-day names fix gave the two admin-login accounts `public.users`

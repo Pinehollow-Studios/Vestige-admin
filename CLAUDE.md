@@ -299,3 +299,15 @@ canonical write-up lives on disk.
   and the feedback queue owner chip resolves from the loaded owners list so the
   row chip doesn't regress. Admin accounts are no longer users. Verified
   `tsc`/`eslint`/`build`. Long-form in `CHANGELOG.md`.
+- **2026-06-10** — Analytics consumption surface (Phase 3): the dashboard side
+  of the app analytics programme (emit side shipped in `Vestige-ios`). Four
+  `/analytics` routes (Overview · Product · B2B preview · Events) with a tab
+  bar; data layer `src/lib/analytics/*` reads `app_events` + domain tables via
+  the service-role client and rolls up the funnel / DAU / volume / discovery /
+  B2B aggregates in code over a bounded window (`b2b_*` SQL views are the
+  scaling + export follow-up). B2B preview enforces opt-out exclusion +
+  `MIN_COHORT_N`=5 cohort suppression; framed internal-only (external delivery
+  is Phase 4, legal-gated). Viz via hand-rolled CSS bars + a no-dep SVG
+  sparkline (`src/components/admin/analytics/*`). Replaces the holding page;
+  Metabase embed slot kept. No schema changes. Verified `tsc`/`eslint`/`build`.
+  Long-form in `CHANGELOG.md`.
