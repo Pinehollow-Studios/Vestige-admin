@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { FEEDBACK_ACTIVE_WORK_STAGES } from "@/lib/feedback/types";
 import { type ChangeKind, parseVersion } from "./types";
 
 export type ActionResult<T = void> =
@@ -176,11 +177,16 @@ export async function deleteVersion(id: string): Promise<ActionResult> {
 
 // ── Change lines ──────────────────────────────────────────────────────────
 
-/** Append a change line to a version (sorts after the existing lines). */
+/**
+ * Append a change line to a version (sorts after the existing lines). An
+ * optional `feedbackReportId` tags the new line to a report in the same insert,
+ * so a line can be born already linked (no separate link step).
+ */
 export async function addChange(
   versionId: string,
   kind: ChangeKind,
   summary: string,
+  feedbackReportId?: string | null,
 ): Promise<ActionResult<string>> {
   const text = summary.trim();
   if (!text) return { ok: false, message: "Write the change first." };
@@ -204,6 +210,7 @@ export async function addChange(
       kind,
       summary: text,
       sort_index: nextSort,
+      feedback_report_id: feedbackReportId ?? null,
       created_by_admin_id: admin.id,
     })
     .select("id")
@@ -211,6 +218,10 @@ export async function addChange(
 
   if (error) return { ok: false, message: error.message };
   revalidateVersion(versionId);
+  if (feedbackReportId) {
+    revalidatePath(`/feedback/${feedbackReportId}`);
+    revalidatePath("/feedback");
+  }
   return { ok: true, data: data.id };
 }
 
@@ -332,33 +343,107 @@ export async function unlinkFeedback(
 }
 
 /**
- * Search feedback reports for the link picker. Reuses the existing
- * `admin_feedback_queue` SECURITY DEFINER RPC (p_search) — no bespoke query —
- * and trims each row to what the picker renders.
+ * List the *open* feedback reports for the link picker, newest-priority first.
+ * Reuses the existing `admin_feedback_queue` SECURITY DEFINER RPC, filtered to
+ * the active work stages so anything already Fixed (or otherwise done) never
+ * shows. An optional `query` narrows by free text — but with no query the full
+ * open set is returned immediately, so the picker needs no search to be useful.
+ *
+ * Reports already tagged to any changelog line are filtered out so the same
+ * report can't be shipped twice.
  */
-export async function searchFeedback(
-  query: string,
+export async function listOpenFeedback(
+  query?: string,
 ): Promise<ActionResult<FeedbackSearchRow[]>> {
   await requireAdmin();
-  const q = query.trim();
-  if (q.length < 2) return { ok: true, data: [] };
+  const q = (query ?? "").trim();
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_feedback_queue", {
-    p_search: q,
-    p_limit: 15,
+    p_status_filter: null,
+    p_severity_filter: null,
+    p_kind_filter: null,
+    p_tag_filter: null,
+    p_search: q || null,
+    p_limit: 50,
     p_offset: 0,
+    p_work_stage_filter: FEEDBACK_ACTIVE_WORK_STAGES,
   });
   if (error) return { ok: false, message: error.message };
+
+  // Hide reports already tagged to a changelog line (no double-shipping).
+  const { data: linkedRows } = await supabase
+    .from("app_version_changes")
+    .select("feedback_report_id")
+    .not("feedback_report_id", "is", null);
+  const linked = new Set(
+    ((linkedRows as Array<{ feedback_report_id: string | null }> | null) ?? [])
+      .map((r) => r.feedback_report_id)
+      .filter(Boolean) as string[],
+  );
 
   const rows = (data as Array<Record<string, unknown>> | null) ?? [];
   return {
     ok: true,
-    data: rows.map((r) => ({
-      id: r.report_id as string,
-      kind: (r.kind as string) ?? "general",
-      status: (r.status as string) ?? "new",
-      body_preview: (r.body_preview as string) ?? "",
-    })),
+    data: rows
+      .map((r) => ({
+        id: r.report_id as string,
+        kind: (r.kind as string) ?? "general",
+        status: (r.status as string) ?? "new",
+        body_preview: (r.body_preview as string) ?? "",
+      }))
+      .filter((r) => !linked.has(r.id)),
   };
+}
+
+/** Collapse a report body into a single-line change summary (≤140 chars). */
+function summaryFromBody(body: string): string {
+  const oneLine = body.trim().replace(/\s+/g, " ");
+  if (!oneLine) return "Fixed a reported issue";
+  return oneLine.length <= 140 ? oneLine : oneLine.slice(0, 137) + "…";
+}
+
+/**
+ * Ship a feedback report into a version from the *feedback* side: append a new
+ * change line to `versionId`, tagged to `reportId` and prefilled from the report
+ * body (defaulting the kind to "fixed"). Closes the changelog↔feedback loop from
+ * the thread page in a single click — the mirror of addChange + linkFeedback.
+ */
+export async function shipReportInVersion(
+  versionId: string,
+  reportId: string,
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const supabase = await createClient();
+
+  const { data: report } = await supabase
+    .from("feedback_reports")
+    .select("body")
+    .eq("id", reportId)
+    .maybeSingle();
+  const summary = summaryFromBody((report?.body as string | null) ?? "");
+
+  const { data: last } = await supabase
+    .from("app_version_changes")
+    .select("sort_index")
+    .eq("version_id", versionId)
+    .order("sort_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSort = (last?.sort_index ?? -1) + 1;
+
+  const { error } = await supabase.from("app_version_changes").insert({
+    version_id: versionId,
+    kind: "fixed",
+    summary,
+    sort_index: nextSort,
+    feedback_report_id: reportId,
+    created_by_admin_id: admin.id,
+  });
+  if (error) return { ok: false, message: error.message };
+
+  revalidateVersion(versionId);
+  revalidatePath(`/feedback/${reportId}`);
+  revalidatePath("/feedback");
+  return { ok: true };
 }

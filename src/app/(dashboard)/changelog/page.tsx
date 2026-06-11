@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Pencil, Rocket } from "lucide-react";
+import { ArrowRight, Hammer, Pencil, Rocket } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
@@ -13,6 +13,7 @@ import {
   compareVersionsDesc,
   currentVersion,
   VERSION_STATUS_LABELS,
+  versionStatusBadgeClasses,
 } from "./types";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +77,9 @@ export default async function ChangelogPage() {
   }
 
   const current = currentVersion(versions);
+  // The version actively being worked on — the newest draft (list is sorted
+  // newest-first). Surfaced as a one-click "continue" so it's never a hunt.
+  const activeDraft = versions.find((v) => v.status === "draft") ?? null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -95,6 +99,8 @@ export default async function ChangelogPage() {
       {notConfigured && <NotConfigured />}
 
       {!notConfigured && current && <CurrentVersionBanner version={current} />}
+
+      {!notConfigured && activeDraft && <ActiveDraftBanner version={activeDraft} />}
 
       {!versionsRes.error && versions.length === 0 && <EmptyState />}
 
@@ -143,6 +149,37 @@ function CurrentVersionBanner({ version }: { version: AppVersion }) {
   );
 }
 
+/** One-click "continue editing" jump to the version in development. */
+function ActiveDraftBanner({ version }: { version: AppVersion }) {
+  return (
+    <Link
+      href={`/changelog/${version.id}?mode=edit`}
+      className="flex items-center gap-4 rounded-2xl border border-amber/40 bg-amber/10 p-4 transition-colors hover:bg-amber/15"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber/15 text-amber">
+        <Hammer className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber">
+          In development
+        </p>
+        <p className="font-heading text-base leading-tight text-ink">
+          v{version.version}
+          {version.title && (
+            <span className="ml-2 align-middle text-sm font-normal text-ink-2">
+              {version.title}
+            </span>
+          )}
+        </p>
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-amber">
+        Continue editing
+        <ArrowRight aria-hidden className="size-3.5" />
+      </span>
+    </Link>
+  );
+}
+
 function VersionSection({
   version,
   changes,
@@ -154,7 +191,6 @@ function VersionSection({
   linkedFeedback: Record<string, LinkedFeedback>;
   isCurrent: boolean;
 }) {
-  const released = version.status === "released";
   return (
     <section className="space-y-4 rounded-xl glass-panel p-5">
       <header className="flex flex-wrap items-start gap-3">
@@ -174,7 +210,7 @@ function VersionSection({
             <span
               className={cn(
                 "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                released ? "border-brand/35 text-brand" : "border-rule/70 text-ink-3",
+                versionStatusBadgeClasses(version.status),
               )}
             >
               {VERSION_STATUS_LABELS[version.status]}

@@ -232,6 +232,8 @@ export default async function OverviewPage() {
 
   const versions: AppVersion[] = (versionsRes.data as AppVersion[] | null) ?? [];
   const current = currentVersion(versions);
+  // The newest in-development version, if any (versions arrive newest-first).
+  const activeDraft = versions.find((v) => v.status === "draft") ?? null;
   const versionPreview = versions.slice(0, 4).map((v) => ({
     key: v.id,
     primary: `v${v.version}`,
@@ -418,7 +420,13 @@ export default async function OverviewPage() {
             title="Changelog"
             description="What shipped in each release — and which reported bugs each version tackled."
             status="live"
-            accent={current ? `v${current.version} current` : "no releases"}
+            accent={
+              activeDraft
+                ? `v${activeDraft.version} in development`
+                : current
+                  ? `v${current.version} current`
+                  : "no releases"
+            }
             ctaLabel="Open changelog"
           >
             <PreviewList items={versionPreview} emptyLabel="No versions tracked yet." />

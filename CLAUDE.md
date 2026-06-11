@@ -339,3 +339,31 @@ canonical write-up lives on disk.
   `tsc`/`eslint`/`build` (web) + iOS Debug build `BUILD SUCCEEDED` bundling
   Manrope, no Fraunces; **iOS not sim-confirmed** (WeatherKit launch denial) —
   Tom-action to eyeball. Long-form in `CHANGELOG.md` + iOS `CHANGELOG.md`.
+- **2026-06-11** — Two prod feedback fixes, both closed via
+  `set_work_stage('fixed')` with reporter notes: (1) iOS Home "Near you"
+  card tap now opens the Atlas zoomed to that course (one-shot
+  `AppState.pendingAtlasCourseFocus` consumed by the explore tab's
+  search-handoff path; ships with the next build); (2) first-to-complete-
+  a-county badge mints now raise a **`first_county_completion`
+  safeguarding flag** (iOS migration
+  `20260611100000_first_county_completion_review.sql` — velocity evidence
+  inline; badge still mints, review is post-hoc) surfaced on
+  `/safeguarding` (new kind chip/badge/label). Migration applied to dev;
+  prod via normal `prod-deploy` promotion. Verified `tsc`/`eslint`/`build`
+  + iOS Debug build. Long-form in `CHANGELOG.md` + iOS `CHANGELOG.md`.
+- **2026-06-11** — Changelog workflow streamlining (dashboard-only, no
+  schema): the draft lifecycle state is relabelled **In development** (was
+  "In progress") with a filled amber/orange badge via shared
+  `versionStatusBadgeClasses` (list + detail + editor toggle). The feedback
+  link picker now loads **open** feedback immediately (new
+  `listOpenFeedback` → `admin_feedback_queue` filtered to
+  `FEEDBACK_ACTIVE_WORK_STAGES`, excluding already-linked reports) instead
+  of a min-2-char search; the "Add change" row can tag a report **before**
+  saving (prefills the line from the report body; `addChange` takes an
+  optional `feedbackReportId`) and keeps the last kind + cursor after Add
+  for rapid entry. New `shipReportInVersion` powers a "Ship in version"
+  control on the feedback thread (one-click prefilled "Fixed" line tagged
+  to the report). Changelog list gains an amber "In development — continue
+  editing" banner to the active draft; overview card accent leads with
+  `vX in development`. Verified `tsc`/`eslint`/`build`. Long-form in
+  `CHANGELOG.md`.

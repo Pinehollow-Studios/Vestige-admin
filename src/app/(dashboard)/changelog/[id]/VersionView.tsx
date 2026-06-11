@@ -5,6 +5,7 @@ import {
   type AppVersionChange,
   type LinkedFeedback,
   VERSION_STATUS_LABELS,
+  versionStatusBadgeClasses,
 } from "../types";
 
 /** Read-only presentation of a single version — the default mode of the detail
@@ -18,7 +19,6 @@ export function VersionView({
   changes: AppVersionChange[];
   linkedFeedback: Record<string, LinkedFeedback>;
 }) {
-  const released = version.status === "released";
   return (
     <article className="space-y-6 rounded-2xl glass-panel p-6">
       <header className="space-y-2 border-b border-rule/50 pb-4">
@@ -27,7 +27,7 @@ export function VersionView({
           <span
             className={cn(
               "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-              released ? "border-brand/35 text-brand" : "border-rule/70 text-ink-3",
+              versionStatusBadgeClasses(version.status),
             )}
           >
             {VERSION_STATUS_LABELS[version.status]}

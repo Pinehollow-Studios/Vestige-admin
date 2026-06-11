@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { ExternalLink, Link2, Plus, Tag, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,20 @@ export function VersionEditor({
 
         <AddChangeRow
           versionId={version.id}
-          onAdded={(row) => setChanges((prev) => [...prev, row])}
+          onAdded={(row, linked) => {
+            setChanges((prev) => [...prev, row]);
+            if (linked) {
+              setLinkedFeedback((m) => ({
+                ...m,
+                [linked.id]: {
+                  id: linked.id,
+                  kind: linked.kind,
+                  status: linked.status,
+                  body: linked.body_preview,
+                },
+              }));
+            }
+          }}
         />
 
         {changes.length === 0 ? (
@@ -270,7 +283,7 @@ function MetaCard({
                       : "bg-paper-sunken/40 text-ink-2 hover:text-ink",
                   )}
                 >
-                  {s === "draft" ? "In progress" : "Released"}
+                  {s === "draft" ? "In development" : "Released"}
                 </button>
               ))}
             </div>
@@ -330,70 +343,135 @@ function AddChangeRow({
   onAdded,
 }: {
   versionId: string;
-  onAdded: (row: AppVersionChange) => void;
+  onAdded: (row: AppVersionChange, linked?: FeedbackSearchRow) => void;
 }) {
+  // `kind` deliberately persists between adds — most runs of lines share a kind,
+  // so remembering the last-used one keeps rapid entry to type → Enter → type.
   const [kind, setKind] = useState<ChangeKind>("added");
   const [summary, setSummary] = useState("");
+  const [staged, setStaged] = useState<FeedbackSearchRow | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function submit() {
     const text = summary.trim();
     if (!text || pending) return;
+    const linked = staged;
     startTransition(async () => {
-      const res = await addChange(versionId, kind, text);
+      const res = await addChange(versionId, kind, text, linked?.id ?? null);
       if (!res.ok || !res.data) {
         toast.error(res.ok ? "Could not add line." : res.message);
         return;
       }
       const now = new Date().toISOString();
-      onAdded({
-        id: res.data,
-        version_id: versionId,
-        kind,
-        summary: text,
-        feedback_report_id: null,
-        sort_index: Number.MAX_SAFE_INTEGER, // appended; regrouped on render
-        created_at: now,
-        updated_at: now,
-      });
+      onAdded(
+        {
+          id: res.data,
+          version_id: versionId,
+          kind,
+          summary: text,
+          feedback_report_id: linked?.id ?? null,
+          sort_index: Number.MAX_SAFE_INTEGER, // appended; regrouped on render
+          created_at: now,
+          updated_at: now,
+        },
+        linked ?? undefined,
+      );
+      // Rapid entry: clear the line + tag but keep the kind and the cursor here.
       setSummary("");
+      setStaged(null);
+      inputRef.current?.focus();
     });
   }
 
+  function stage(report: FeedbackSearchRow) {
+    setPickerOpen(false);
+    setStaged(report);
+    // Prefill the line from the report if the operator hasn't typed one yet.
+    setSummary((cur) => (cur.trim() ? cur : report.body_preview.trim()));
+    inputRef.current?.focus();
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      <select
-        value={kind}
-        onChange={(e) => setKind(e.target.value as ChangeKind)}
-        disabled={pending}
-        className={SELECT_CLASS}
-        aria-label="Change kind"
-      >
-        {CHANGE_KINDS.map((k) => (
-          <option key={k} value={k}>
-            {CHANGE_KIND_LABELS[k]}
-          </option>
-        ))}
-      </select>
-      <Input
-        value={summary}
-        onChange={(e) => setSummary(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") submit();
-        }}
-        placeholder="Describe what changed…"
-        className="h-8 flex-1 text-sm"
-        disabled={pending}
-      />
-      <Button
-        onClick={submit}
-        size="sm"
-        disabled={pending || !summary.trim()}
-        className="bg-brand text-brand-fg hover:bg-brand-deep"
-      >
-        <Plus className="size-3.5" />
-        Add
-      </Button>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value as ChangeKind)}
+          disabled={pending}
+          className={SELECT_CLASS}
+          aria-label="Change kind"
+        >
+          {CHANGE_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {CHANGE_KIND_LABELS[k]}
+            </option>
+          ))}
+        </select>
+        <Input
+          ref={inputRef}
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+          }}
+          placeholder="Describe what changed…"
+          className="h-8 flex-1 text-sm"
+          disabled={pending}
+        />
+        {!staged && !pickerOpen && (
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            disabled={pending}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rule/60 px-2 py-1 text-[11px] text-ink-3 transition-colors hover:border-brand/40 hover:text-brand disabled:opacity-50"
+          >
+            <Link2 className="size-3" />
+            Tag report
+          </button>
+        )}
+        <Button
+          onClick={submit}
+          size="sm"
+          disabled={pending || !summary.trim()}
+          className="bg-brand text-brand-fg hover:bg-brand-deep"
+        >
+          <Plus className="size-3.5" />
+          Add
+        </Button>
+      </div>
+
+      {staged && (
+        <div className="flex items-center gap-2 rounded-md border border-brand/25 bg-brand/5 px-2.5 py-1.5 text-xs">
+          <Tag aria-hidden className="size-3 shrink-0 text-brand" />
+          <span
+            className={cn(
+              "shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
+              toneClasses(CHANGE_KIND_TONE.fixed),
+            )}
+          >
+            {staged.kind}
+          </span>
+          <span className="line-clamp-1 flex-1 text-ink-2">{staged.body_preview}</span>
+          <span className="shrink-0 text-[10px] uppercase tracking-wider text-ink-3">
+            will link on add
+          </span>
+          <button
+            type="button"
+            onClick={() => setStaged(null)}
+            disabled={pending}
+            className="shrink-0 rounded p-0.5 text-ink-3 transition-colors hover:text-alert disabled:opacity-50"
+            aria-label="Clear tagged report"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
+
+      {pickerOpen && (
+        <FeedbackLinkPicker onPick={stage} onCancel={() => setPickerOpen(false)} />
+      )}
     </div>
   );
 }

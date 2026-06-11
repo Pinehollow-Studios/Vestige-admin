@@ -39,9 +39,21 @@ export const CHANGE_KIND_TONE: Record<ChangeKind, ChipTone> = {
 export type AppVersionStatus = "draft" | "released";
 
 export const VERSION_STATUS_LABELS: Record<AppVersionStatus, string> = {
-  draft: "In progress",
+  draft: "In development",
   released: "Released",
 };
+
+/**
+ * Badge classes for a version's lifecycle pill. A draft ("In development")
+ * wears a filled amber/orange treatment so an unreleased version reads as
+ * actively being worked on; a released version stays calm brand. Shared by the
+ * list, detail view, and any other surface that renders the status pill.
+ */
+export function versionStatusBadgeClasses(status: AppVersionStatus): string {
+  return status === "released"
+    ? "border-brand/35 text-brand"
+    : "border-amber/40 bg-amber/15 text-amber";
+}
 
 // ── Rows ────────────────────────────────────────────────────────────────
 

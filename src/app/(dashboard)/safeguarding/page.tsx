@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-type FlagKind = "same_day_excess" | "impossible_geography" | "velocity_spike";
+type FlagKind =
+  | "same_day_excess"
+  | "impossible_geography"
+  | "velocity_spike"
+  | "first_county_completion";
 type FlagState = "pending" | "reviewed_clean" | "reviewed_actioned" | "auto_expired";
 
 type Row = {
@@ -71,7 +75,7 @@ export default async function SafeguardingPage({
       <SectionHeader
         eyebrow="People &amp; safety · Safeguarding"
         title="Safeguarding queue"
-        description="Heuristic flags raised by the round-log trigger — review actions land in the next slice."
+        description="Heuristic flags raised by the round-log trigger, plus first-county-completion badge grants flagged for review — review actions land in the next slice."
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -193,6 +197,7 @@ function KindFilter({
     { key: "same_day_excess", label: "Same-day" },
     { key: "impossible_geography", label: "Geography" },
     { key: "velocity_spike", label: "Velocity" },
+    { key: "first_county_completion", label: "First county" },
   ];
   return (
     <div className="hidden gap-1 sm:flex">
@@ -226,7 +231,9 @@ function KindBadge({ kind }: { kind: FlagKind }) {
       ? "border-brand/40 text-brand"
       : kind === "impossible_geography"
         ? "border-info/40 text-info"
-        : "border-amber/40 text-amber";
+        : kind === "first_county_completion"
+          ? "border-brand/40 text-brand"
+          : "border-amber/40 text-amber";
   return (
     <span
       className={
@@ -287,6 +294,8 @@ function prettyKind(kind: FlagKind): string {
       return "Impossible geography";
     case "velocity_spike":
       return "Velocity spike";
+    case "first_county_completion":
+      return "First county completion";
   }
 }
 

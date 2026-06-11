@@ -22,6 +22,7 @@ import { listAdminOwners } from "@/lib/feedback/owners";
 import { Screenshots } from "./Screenshots";
 import { ReplyForm } from "./ReplyForm";
 import { SidePanelControls } from "./SidePanelControls";
+import { ShipInVersionControl, type ShipVersionOption } from "./ShipInVersionControl";
 import {
   type FeedbackDuplicateLink,
   type FeedbackMessage,
@@ -158,7 +159,7 @@ export default async function FeedbackThreadPage({
   const admin = await requireAdmin();
   const supabase = await createClient();
 
-  const [{ data, error }, owners, shippedRes] = await Promise.all([
+  const [{ data, error }, owners, shippedRes, draftVersionsRes] = await Promise.all([
     supabase
       .rpc("admin_feedback_thread", { p_report_id: id })
       .single<ThreadResponse>(),
@@ -170,9 +171,20 @@ export default async function FeedbackThreadPage({
       .from("app_version_changes")
       .select("version_id, app_versions ( id, version, status )")
       .eq("feedback_report_id", id),
+    // Versions in development — the "Ship in version" targets. Missing table
+    // (pre-migration) returns null data → the control renders its empty state.
+    supabase
+      .from("app_versions")
+      .select("id, version, title")
+      .eq("status", "draft")
+      .order("major", { ascending: false })
+      .order("minor", { ascending: false })
+      .order("patch", { ascending: false }),
   ]);
 
   const shippedVersions = dedupeShippedVersions(shippedRes.data);
+  const draftVersions =
+    (draftVersionsRes.data as ShipVersionOption[] | null) ?? [];
 
   if (error) {
     return (
@@ -246,6 +258,11 @@ export default async function FeedbackThreadPage({
             owners={owners}
             currentAdminId={admin.id}
             isSuperAdmin={admin.role === "super_admin"}
+          />
+          <ShipInVersionControl
+            reportId={report.id}
+            versions={draftVersions}
+            shippedVersionIds={shippedVersions.map((v) => v.id)}
           />
           <ReportDetailsMeta report={report} />
           <SidebarMeta report={report} />

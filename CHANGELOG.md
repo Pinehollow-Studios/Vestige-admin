@@ -5,6 +5,97 @@
 
 ---
 
+## 2026-06-11 — Changelog workflow streamlining: "In development" badge + faster version↔feedback wiring
+
+Editorial-velocity pass on the version changelog, all dashboard-side (no
+schema). Relabels the unreleased lifecycle state and cuts the clicks
+between a feedback report and the version it ships in.
+
+**"In development" + orange.** The draft lifecycle state now reads **In
+development** (was "In progress") and wears a filled amber/orange badge so
+an unreleased version reads as actively worked-on. New shared
+`versionStatusBadgeClasses(status)` in `changelog/types.ts` keys the pill
+(amber-filled draft / calm-brand released) for the list, detail view, and
+anywhere else; the editor's status toggle label moved in step. (Tom's
+first instinct was the word "In production" — flagged that it normally
+reads as live/shipped and we settled on "In development".)
+
+**Link picker shows open feedback immediately.** `FeedbackLinkPicker` no
+longer needs a search to be useful: it loads the open queue on open via
+the new `listOpenFeedback(query?)` action, which reuses
+`admin_feedback_queue` filtered to `FEEDBACK_ACTIVE_WORK_STAGES` (so
+anything **Fixed**/done never appears) and drops any report already tagged
+to a changelog line (no double-shipping). The text box now only narrows
+the already-visible list. Replaces the old min-2-char `searchFeedback`.
+
+**Tag before saving + rapid entry.** The "Add change" row can now tag a
+report *before* the line exists: a "Tag report" affordance stages a report
+(chip with "will link on add"), prefills the line text from the report
+body if you haven't typed one, and `addChange` takes an optional
+`feedbackReportId` so the line is born linked in one insert. After Add the
+row clears the text + tag but **keeps the last-used kind and the cursor**,
+so a run of lines is type → Enter → type.
+
+**"Ship in version" from the feedback side.** The feedback thread gains a
+`ShipInVersionControl` (sidebar) listing versions in development; one click
+calls the new `shipReportInVersion(versionId, reportId)` action, which
+appends a prefilled "Fixed" line to that version tagged to the report —
+the mirror of add-line + link. Versions the report already shipped in are
+filtered out; the empty state links to `/changelog`.
+
+**Quick jump to the active draft.** The changelog list shows a prominent
+amber "In development — continue editing" banner (→ the draft's editor)
+above the log; the overview Changelog card's accent now leads with
+`vX in development` when a draft exists.
+
+Verified `tsc` / `eslint` / `build` all clean. No migration — every query
+reads existing tables (`app_versions`, `app_version_changes`,
+`feedback_reports`) and the existing `admin_feedback_queue` RPC.
+
+---
+
+## 2026-06-11 — Two prod feedback fixes: Near-you → Atlas zoom; first-county badges → safeguarding review
+
+The two prod reports sitting at **In progress** (both Tom, 2026-06-08)
+fixed and closed via `set_work_stage('fixed', note)` — reporter notified
+with the resolution note on each.
+
+**Report `e99b1fc2` — "clicking on the course should take you to a zoom
+in of the course on the atlas".** iOS-side fix (no dashboard change):
+Home "Near you" cards (and their per-card "Open atlas" pills) now hand
+the Atlas a one-shot `AppState.pendingAtlasCourseFocus` and switch tabs;
+the explore tab consumes it through the existing search-handoff path and
+flies county → course. Details in `Vestige-ios/CHANGELOG.md` 2026-06-11;
+ships with the next TestFlight build.
+
+**Report `c5baa33e` — "first to complete a county should be verified by
+us… checking they haven't done 100 courses in 5 days".** Routed into the
+safeguarding queue, per Tom's direction that the badges verification
+lives on the /safeguarding page:
+
+- iOS migration `20260611100000_first_county_completion_review.sql` —
+  new `safeguarding_flags.flag_kind` value **`first_county_completion`**;
+  `evaluate_badges_for_user()` re-created so a `first_to_complete: true`
+  county-complete mint also raises a pending safeguarding flag with the
+  velocity evidence inline (county, badge definition, course count,
+  first→last played-marker span, markers in the trailing 7 days). The
+  badge still mints immediately — review is post-hoc; a dodgy grant gets
+  actioned with the existing safeguarding tools. Insert is
+  exception-guarded + idempotent per (user, kind, day), so it can never
+  block a mint.
+- `/safeguarding` page — `FlagKind` union, kind-filter chips ("First
+  county"), `KindBadge` colour + label, and the header description now
+  cover the new kind. Everything else (queue RPC, state tabs, evidence
+  pretty-print) was already kind-agnostic.
+- Migration applied to **dev** (`supabase db push`); reaches prod via
+  the normal `prod-deploy` promotion — it is not on the hold-list. Until
+  then prod simply raises no flags of the new kind; the page renders it
+  fine either way.
+
+Verified `tsc` / `eslint` / `next build` here + iOS Debug build
+`BUILD SUCCEEDED`; dev smoke-tested the new flag kind (constraint accepts,
+function executes, test row cleaned up). No schema changes in this repo.
+
 ## 2026-06-10 — Display font swap: Fraunces → Manrope (all surfaces)
 
 Tom flagged the primary header/display font — the Fraunces serif used for
