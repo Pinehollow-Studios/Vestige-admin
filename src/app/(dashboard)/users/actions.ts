@@ -48,6 +48,7 @@ export async function setLeaderboardHidden(
     : await supabase.rpc("admin_unhide_user_from_public_leaderboards", { p_user_id: userId });
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/users/${userId}`);
+  revalidatePath("/safeguarding");
   return { ok: true };
 }
 

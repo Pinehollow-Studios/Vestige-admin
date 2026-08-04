@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Shield, ShieldAlert } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { FlagActions } from "./FlagActions";
 
 export const dynamic = "force-dynamic";
 
@@ -32,14 +34,19 @@ type Row = {
 
 const STATES: FlagState[] = ["pending", "reviewed_clean", "reviewed_actioned", "auto_expired"];
 
+/** Reviewer detail for a resolved flag - shown in place of the actions row. */
+type FlagReview = { note: string | null; reviewedAt: string | null };
+
 /**
- * Safeguarding queue - read-only v1.
+ * Safeguarding queue - the actionable triage surface for §9 flags.
  *
  * Backed by `admin_safeguarding_queue()` (migration
- * 20260519140000_safeguarding_rpcs.sql). Lists every flag the
- * round-log trigger has raised, with state + evidence summary.
- * Hide-from-leaderboards / set-account-status / outreach controls
- * land next - they're all RPCs already in the migrations tree.
+ * 20260519140000_safeguarding_rpcs.sql). Lists every flag the round-log
+ * trigger has raised, with state + evidence summary. Pending flags carry an
+ * actions row (`FlagActions`): resolve clean / mark actioned with an optional
+ * reviewer note (`admin_safeguarding_resolve_flag`), plus the quick
+ * user-level moves reused from `/users` - hide from leaderboards, outreach
+ * message, account status. Resolved flags show their reviewer note instead.
  */
 export default async function SafeguardingPage({
   searchParams,
@@ -50,6 +57,7 @@ export default async function SafeguardingPage({
   const stateFilter = (params.state as FlagState | undefined) ?? "pending";
   const kindFilter = (params.kind as FlagKind | undefined) ?? null;
 
+  const admin = await requireAdmin();
   const supabase = await createClient();
   const [stateCountsRes, queueRes] = await Promise.all([
     Promise.all(
@@ -73,6 +81,23 @@ export default async function SafeguardingPage({
 
   const stateCounts = Object.fromEntries(stateCountsRes) as Record<FlagState, number>;
   const rows: Row[] = (queueRes.data as Row[] | null) ?? [];
+
+  // Reviewer note + timestamp for resolved flags - the queue RPC doesn't
+  // return them, but `safeguarding_flags_select_admin` RLS lets the session
+  // read the table directly (same policy the count tiles rely on).
+  const reviews: Record<string, FlagReview> = {};
+  const resolvedIds = rows
+    .filter((r) => r.state === "reviewed_clean" || r.state === "reviewed_actioned")
+    .map((r) => r.flag_id);
+  if (resolvedIds.length > 0) {
+    const { data } = await supabase
+      .from("safeguarding_flags")
+      .select("id, reviewer_note, reviewed_at")
+      .in("id", resolvedIds);
+    for (const row of (data as Array<{ id: string; reviewer_note: string | null; reviewed_at: string | null }> | null) ?? []) {
+      reviews[row.id] = { note: row.reviewer_note, reviewedAt: row.reviewed_at };
+    }
+  }
 
   return (
     <div className={pageShell("content")}>
@@ -110,7 +135,12 @@ export default async function SafeguardingPage({
         ) : (
           <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {rows.map((row) => (
-              <FlagRow key={row.flag_id} row={row} />
+              <FlagRow
+                key={row.flag_id}
+                row={row}
+                review={reviews[row.flag_id] ?? null}
+                isSuperAdmin={admin.role === "super_admin"}
+              />
             ))}
           </ul>
         )}
@@ -125,7 +155,15 @@ export default async function SafeguardingPage({
   );
 }
 
-function FlagRow({ row }: { row: Row }) {
+function FlagRow({
+  row,
+  review,
+  isSuperAdmin,
+}: {
+  row: Row;
+  review: FlagReview | null;
+  isSuperAdmin: boolean;
+}) {
   const name =
     row.display_name && row.display_name.trim().length > 0
       ? row.display_name
@@ -163,6 +201,28 @@ function FlagRow({ row }: { row: Row }) {
         <pre className="mt-3 overflow-x-auto rounded-md border border-rule/70 bg-paper-sunken/60 px-3 py-2 font-mono text-[10px] leading-relaxed text-ink-2">
 {JSON.stringify(row.evidence, null, 2)}
         </pre>
+      )}
+
+      {row.state === "pending" && (
+        <FlagActions
+          flagId={row.flag_id}
+          userId={row.user_id}
+          status={row.user_account_status}
+          hidden={row.user_is_admin_hidden}
+          isSuperAdmin={isSuperAdmin}
+        />
+      )}
+
+      {(row.state === "reviewed_clean" || row.state === "reviewed_actioned") && (
+        <div className="mt-3 space-y-1 border-t border-rule/60 pt-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+            {row.state === "reviewed_clean" ? "Reviewed · clean" : "Reviewed · actioned"}
+            {review?.reviewedAt ? ` · ${relativeTime(review.reviewedAt)}` : ""}
+          </p>
+          <p className="text-xs text-ink-2">
+            {review?.note?.trim() ? review.note : <span className="text-ink-3">No reviewer note.</span>}
+          </p>
+        </div>
       )}
     </li>
   );
