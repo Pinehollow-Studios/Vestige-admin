@@ -7,8 +7,9 @@ import { getImportStatus } from "./actions";
 import { ImportConsole } from "./ImportConsole";
 
 export const dynamic = "force-dynamic";
-// A full apply re-upserts ~1.2k courses + clubs + counties then recomputes the
-// index - give the serverless function room beyond the short default timeout.
+// An apply diffs ~1.6k live courses against the source, inserts the new ones,
+// backfills missing centres, then recomputes the index - give the serverless
+// function room beyond the short default timeout.
 export const maxDuration = 60;
 
 export default async function CourseImportPage() {

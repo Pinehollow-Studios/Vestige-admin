@@ -126,7 +126,9 @@ export type ApplyResult =
 /** Apply the import to the LIVE app. Any admin may run it - Tom + Jack are
  *  co-founders with equal access; the client's confirmation dialog is the
  *  safety gate, not a role wall. Writes prod course data with the service-role
- *  key; idempotent / upsert-only (nothing is ever deleted). */
+ *  key; INSERT-ONLY - existing rows are never modified (Bunker edits to par,
+ *  yardage etc. survive) and nothing is ever deleted. Sole exception: courses
+ *  with a NULL centre get it filled from the source polygon. */
 export async function applyImport(sha: string, note?: string): Promise<ApplyResult> {
   await requireAdmin();
 
@@ -154,13 +156,15 @@ export async function applyImport(sha: string, note?: string): Promise<ApplyResu
     const [counties, courses] = await Promise.all([parseCounties(source), parseCourses(source)]);
     const result = await importDataset(supabase, counties, courses);
 
+    // Audit columns keep their historical `_upserted` names; since the
+    // insert-only change they record rows *added*.
     await supabase
       .from("dataset_imports")
       .update({
         finished_at: new Date().toISOString(),
-        counties_upserted: result.countiesUpserted,
-        clubs_upserted: result.clubsUpserted,
-        courses_upserted: result.coursesUpserted,
+        counties_upserted: result.countiesAdded,
+        clubs_upserted: result.clubsAdded,
+        courses_upserted: result.coursesAdded,
       })
       .eq("id", auditId);
 
@@ -171,9 +175,9 @@ export async function applyImport(sha: string, note?: string): Promise<ApplyResu
     return {
       ok: true,
       sha,
-      counties: result.countiesUpserted,
-      clubs: result.clubsUpserted,
-      courses: result.coursesUpserted,
+      counties: result.countiesAdded,
+      clubs: result.clubsAdded,
+      courses: result.coursesAdded,
       indexRecomputed: !recomputeErr,
     };
   } catch (err) {

@@ -89,7 +89,10 @@ export interface CourseRow {
 }
 
 export interface ImportResult {
-  countiesUpserted: number;
-  clubsUpserted: number;
-  coursesUpserted: number;
+  /** Brand-new rows added. Existing rows are never modified (insert-only). */
+  countiesAdded: number;
+  clubsAdded: number;
+  coursesAdded: number;
+  /** Existing courses whose NULL centre was filled from the source polygon. */
+  centersBackfilled: number;
 }

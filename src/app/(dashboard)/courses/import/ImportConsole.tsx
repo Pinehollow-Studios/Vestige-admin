@@ -141,18 +141,17 @@ export function ImportConsole({ status }: { status: ImportStatus }) {
         }}
       >
         <p>
-          This updates the <strong className="text-ink">live</strong> course data players see:{" "}
+          This adds to the <strong className="text-ink">live</strong> course data players see:{" "}
           <strong className="text-ink">{preview?.newCourses.length ?? 0}</strong> new course
-          {(preview?.newCourses.length ?? 0) === 1 ? "" : "s"} added and{" "}
-          <strong className="text-ink">{preview?.updatedCourses ?? 0}</strong> refreshed
+          {(preview?.newCourses.length ?? 0) === 1 ? "" : "s"}
           {preview && preview.newCounties.length > 0
-            ? `, plus ${preview.newCounties.length} new ${preview.newCounties.length === 1 ? "county" : "counties"}`
+            ? ` plus ${preview.newCounties.length} new ${preview.newCounties.length === 1 ? "county" : "counties"}`
             : ""}
           .
         </p>
         <p className="mt-2 text-ink-3">
-          Upsert-only - nothing is deleted, so it&rsquo;s reversible by re-applying an earlier
-          commit.
+          New courses only - the {preview?.skippedCourses ?? 0} already in the app are left
+          exactly as they are (edits made here survive), and nothing is deleted.
         </p>
       </ConfirmDialog>
     </div>
@@ -228,7 +227,7 @@ function PreviewResult({ preview }: { preview: ImportPreview }) {
     <div className="space-y-3 rounded-lg border border-rule/60 bg-paper-sunken/30 p-4">
       <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <Stat n={newCount} label="new courses" tone={newCount > 0 ? "brand" : "muted"} />
-        <Stat n={preview.updatedCourses} label="refreshed" tone="muted" />
+        <Stat n={preview.skippedCourses} label="already in app" tone="muted" />
         <Stat n={preview.newCounties.length} label="new counties" tone={preview.newCounties.length > 0 ? "brand" : "muted"} />
         <Stat n={preview.sourceCourses} label="in source" tone="muted" />
       </div>
@@ -255,7 +254,8 @@ function PreviewResult({ preview }: { preview: ImportPreview }) {
         </div>
       ) : (
         <p className="text-xs text-ink-3">
-          No new courses at this commit - existing rows would be refreshed in place.
+          No new courses at this commit - everything in the source is already in the app, and
+          existing courses are never touched.
         </p>
       )}
     </div>

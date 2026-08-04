@@ -36,6 +36,18 @@ function authHeaders(accept: string): HeadersInit {
   };
 }
 
+/** Turn a GitHub error status into the action that actually fixes it. */
+function statusHint(status: number): string {
+  if (status === 401) {
+    return " The GitHub token has expired or been revoked - mint a new fine-grained PAT " +
+      "with Contents:read on the repo and update GITHUB_CONTENT_TOKEN in Vercel (Tom-action).";
+  }
+  if (status === 403 || status === 404) {
+    return " The token is valid but can't see the repo - check it grants Contents:read on it.";
+  }
+  return "";
+}
+
 export interface PinnedSource {
   sha: string;
   fetchText: (path: string) => Promise<string>;
@@ -57,7 +69,7 @@ export function pinnedSource(sha: string): PinnedSource {
       if (!res.ok) {
         throw new Error(
           `Couldn't fetch ${path}@${sha.slice(0, 7)} from ${DATASET_REPO} ` +
-            `(${res.status} ${res.statusText}). Check the token has Contents:read on that repo.`,
+            `(${res.status} ${res.statusText}).${statusHint(res.status)}`,
         );
       }
       return res.text();
@@ -80,7 +92,9 @@ export async function latestDatasetCommit(): Promise<DatasetCommit> {
     cache: "no-store",
   });
   if (!res.ok) {
-    throw new Error(`Couldn't read ${DATASET_REPO}@${ref} (${res.status} ${res.statusText}).`);
+    throw new Error(
+      `Couldn't read ${DATASET_REPO}@${ref} (${res.status} ${res.statusText}).${statusHint(res.status)}`,
+    );
   }
   const json = (await res.json()) as {
     sha: string;

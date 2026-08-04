@@ -5,6 +5,55 @@
 
 ---
 
+## 2026-08-04 — Course import goes insert-only; expired-token diagnosis
+
+Jack hit two problems on `/courses/import`. First, the "pull" button failed
+with `Couldn't read Pinehollow-Studios/vestige-tool@main (401 Unauthorized)`.
+Second — the sharper one — an apply **overwrote course details he'd edited in
+the Bunker** (par, yardage, description…), because the import was a full
+upsert: every source row was re-written over the live row on `legacy_fid`
+conflict, exactly as the ported CLI did.
+
+**Insert-only import (`lib/courses-import/import.ts`, rewritten).** The pull
+now only *adds*: counties, clubs, and courses already in the DB (matched by
+`slug` / `legacy_fid`) are never modified. Each stage reads the existing key
+set, filters the source to genuinely-new rows, and plain-`insert`s those —
+no `upsert`, no conflict clause. Bunker edits to existing courses now survive
+every pull, and polygon/detail changes to *existing* courses in vestige-tool
+no longer propagate (accepted trade-off; flagged to Tom). Club rows are
+deduped by fid before insert (safe under insert where upsert was forgiving).
+
+**One deliberate exception — centre backfill.** 190 of 1,651 prod courses
+still had a NULL `center_lat` (the 2026-06-27 MultiPolygon centroid fix
+expected "the next apply" to backfill them, and strict insert-only would have
+forfeited that forever). `backfillMissingCenters()` fills `center_lat/lng`
+from the source centroid **only where the live value is NULL** (guarded again
+with `.is("center_lat", null)` at write time), so it can never override
+anything an admin set.
+
+**Follow-through.** `ImportResult` renamed to `countiesAdded` / `clubsAdded` /
+`coursesAdded` + `centersBackfilled` (the `dataset_imports` audit columns keep
+their historical `_upserted` names but now record adds). Preview's
+`updatedCourses` → `skippedCourses`; the console's "refreshed" stat became
+"already in app", and the confirm dialog + empty state now say plainly that
+existing courses are never touched.
+
+**The 401.** Both `GITHUB_CONTENT_TOKEN` (38d old, takes precedence) and
+`GITHUB_DISPATCH_TOKEN` (59d) are *sensitive* Vercel vars (pull back empty, so
+not directly testable), but 401 = GitHub rejected the credential itself —
+an expired/revoked fine-grained PAT, which fits a 30-day expiry lapsing.
+Fix is a Tom-action re-mint (Contents:read on
+`Pinehollow-Studios/vestige-tool`) + Vercel env update; code can't help, but
+`source.ts` errors now append a `statusHint()` — 401 says "token expired,
+mint a new PAT", 403/404 says "token valid but can't see the repo" — so the
+next lapse self-diagnoses on screen.
+
+Verified `tsc` + `eslint` clean (build skipped per the light-verify rule; the
+surface is login-gated and the GitHub side is down until the token is
+re-minted anyway). No schema change; `dataset_imports` semantics shift only.
+
+---
+
 ## 2026-07-13 — Crash severity ranking + plain-English translation; email alerts replace Discord
 
 Crash reports came through in raw Sentry jargon (`EXC_BAD_ACCESS: Exception 1,

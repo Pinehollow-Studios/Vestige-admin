@@ -649,3 +649,17 @@ canonical write-up lives on disk.
   Sentry's native jargon email rule left for Tom to decide. Rule list duplicated
   across two runtimes — keep in sync. Verified `tsc`/`eslint`. Long-form in
   `CHANGELOG.md`.
+- **2026-08-04** — Course import goes **insert-only** + expired-token
+  diagnosis. The `/courses/import` apply was a full upsert, so it overwrote
+  course details Jack edited in the Bunker (par, yardage…); rewritten
+  `lib/courses-import/import.ts` now only *adds* new counties/clubs/courses
+  (existing rows never modified, nothing deleted) with one exception — NULL
+  `center_lat/lng` backfilled from the source centroid (190 prod courses
+  still lacked one; write re-guarded with `.is(null)`). Preview/console copy
+  + `ImportResult` fields renamed to match (`*Added`, `skippedCourses`; audit
+  columns keep `_upserted` names). Trade-off: polygon/detail changes to
+  existing courses in vestige-tool no longer propagate. Jack's 401 on the
+  pull = the sensitive-var GitHub PAT expired (Tom-action: re-mint with
+  Contents:read on `Pinehollow-Studios/vestige-tool`, update
+  `GITHUB_CONTENT_TOKEN` in Vercel); `source.ts` errors now self-diagnose
+  401 vs 403/404. Verified `tsc`/`eslint`. Long-form in `CHANGELOG.md`.

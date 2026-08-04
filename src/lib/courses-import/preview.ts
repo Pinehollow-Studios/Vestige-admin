@@ -16,15 +16,16 @@ export interface ImportPreview {
   /** Brand-new rows this import would add. */
   newCourses: { fid: number; name: string; county: string | null }[];
   newCounties: string[];
-  /** Existing courses the import will refresh in place (upsert). */
-  updatedCourses: number;
+  /** Courses already in the DB - the import leaves these untouched. */
+  skippedCourses: number;
 }
 
 /**
  * Diffs the transformed source dataset against the live DB by `legacy_fid`
- * (courses) and `slug` (counties). No writes. "New" = not yet in the DB;
- * "updated" = present and will be re-upserted. We don't deep-diff polygons
- * (too heavy) - the headline signal Jack wants is *which courses are new*.
+ * (courses) and `slug` (counties). No writes. "New" = not yet in the DB and
+ * will be inserted; everything already present is skipped (insert-only, so
+ * Bunker edits to existing courses survive). The headline signal Jack wants
+ * is *which courses are new*.
  */
 export async function buildPreview(
   supabase: SupabaseClient,
@@ -35,10 +36,10 @@ export async function buildPreview(
   const existingCountySlugs = await fetchExistingCountySlugs(supabase);
 
   const newCourses: ImportPreview["newCourses"] = [];
-  let updatedCourses = 0;
+  let skippedCourses = 0;
   for (const feature of courses.features) {
     const row = transformCourse(feature);
-    if (existingFids.has(row.legacyFid)) updatedCourses += 1;
+    if (existingFids.has(row.legacyFid)) skippedCourses += 1;
     else newCourses.push({ fid: row.legacyFid, name: row.name, county: row.countyName });
   }
 
@@ -55,7 +56,7 @@ export async function buildPreview(
     existingCounties: existingCountySlugs.size,
     newCourses: newCourses.sort((a, b) => a.name.localeCompare(b.name)),
     newCounties: newCounties.sort((a, b) => a.localeCompare(b)),
-    updatedCourses,
+    skippedCourses,
   };
 }
 
