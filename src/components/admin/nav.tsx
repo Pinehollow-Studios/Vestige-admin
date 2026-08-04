@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Award,
   BarChart3,
+  CalendarClock,
   Flag,
   Gauge,
   Crown,
@@ -62,6 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Editorial",
     items: [
       { href: "/curated", label: "Curated lists", icon: Sparkles, countKey: "curated" },
+      { href: "/events", label: "Clubhouse events", icon: CalendarClock },
       { href: "/courses", label: "Courses", icon: MapIcon, countKey: "courses" },
       { href: "/vestige-index", label: "Index", icon: Gauge },
       { href: "/badges", label: "Badges", icon: Award },

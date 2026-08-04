@@ -86,6 +86,20 @@ export function curatedCoverStorageKey(
 }
 
 /**
+ * Clubhouse event cover storage key. Same bucket + convention as
+ * curated covers, under the `events/` prefix the admin-write RLS
+ * policy from `20260804100000_clubhouse_events.sql` gates on.
+ */
+export function eventCoverStorageKey(
+  eventId: string,
+  cacheBuster: string = crypto.randomUUID(),
+): { path: string; key: string } {
+  const path = `events/${eventId.toLowerCase()}/cover.jpg`;
+  const key = `${path}?v=${cacheBuster}`;
+  return { path, key };
+}
+
+/**
  * Course hero photo public URL builder. Mirrors `listCoverURL`'s
  * shape but reads from the `course-covers` bucket (created by
  * `20260504200200_course_covers_bucket.sql`). The
