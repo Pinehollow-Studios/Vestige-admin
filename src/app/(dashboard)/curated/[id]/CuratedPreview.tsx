@@ -1,11 +1,11 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import type { CuratedCourseRow, CuratedListTier } from "../types";
+import type { CuratedCourseRow } from "../types";
 
 /**
  * App-accurate preview of the iOS curated-list detail screen, rebuilt to mirror
- * `CuratedListDetailView`: a full-bleed cover hero fading to paper with a tier
+ * `CuratedListDetailView`: a full-bleed cover hero fading to paper with a
  * pill and serif title, an editorial kicker (region · tags), a mint-ruled bio
  * pull-quote, a glass stat strip, then the course rows - each with a cover tile,
  * a position stamp on ordered lists, and the editor's note. Rendered from live
@@ -15,7 +15,6 @@ export function CuratedPreviewContent({
   name,
   summary,
   bio,
-  tier,
   isOrdered,
   coverURL,
   courses,
@@ -25,7 +24,6 @@ export function CuratedPreviewContent({
   name: string;
   summary: string;
   bio: string;
-  tier: CuratedListTier | null;
   isOrdered: boolean;
   coverURL: string | null;
   courses: CuratedCourseRow[];
@@ -46,11 +44,6 @@ export function CuratedPreviewContent({
           <div className="h-full w-full bg-gradient-to-br from-brand/25 via-paper-raised to-paper" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-paper via-paper/55 to-transparent" />
-        {tier && (
-          <span className="absolute right-3 top-3 inline-flex items-center rounded-full border border-white/20 bg-black/30 px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.18em] text-brand backdrop-blur-sm">
-            {tier}
-          </span>
-        )}
         <div className="absolute inset-x-0 bottom-0 space-y-1.5 p-4">
           <h2 className="font-display text-[26px] font-medium leading-[1.05] tracking-tight text-ink">
             {name || "Untitled list"}

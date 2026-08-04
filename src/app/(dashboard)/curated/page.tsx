@@ -38,7 +38,7 @@ export default async function CuratedListsPage(props: { searchParams: SearchPara
   const { data: lists, error } = await supabase
     .from("curated_lists")
     .select(
-      "id,name,slug,description,bio,tags,region,tier,display_priority,is_ordered,cover_storage_key,published_at,unpublished_at,is_archived,created_at,updated_at",
+      "id,name,slug,description,bio,tags,region,display_priority,is_ordered,cover_storage_key,published_at,unpublished_at,is_archived,created_at,updated_at",
     );
 
   const counts: Record<string, number> = {};
@@ -71,8 +71,6 @@ export default async function CuratedListsPage(props: { searchParams: SearchPara
     switch (sort) {
       case "status":
         return (STATUS_RANK[statusFor(a)] - STATUS_RANK[statusFor(b)]) * m;
-      case "tier":
-        return (a.tier ?? "").localeCompare(b.tier ?? "") * m;
       case "courses":
         return (a.course_count - b.course_count) * m;
       case "updated":
@@ -120,7 +118,6 @@ export default async function CuratedListsPage(props: { searchParams: SearchPara
           options={[
             { value: "name", label: "Name" },
             { value: "status", label: "Status" },
-            { value: "tier", label: "Tier" },
             { value: "courses", label: "Courses" },
             { value: "updated", label: "Updated" },
           ]}

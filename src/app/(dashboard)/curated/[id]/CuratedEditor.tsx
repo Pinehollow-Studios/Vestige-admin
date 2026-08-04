@@ -33,7 +33,6 @@ import {
   statusFor,
   type CuratedCourseRow,
   type CuratedListRow,
-  type CuratedListTier,
 } from "../types";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +42,6 @@ type CuratedForm = {
   description: string;
   bio: string;
   region: string;
-  tier: CuratedListTier | null;
   tags: string[];
   display_priority: number | null;
   is_ordered: boolean;
@@ -66,7 +64,6 @@ export function CuratedEditor({
       description: row.description ?? "",
       bio: row.bio ?? "",
       region: row.region ?? "",
-      tier: row.tier,
       tags: row.tags ?? [],
       display_priority: row.display_priority,
       is_ordered: row.is_ordered,
@@ -100,7 +97,6 @@ export function CuratedEditor({
           name={values.name}
           summary={values.description}
           bio={values.bio}
-          tier={values.tier}
           isOrdered={values.is_ordered}
           coverURL={coverURL}
           courses={courses}
@@ -170,24 +166,13 @@ export function CuratedEditor({
 
       <CourseSection row={row} courses={courses} />
 
-      <AdvancedSection title="Classification & ordering" hint="Slug, region, tier, tags, priority, ordering - rarely changes.">
+      <AdvancedSection title="Classification & ordering" hint="Slug, region, tags, priority, ordering - rarely changes.">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Slug" hint="URL-safe identifier.">
             <input value={values.slug} onChange={(e) => setField("slug", e.target.value)} className={fieldInputClass} />
           </Field>
           <Field label="Region" hint="South East, Heathlands…">
             <input value={values.region} onChange={(e) => setField("region", e.target.value)} className={fieldInputClass} />
-          </Field>
-          <Field label="Tier" hint="Flagship sorts first.">
-            <select
-              value={values.tier ?? ""}
-              onChange={(e) => setField("tier", (e.target.value || null) as CuratedListTier | null)}
-              className={fieldInputClass}
-            >
-              <option value="">Unclassified</option>
-              <option value="flagship">Flagship</option>
-              <option value="standard">Standard</option>
-            </select>
           </Field>
           <Field label="Display priority" hint="Lower sorts earlier. Blank = default.">
             <input

@@ -8,7 +8,6 @@
  * `20260503120000_curated_lists_richer_publishing.sql`.
  */
 
-export type CuratedListTier = "flagship" | "standard";
 
 export type CuratedListStatus =
   | "draft" // published_at is null
@@ -29,7 +28,6 @@ export type CuratedListRow = {
   bio: string | null;
   tags: string[];
   region: string | null;
-  tier: CuratedListTier | null;
   display_priority: number | null;
   is_ordered: boolean;
   cover_storage_key: string | null;

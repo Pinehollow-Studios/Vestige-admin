@@ -494,7 +494,6 @@ function curatedStatus(row: CuratedRow): CuratedListStatus {
     bio: null,
     tags: [],
     region: null,
-    tier: null,
     display_priority: null,
     is_ordered: false,
     cover_storage_key: null,

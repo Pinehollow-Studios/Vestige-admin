@@ -7,7 +7,7 @@ import { STATUS_CHIP, STATUS_DOT, STATUS_LABELS, statusFor, type CuratedListRow 
 /**
  * One curated list as a glass-panel card (replaces the old DataTable row).
  * Leads with the cover banner (or a tinted placeholder), then name + status
- * dot, description, and a footer of tier · course count. Links to the editor.
+ * dot, description, and a footer of course count. Links to the editor.
  */
 export function CuratedCard({ row }: { row: CuratedListRow }) {
   const status = statusFor(row);
@@ -46,7 +46,6 @@ export function CuratedCard({ row }: { row: CuratedListRow }) {
         </div>
         <div className="flex items-center justify-between gap-2 text-xs text-ink-3">
           <span className="flex items-center gap-2">
-            {row.tier && <span className="capitalize text-ink-2">{row.tier}</span>}
             <span className="inline-flex items-center gap-1 tabular-nums">
               <Hash aria-hidden className="size-3" />
               {row.course_count}

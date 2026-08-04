@@ -20,7 +20,7 @@ export default async function CuratedListEditorPage(props: { params: RouteParams
     supabase
       .from("curated_lists")
       .select(
-        "id,name,slug,description,bio,tags,region,tier,display_priority,is_ordered,cover_storage_key,published_at,unpublished_at,is_archived,created_at,updated_at",
+        "id,name,slug,description,bio,tags,region,display_priority,is_ordered,cover_storage_key,published_at,unpublished_at,is_archived,created_at,updated_at",
       )
       .eq("id", id)
       .maybeSingle(),

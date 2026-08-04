@@ -44,7 +44,7 @@ export async function createCuratedList(name: string): Promise<ActionResult<stri
 
 /**
  * Patch fields on a curated list. Empty strings get coerced to
- * null for the optional fields (description, bio, region, tier)
+ * null for the optional fields (description, bio, region)
  * because PostgREST sends empty strings as `''` not `null`.
  */
 export async function updateCuratedList(
@@ -55,7 +55,6 @@ export async function updateCuratedList(
     description?: string | null;
     bio?: string | null;
     region?: string | null;
-    tier?: "flagship" | "standard" | null;
     tags?: string[];
     display_priority?: number | null;
     is_ordered?: boolean;
@@ -76,7 +75,6 @@ export async function updateCuratedList(
   if (patch.description !== undefined) update.description = patch.description?.trim() || null;
   if (patch.bio !== undefined) update.bio = patch.bio?.trim() || null;
   if (patch.region !== undefined) update.region = patch.region?.trim() || null;
-  if (patch.tier !== undefined) update.tier = patch.tier;
   if (patch.tags !== undefined) update.tags = patch.tags;
   if (patch.display_priority !== undefined) update.display_priority = patch.display_priority;
   if (patch.is_ordered !== undefined) update.is_ordered = patch.is_ordered;
