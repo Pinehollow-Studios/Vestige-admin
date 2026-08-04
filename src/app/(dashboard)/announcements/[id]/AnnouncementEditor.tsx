@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { Check, Plus, Search, X } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { Check, Loader2, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -629,23 +629,48 @@ function IndividualsPicker({
   const [picked, setPicked] = useState<UserPickRow[]>(initialTargetUsers);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserPickRow[]>([]);
-  const [searching, startSearch] = useTransition();
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [saving, startSave] = useTransition();
+  const seqRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  function runSearch() {
-    const q = query.trim();
+  // Cancel any in-flight debounce on unmount.
+  useEffect(
+    () => () => {
+      clearTimeout(timerRef.current);
+      seqRef.current += 1;
+    },
+    [],
+  );
+
+  // Debounced type-ahead - results appear as the admin types (min 2 chars).
+  // The sequence counter drops stale responses so a slow early search can't
+  // clobber the results of a later keystroke.
+  function onQueryChange(value: string) {
+    setQuery(value);
+    clearTimeout(timerRef.current);
+    const seq = ++seqRef.current;
+    const q = value.trim();
     if (q.length < 2) {
       setResults([]);
+      setSearching(false);
+      setSearched(false);
       return;
     }
-    startSearch(async () => {
+    setSearching(true);
+    timerRef.current = setTimeout(async () => {
       const r = await searchUsers(q);
+      if (seq !== seqRef.current) return;
+      setSearching(false);
+      setSearched(true);
       if (!r.ok) {
         toast.error(r.message);
+        setResults([]);
         return;
       }
       setResults(r.data ?? []);
-    });
+    }, 300);
   }
 
   function add(user: UserPickRow) {
@@ -695,25 +720,19 @@ function IndividualsPicker({
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              runSearch();
-            }
+            if (e.key === "Enter") e.preventDefault();
           }}
-          placeholder="Search username or display name…"
+          placeholder="Type a username or display name…"
           className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-3 focus:outline-none"
         />
-        <button
-          type="button"
-          onClick={runSearch}
-          disabled={searching || query.trim().length < 2}
-          className="rounded-md bg-brand px-2.5 py-1 text-[11px] font-semibold text-brand-fg disabled:opacity-60"
-        >
-          {searching ? "…" : "Search"}
-        </button>
+        {searching && <Loader2 aria-hidden className="size-3.5 animate-spin text-ink-3" />}
       </div>
+
+      {searched && !searching && results.length === 0 && (
+        <p className="text-xs text-ink-3">No matching profiles.</p>
+      )}
 
       {results.length > 0 && (
         <ul className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-rule/70 bg-paper-raised p-1">

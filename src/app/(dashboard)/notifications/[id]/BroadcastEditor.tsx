@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Ban, Clock, Pencil, Search, Send, Trash2, Zap } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { Ban, Clock, Loader2, Pencil, Search, Send, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -510,20 +510,48 @@ function IndividualsPicker({
   const [picked, setPicked] = useState<UserPickRow[]>(initialTargetUsers);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserPickRow[]>([]);
-  const [searching, startSearch] = useTransition();
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [saving, startSave] = useTransition();
+  const seqRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  function runSearch() {
-    const q = query.trim();
+  // Cancel any in-flight debounce on unmount.
+  useEffect(
+    () => () => {
+      clearTimeout(timerRef.current);
+      seqRef.current += 1;
+    },
+    [],
+  );
+
+  // Debounced type-ahead - results appear as the admin types (min 2 chars).
+  // The sequence counter drops stale responses so a slow early search can't
+  // clobber the results of a later keystroke.
+  function onQueryChange(value: string) {
+    setQuery(value);
+    clearTimeout(timerRef.current);
+    const seq = ++seqRef.current;
+    const q = value.trim();
     if (q.length < 2) {
       setResults([]);
+      setSearching(false);
+      setSearched(false);
       return;
     }
-    startSearch(async () => {
+    setSearching(true);
+    timerRef.current = setTimeout(async () => {
       const r = await searchUsers(q);
-      if (!r.ok) { toast.error(r.message); return; }
+      if (seq !== seqRef.current) return;
+      setSearching(false);
+      setSearched(true);
+      if (!r.ok) {
+        toast.error(r.message);
+        setResults([]);
+        return;
+      }
       setResults(r.data ?? []);
-    });
+    }, 300);
   }
 
   function add(user: UserPickRow) {
@@ -569,23 +597,16 @@ function IndividualsPicker({
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } }}
-          placeholder="Search username or display name…"
+          onChange={(e) => onQueryChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+          placeholder="Type a username or display name…"
           className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-3 focus:outline-none"
         />
-        <button
-          type="button"
-          onClick={runSearch}
-          disabled={searching || query.trim().length < 2}
-          className="rounded-md bg-brand px-2.5 py-1 text-[11px] font-semibold text-brand-fg disabled:opacity-60"
-        >
-          Search
-        </button>
+        {searching && <Loader2 aria-hidden className="size-3.5 animate-spin text-ink-3" />}
       </div>
 
       {results.length > 0 && (
-        <div className="space-y-1">
+        <div className="max-h-56 space-y-1 overflow-y-auto">
           {results.map((u) => {
             const already = picked.some((p) => p.id === u.id);
             return (
@@ -594,14 +615,20 @@ function IndividualsPicker({
                 type="button"
                 onClick={() => add(u)}
                 disabled={already}
-                className="flex w-full items-center justify-between rounded-md border border-rule/60 bg-paper-sunken/40 px-2.5 py-1.5 text-left text-sm transition-colors hover:border-brand/30 disabled:opacity-50"
+                className="flex w-full items-center justify-between gap-2 rounded-md border border-rule/60 bg-paper-sunken/40 px-2.5 py-1.5 text-left text-sm transition-colors hover:border-brand/30 disabled:opacity-50"
               >
-                <span className="text-ink">{userLabel(u)}</span>
-                <span className="text-xs text-ink-3">{already ? "Added" : "+ Add"}</span>
+                <span className="min-w-0 truncate">
+                  <span className="text-ink">{userLabel(u)}</span>
+                  {u.username && u.display_name && <span className="ml-1 text-xs text-ink-3">@{u.username}</span>}
+                </span>
+                <span className="shrink-0 text-xs text-ink-3">{already ? "Added" : "+ Add"}</span>
               </button>
             );
           })}
         </div>
+      )}
+      {searched && !searching && results.length === 0 && (
+        <p className="text-xs text-ink-3">No matching profiles.</p>
       )}
 
       <Button onClick={persist} disabled={saving} variant="outline" size="sm" className="w-full">

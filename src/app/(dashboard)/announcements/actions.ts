@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { tryCreateServiceClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { sanitizeFilterValue } from "@/lib/security/postgrest";
 import { announcementMediaStorageKey } from "@/lib/storage";
@@ -219,9 +220,14 @@ export async function setTargets(
 }
 
 /**
- * Search users by username / display name for the individuals picker. Admin RLS
- * permits reading `public.users`; citext + ilike makes the match
- * case-insensitive (same query shape as the /users directory).
+ * Search users by username / display name for the individuals picker.
+ *
+ * Reads through the SERVER-ONLY service-role client: `public.users` has no
+ * admin SELECT policy - its RLS only exposes own row / public profiles /
+ * friends (see `lib/supabase/admin.ts`), so a session-client search silently
+ * returned a privacy-filtered slice of the roster. Gated by `requireAdmin()`
+ * before the RLS bypass, same pattern as `lib/users/roster.ts`. citext +
+ * ilike makes the match case-insensitive (same query shape as /users).
  */
 export async function searchUsers(query: string): Promise<ActionResult<UserPickRow[]>> {
   await requireAdmin();
@@ -229,7 +235,14 @@ export async function searchUsers(query: string): Promise<ActionResult<UserPickR
   const q = sanitizeFilterValue(query);
   if (q.length < 2) return { ok: true, data: [] };
 
-  const supabase = await createClient();
+  const supabase = await tryCreateServiceClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      message:
+        "User search needs the service-role key for the active environment - set SUPABASE_SERVICE_ROLE_KEY_DEV / SUPABASE_SERVICE_ROLE_KEY_PROD (server-only).",
+    };
+  }
   const { data, error } = await supabase
     .from("users")
     .select("id, username, display_name, avatar_photo_id")

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { tryCreateServiceClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { sanitizeFilterValue } from "@/lib/security/postgrest";
 import type { BroadcastAudienceKind, BroadcastTarget, UserPickRow } from "./types";
@@ -181,13 +182,28 @@ export async function setBroadcastTargets(id: string, userIds: string[]): Promis
   return { ok: true };
 }
 
-/** Search users by username / display name for the individuals picker. */
+/**
+ * Search users by username / display name for the individuals picker.
+ *
+ * Reads through the SERVER-ONLY service-role client: `public.users` has no
+ * admin SELECT policy - its RLS only exposes own row / public profiles /
+ * friends (see `lib/supabase/admin.ts`), so a session-client search silently
+ * returned a privacy-filtered slice of the roster. Gated by `requireAdmin()`
+ * before the RLS bypass, same pattern as `lib/users/roster.ts`.
+ */
 export async function searchUsers(query: string): Promise<ActionResult<UserPickRow[]>> {
   await requireAdmin();
   const q = sanitizeFilterValue(query);
   if (q.length < 2) return { ok: true, data: [] };
 
-  const supabase = await createClient();
+  const supabase = await tryCreateServiceClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      message:
+        "User search needs the service-role key for the active environment - set SUPABASE_SERVICE_ROLE_KEY_DEV / SUPABASE_SERVICE_ROLE_KEY_PROD (server-only).",
+    };
+  }
   const { data, error } = await supabase
     .from("users")
     .select("id, username, display_name, avatar_photo_id")
