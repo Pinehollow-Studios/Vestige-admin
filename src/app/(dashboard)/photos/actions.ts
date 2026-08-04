@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createServiceClient } from "@/lib/supabase/admin";
 
-export type ActionResult = { ok: true } | { ok: false; message: string };
+export type ActionResult = { ok: true; warning?: string } | { ok: false; message: string };
 
 export type ModerationState = "pending" | "approved" | "rejected" | "flagged";
 
@@ -97,4 +97,96 @@ export async function setPhotoModerationBulk(
 
   revalidatePath("/photos");
   return { ok: true };
+}
+
+type RemovableRow = {
+  id: string;
+  kind: "roundPhoto" | "coursePhoto" | "avatar";
+  original_storage_key: string | null;
+  variants: {
+    thumb_storage_key?: string;
+    medium_storage_key?: string;
+    large_storage_key?: string;
+  } | null;
+};
+
+/**
+ * Permanently remove photos: soft-delete the rows (`deleted_at = now()`) and
+ * purge the bytes from storage. Distinct from Reject, which is a reversible
+ * moderation-state flip that keeps the files - Remove is irreversible.
+ *
+ * Buckets per the iOS storage layout (`20260425200005_storage_buckets.sql` +
+ * `20260501170000_avatars_simple_overwrite_pattern.sql`): round / course
+ * originals live in `photos-original`, avatars in `avatars` (overwrite-in-
+ * place at `<userId>/avatar.jpg`, so removing an avatar photo purges the
+ * user's live avatar object), rendered variants in `photos-rendered`.
+ *
+ * Storage failures don't roll back the soft-delete: the rows are already dead
+ * to the app, so a leftover object is an orphan to sweep, not a resurrected
+ * photo - partial failures come back as a warning on the ok result.
+ */
+export async function removePhotos(photoIds: string[]): Promise<ActionResult> {
+  await requireAdmin();
+  if (photoIds.length === 0) return { ok: true };
+
+  let supabase;
+  try {
+    supabase = await createServiceClient();
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Service-role not configured",
+    };
+  }
+
+  // 1. Read the storage keys before the rows are touched.
+  const { data: rows, error: readErr } = await supabase
+    .from("photos")
+    .select("id, kind, original_storage_key, variants")
+    .in("id", photoIds);
+  if (readErr) return { ok: false, message: readErr.message };
+
+  // 2. Soft-delete - the authoritative "this photo is gone" bit.
+  const { error: delErr } = await supabase
+    .from("photos")
+    .update({ deleted_at: new Date().toISOString() })
+    .in("id", photoIds);
+  if (delErr) return { ok: false, message: delErr.message };
+
+  // 3. Purge storage, grouped per bucket. Tolerate partial failures.
+  const keysByBucket: Record<string, string[]> = {};
+  for (const row of ((rows ?? []) as RemovableRow[])) {
+    const originalBucket = row.kind === "avatar" ? "avatars" : "photos-original";
+    if (row.original_storage_key) {
+      (keysByBucket[originalBucket] ??= []).push(row.original_storage_key);
+    }
+    const variantKeys = [
+      row.variants?.thumb_storage_key,
+      row.variants?.medium_storage_key,
+      row.variants?.large_storage_key,
+    ];
+    for (const key of variantKeys) {
+      if (key) (keysByBucket["photos-rendered"] ??= []).push(key);
+    }
+  }
+
+  const failures: string[] = [];
+  for (const [bucket, keys] of Object.entries(keysByBucket)) {
+    const { error } = await supabase.storage.from(bucket).remove(keys);
+    if (error) failures.push(`${bucket}: ${error.message}`);
+  }
+
+  revalidatePath("/photos");
+  if (failures.length > 0) {
+    return {
+      ok: true,
+      warning: `Photos removed, but some storage objects couldn't be deleted (${failures.join("; ")}).`,
+    };
+  }
+  return { ok: true };
+}
+
+/** Single-photo variant of `removePhotos` (tile Remove button). */
+export async function removePhoto(photoId: string): Promise<ActionResult> {
+  return removePhotos([photoId]);
 }

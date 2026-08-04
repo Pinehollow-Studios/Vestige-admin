@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Check, ExternalLink, Flag, Image as ImageIcon, MapPin, RotateCcw, X } from "lucide-react";
+import { Check, ExternalLink, Flag, Image as ImageIcon, MapPin, RotateCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { useLiveRefresh } from "@/lib/hooks/useLiveRefresh";
 import { cn } from "@/lib/utils";
-import { setPhotoModeration, setPhotoModerationBulk, type ModerationState } from "./actions";
+import { removePhotos, setPhotoModeration, setPhotoModerationBulk, type ModerationState } from "./actions";
 
 export type PhotoKind = "roundPhoto" | "avatar" | "coursePhoto";
 
@@ -47,11 +48,19 @@ export function PhotoModerationGrid({
   // is hidden (it has moved out). Compared to the live `activeState` prop, so it
   // re-appears correctly when you navigate to the bucket it moved into.
   const [acted, setActed] = useState<Map<string, ModerationState>>(new Map());
+  // Permanently removed photos - hidden in every bucket (soft-deleted rows
+  // never come back, unlike a moderation-state move).
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  // Pending Remove confirmation - the ids the dialog is asking about.
+  const [confirmRemove, setConfirmRemove] = useState<string[]>([]);
   const [, startTransition] = useTransition();
+  const [removing, startRemove] = useTransition();
   const focusRef = useRef<string | null>(null);
   const { live } = useLiveRefresh("photos");
 
-  const visible = photos.filter((p) => !(acted.has(p.id) && acted.get(p.id) !== activeState));
+  const visible = photos.filter(
+    (p) => !removed.has(p.id) && !(acted.has(p.id) && acted.get(p.id) !== activeState),
+  );
 
   const act = useCallback((ids: string[], next: ModerationState, verb: string) => {
     if (ids.length === 0) return;
@@ -82,6 +91,35 @@ export function PhotoModerationGrid({
       }
     });
   }, []);
+
+  // Remove is destructive (soft-delete + storage purge) - always confirm.
+  const requestRemove = useCallback((ids: string[]) => {
+    if (ids.length > 0) setConfirmRemove(ids);
+  }, []);
+
+  const performRemove = useCallback(() => {
+    const ids = confirmRemove;
+    startRemove(async () => {
+      const res = await removePhotos(ids);
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      setRemoved((prev) => {
+        const s = new Set(prev);
+        for (const id of ids) s.add(id);
+        return s;
+      });
+      setSelected((prev) => {
+        const s = new Set(prev);
+        for (const id of ids) s.delete(id);
+        return s;
+      });
+      setConfirmRemove([]);
+      if (res.warning) toast.warning(res.warning);
+      else toast.success(ids.length > 1 ? `${ids.length} removed` : "Removed");
+    });
+  }, [confirmRemove]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -187,6 +225,7 @@ export function PhotoModerationGrid({
           onReject={() => act(Array.from(selected), "rejected", "rejected")}
           onFlag={() => act(Array.from(selected), "flagged", "flagged")}
           onReset={() => act(Array.from(selected), "pending", "reset to pending")}
+          onRemove={() => requestRemove(Array.from(selected))}
           onClear={() => setSelected(new Set())}
         />
       )}
@@ -202,9 +241,26 @@ export function PhotoModerationGrid({
               focusRef.current = p.id;
             }}
             onAct={(next, verb) => act([p.id], next, verb)}
+            onRemove={() => requestRemove([p.id])}
           />
         ))}
       </ul>
+
+      <ConfirmDialog
+        open={confirmRemove.length > 0}
+        title={confirmRemove.length > 1 ? `Remove ${confirmRemove.length} photos?` : "Remove this photo?"}
+        confirmLabel={removing ? "Removing…" : "Remove permanently"}
+        tone="danger"
+        busy={removing}
+        onConfirm={performRemove}
+        onCancel={() => {
+          if (!removing) setConfirmRemove([]);
+        }}
+      >
+        This permanently deletes the image {confirmRemove.length > 1 ? "files" : "file"} from storage
+        and can&apos;t be undone. If you might want {confirmRemove.length > 1 ? "these photos" : "this photo"}{" "}
+        back, use Reject instead - that&apos;s reversible.
+      </ConfirmDialog>
     </div>
   );
 }
@@ -216,6 +272,7 @@ function BulkBar({
   onReject,
   onFlag,
   onReset,
+  onRemove,
   onClear,
 }: {
   count: number;
@@ -224,6 +281,7 @@ function BulkBar({
   onReject: () => void;
   onFlag: () => void;
   onReset: () => void;
+  onRemove: () => void;
   onClear: () => void;
 }) {
   return (
@@ -250,6 +308,10 @@ function BulkBar({
           Reset
         </BulkBtn>
       )}
+      <span aria-hidden className="text-ink-3">·</span>
+      <BulkBtn tone="danger" onClick={onRemove} icon={<Trash2 className="size-3.5" />}>
+        Remove
+      </BulkBtn>
       <button
         type="button"
         onClick={onClear}
@@ -267,7 +329,7 @@ function BulkBtn({
   icon,
   children,
 }: {
-  tone: "brand" | "alert" | "amber" | "neutral";
+  tone: "brand" | "alert" | "amber" | "neutral" | "danger";
   onClick: () => void;
   icon: React.ReactNode;
   children: React.ReactNode;
@@ -279,7 +341,9 @@ function BulkBtn({
         ? "border-alert/40 text-alert hover:bg-alert/10"
         : tone === "amber"
           ? "border-amber/40 text-amber hover:bg-amber/10"
-          : "border-rule/70 text-ink-2 hover:text-ink";
+          : tone === "danger"
+            ? "border-alert/60 bg-alert/15 text-alert hover:bg-alert/25"
+            : "border-rule/70 text-ink-2 hover:text-ink";
   return (
     <button
       type="button"
@@ -301,12 +365,14 @@ function Tile({
   onToggle,
   onFocus,
   onAct,
+  onRemove,
 }: {
   photo: GridPhoto;
   selected: boolean;
   onToggle: () => void;
   onFocus: () => void;
   onAct: (next: ModerationState, verb: string) => void;
+  onRemove: () => void;
 }) {
   const p = photo;
   return (
@@ -401,6 +467,9 @@ function Tile({
                 <RotateCcw className="size-3.5" />
               </TileBtn>
             )}
+            <TileBtn tone="danger" onClick={onRemove} label="Remove permanently">
+              <Trash2 className="size-3.5" />
+            </TileBtn>
           </div>
         </figcaption>
       </figure>
@@ -414,7 +483,7 @@ function TileBtn({
   label,
   children,
 }: {
-  tone: "brand" | "alert" | "amber" | "neutral";
+  tone: "brand" | "alert" | "amber" | "neutral" | "danger";
   onClick: () => void;
   label: string;
   children: React.ReactNode;
@@ -426,7 +495,9 @@ function TileBtn({
         ? "border-alert/30 text-alert hover:bg-alert/10"
         : tone === "amber"
           ? "border-amber/30 text-amber hover:bg-amber/10"
-          : "border-rule/70 text-ink-3 hover:text-ink-2";
+          : tone === "danger"
+            ? "border-alert/60 bg-alert/15 text-alert hover:bg-alert/25"
+            : "border-rule/70 text-ink-3 hover:text-ink-2";
   return (
     <button
       type="button"

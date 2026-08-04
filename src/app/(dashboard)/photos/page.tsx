@@ -76,10 +76,15 @@ export default async function PhotosPage(props: { searchParams: SearchParams }) 
 
   const baseUrl = await activeStorageBaseUrl();
 
-  // Bucket counts (scoped to the kind filter) for the state tiles.
+  // Bucket counts (scoped to the kind filter) for the state tiles. Removed
+  // (soft-deleted) photos are out of the queue entirely.
   const modCountsRes = await Promise.all(
     MODERATION_BUCKETS.map(async (state) => {
-      let q = supabase.from("photos").select("id", { count: "exact", head: true }).eq("moderation_state", state);
+      let q = supabase
+        .from("photos")
+        .select("id", { count: "exact", head: true })
+        .eq("moderation_state", state)
+        .is("deleted_at", null);
       if (kind !== "all") q = q.eq("kind", kind);
       const { count } = await q;
       return [state, count ?? 0] as const;
@@ -92,6 +97,7 @@ export default async function PhotosPage(props: { searchParams: SearchParams }) 
     .from("photos")
     .select(PHOTO_COLS)
     .eq("moderation_state", active)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(FETCH_CAP);
   if (kind !== "all") listQuery = listQuery.eq("kind", kind);

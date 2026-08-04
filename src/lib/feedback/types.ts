@@ -21,7 +21,11 @@ export type FeedbackKind =
   | "crash"
   | "visualGlitch"
   | "performance"
-  | "confusingUX";
+  | "confusingUX"
+  // Feed post report (Vestige-ios 2026-08-05, `20260805100000_content_report_kind.sql`).
+  // Reason slug + post refs arrive in `category_context.extra`
+  // (`report_reason`, `feed_event_id`, `reported_user_id`, `reported_round_id`).
+  | "contentReport";
 export type FeedbackStatus =
   | "new"
   | "triaged"
@@ -222,6 +226,8 @@ export function kindLabel(kind: FeedbackKind): string {
       return "Performance";
     case "confusingUX":
       return "Confusing UX";
+    case "contentReport":
+      return "Post report";
   }
 }
 
@@ -506,6 +512,7 @@ export const FEEDBACK_KINDS: FeedbackKind[] = [
   "dataError",
   "featureRequest",
   "general",
+  "contentReport",
 ];
 
 /** Reporter-impact filter options. */
