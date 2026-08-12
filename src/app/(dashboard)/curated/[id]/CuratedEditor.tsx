@@ -24,6 +24,7 @@ import {
   updateCuratedList,
   uploadCuratedCover,
 } from "../actions";
+import { BulkImportPanel } from "./BulkImportPanel";
 import { CoverCropDialog } from "./CoverCropDialog";
 import { CoursePicker } from "./CoursePicker";
 import { CourseRowList } from "./CourseRowList";
@@ -425,6 +426,7 @@ function CourseSection({ row, courses }: { row: CuratedListRow; courses: Curated
       ) : (
         <CourseRowList listId={row.id} courses={courses} />
       )}
+      <BulkImportPanel listId={row.id} alreadyOnList={onListIds} />
     </EditorSection>
   );
 }

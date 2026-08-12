@@ -663,3 +663,10 @@ canonical write-up lives on disk.
   Contents:read on `Pinehollow-Studios/vestige-tool`, update
   `GITHUB_CONTENT_TOKEN` in Vercel); `source.ts` errors now self-diagnose
   401 vs 403/404. Verified `tsc`/`eslint`. Long-form in `CHANGELOG.md`.
+- **2026-08-12** — Bulk course import for curated lists: new
+  `BulkImportPanel` on `/curated/[id]` fuzzy-matches a pasted or one-click
+  ranked list (e.g. England's Top 100) against the live course catalogue for
+  review-then-commit bulk adds, instead of one-by-one via `CoursePicker`
+  (`lib/curated-import/*`; two new `curated/actions.ts` server actions,
+  `matchCoursesForImport` + `bulkAddMatchedCourses`). No schema change.
+  Long-form in `CHANGELOG.md`.

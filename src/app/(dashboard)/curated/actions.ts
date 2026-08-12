@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createDevClient } from "@/lib/supabase/server";
 import { curatedCoverStorageKey } from "@/lib/storage";
+import { matchAll, type CourseForMatching, type ImportInputRow, type MatchResult } from "@/lib/curated-import/match";
 
 export type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -182,6 +183,70 @@ export async function addCourseToList(
   return { ok: true };
 }
 
+/**
+ * Score every course in the live catalogue against each pasted/bundled
+ * import row (see `lib/curated-import/match.ts`) so `BulkImportPanel` can
+ * render a reviewable match instead of 100 manual searches. Read-only.
+ */
+export async function matchCoursesForImport(rows: ImportInputRow[]): Promise<ActionResult<MatchResult[]>> {
+  if (rows.length === 0) return { ok: false, message: "Nothing to match." };
+
+  const supabase = await createDevClient();
+  const catalogue: CourseForMatching[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("courses")
+      .select("id, name, clubs(name), counties(name)")
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) return { ok: false, message: error.message };
+    const rowsPage = (data ?? []) as {
+      id: string;
+      name: string;
+      clubs: { name: string }[] | { name: string } | null;
+      counties: { name: string }[] | { name: string } | null;
+    }[];
+    for (const r of rowsPage) {
+      catalogue.push({
+        id: r.id,
+        name: r.name,
+        club_name: unwrapJoin<{ name: string }>(r.clubs)?.name ?? null,
+        county_name: unwrapJoin<{ name: string }>(r.counties)?.name ?? null,
+      });
+    }
+    if (rowsPage.length < pageSize) break;
+  }
+
+  return { ok: true, data: matchAll(rows, catalogue) };
+}
+
+/**
+ * Bulk-write the admin's confirmed picks from the bulk-import review table.
+ * Same upsert shape as `reorderCourses` - idempotent, safe to re-run over
+ * rows already on the list (their position just gets rewritten to match).
+ */
+export async function bulkAddMatchedCourses(
+  listId: string,
+  picks: { course_id: string; position: number }[],
+): Promise<ActionResult<{ added: number }>> {
+  if (picks.length === 0) return { ok: false, message: "Nothing selected to add." };
+
+  const supabase = await createDevClient();
+  const rows = picks.map((p) => ({
+    curated_list_id: listId,
+    course_id: p.course_id,
+    position: p.position,
+  }));
+  const { error } = await supabase
+    .from("curated_list_courses")
+    .upsert(rows, { onConflict: "curated_list_id,course_id", ignoreDuplicates: false });
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/curated/${listId}`);
+  return { ok: true, data: { added: rows.length } };
+}
+
 export async function removeCourseFromList(
   listId: string,
   courseId: string,
@@ -305,6 +370,12 @@ export async function removeCuratedCover(listId: string): Promise<ActionResult> 
 // ---------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------
+
+function unwrapJoin<T>(value: unknown): T | null {
+  if (value == null) return null;
+  if (Array.isArray(value)) return (value[0] as T | undefined) ?? null;
+  return value as T;
+}
 
 function slugify(input: string): string {
   return input

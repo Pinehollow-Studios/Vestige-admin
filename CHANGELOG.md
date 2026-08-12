@@ -5,6 +5,48 @@
 
 ---
 
+## 2026-08-12 — Bulk course import for curated lists
+
+Jack had England's Top 100 lined up (ranked, from top100golfcourses.com) but
+adding 100 courses one at a time through `CoursePicker`'s search would have
+been brutal. New `BulkImportPanel` (`curated/[id]/BulkImportPanel.tsx`) sits
+below the course list on the curated-list editor: paste a ranked CSV/
+plain-text list, or one click **"Use England's Top 100"** (pre-seeded from
+`lib/curated-import/top100-england.ts`), and it fuzzy-matches every name
+against the live `courses` catalogue.
+
+**Matching (`lib/curated-import/match.ts`)** is a light token-overlap
+heuristic, not a fuzzy-match dependency — it only has to rank candidates well
+enough for an admin to eyeball, since nothing writes until confirmed. Course
+names get extra weight for a parenthetical variant ("(Old)", "(New)", "(Red &
+Blue)"...), since that's usually the only thing distinguishing sibling
+courses at one club (the two Sunningdale courses, three Woburn courses,
+Walton Heath Old/New, etc.); location text gets a smaller bonus toward the
+matching county.
+
+**Review, then commit.** The panel renders every input row with a confidence
+badge (matched / check this one / no match) and an editable dropdown of the
+top 5 candidates, defaulting to the best guess. Rows already on the list are
+detected and skipped. Confirming calls two new read/write-split
+`curated/actions.ts` server actions: `matchCoursesForImport` (read-only,
+paginates the full catalogue in 1,000-row pages since PostgREST caps a single
+request) and `bulkAddMatchedCourses` (one batched `upsert` into
+`curated_list_courses`, same `onConflict` shape as the existing
+`reorderCourses` — idempotent, safe to re-run).
+
+Deliberately generic, not England's-Top-100-specific — the paste path works
+for any future ranked list, the bundled data is just a one-click shortcut for
+this one. The source `top100_england_golf_courses.csv`/`.json` (the raw
+scrape) are kept local and untracked, not committed — the ranked data ships
+baked into `top100-england.ts` instead, so no third-party scrape sits in the
+repo.
+
+No schema/migration change — reads/writes existing `courses` +
+`curated_list_courses`. Verified `tsc`/`eslint`/`build` clean; UI is
+login-gated, not headlessly tested.
+
+---
+
 ## 2026-08-04 — Course import goes insert-only; expired-token diagnosis
 
 Jack hit two problems on `/courses/import`. First, the "pull" button failed
