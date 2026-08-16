@@ -6,51 +6,61 @@ import { toast } from "sonner";
 import { ChevronDown, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
-import { recomputeVestigeIndex, setVestigeIndexSwing } from "../courses/actions";
-import { projectIndex } from "./formula";
+import { recomputeVestigeIndex, setVestigeIndexWeights } from "../courses/actions";
+import { projectIndex, type IndexWeights } from "./formula";
 
-/** A fixed reference course used to show, live, what the current swing does. */
-const EXAMPLE = { prestige: 70, rarity: 90 } as const;
+/** A fixed reference course used to show, live, what the current weights do. */
+const EXAMPLE = { design: 90, setting: 85, heritage: 95, consensus: 88 } as const;
+
+const WEIGHT_FIELDS: { key: keyof IndexWeights; label: string; hint: string }[] = [
+  { key: "design", label: "Design", hint: "The golf itself — routing, variety, strategy" },
+  { key: "setting", label: "Setting", hint: "The land, views, sense of place" },
+  { key: "heritage", label: "Heritage", hint: "Age, architect, pedigree, cultural weight" },
+  { key: "consensus", label: "Consensus", hint: "Encoded external top-100 rankings" },
+  { key: "pull", label: "Pull", hint: "Live play demand — dormant until the base is real" },
+];
 
 /**
  * The Vestige Index control panel - the global mechanics, laid bare. Shows the
- * exact blend formula, a live worked example, the one global knob (rarity
- * swing) as a slider + numeric bound together, and a recompute-now action.
- * Built so Jack can see *why* every Index is what it is and tune the blend with
- * full confidence. Prestige itself is edited per-course in the table below.
+ * exact blend formula, the five input weights as bound slider+numeric pairs, a
+ * live worked example, and a recompute-now action. Built so Jack can see *why*
+ * every Index is what it is and tune the blend with full confidence. The axis
+ * scores themselves are edited per-course in the table below.
  */
 export function IndexMechanics({
-  raritySwing,
+  weights,
   updatedAt,
   updatedByName,
 }: {
-  raritySwing: number;
+  weights: IndexWeights;
   updatedAt: string | null;
   updatedByName: string | null;
 }) {
   const router = useRouter();
-  const [swing, setSwing] = useState(raritySwing);
+  const [w, setW] = useState<IndexWeights>(weights);
   const [pending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // Collapsed by default — we're stepping back from this calc for now (too few
-  // users for rarity to behave), so it sits quietly until someone wants to tune.
   const [open, setOpen] = useState(false);
 
-  const dirty = swing !== raritySwing;
-  const pct = Math.round(swing * 100);
-  const exampleIndex = projectIndex(EXAMPLE.prestige, EXAMPLE.rarity, swing);
+  const dirty = WEIGHT_FIELDS.some(({ key }) => w[key] !== weights[key]);
+  const sum = w.design + w.setting + w.heritage + w.consensus + w.pull;
+  const exampleIndex = projectIndex(EXAMPLE, "championship", 1895, null, w);
 
-  function clampSwing(v: number) {
+  function setWeight(key: keyof IndexWeights, v: number) {
     if (!Number.isFinite(v)) return;
-    setSwing(Math.max(0, Math.min(1, v)));
+    setW((s) => ({ ...s, [key]: Math.max(0, Math.min(1, v)) }));
   }
 
-  function applySwing() {
+  function pct(v: number) {
+    return sum > 0 ? Math.round((v / sum) * 100) : 0;
+  }
+
+  function applyWeights() {
     startTransition(async () => {
-      const res = await setVestigeIndexSwing(swing);
+      const res = await setVestigeIndexWeights(w);
       setConfirmOpen(false);
       if (res.ok) {
-        toast.success(`Rarity swing set to ±${Math.round(swing * 100)}% · index recomputed`);
+        toast.success("Weights applied · index recomputed");
         router.refresh();
       } else {
         toast.error(res.message);
@@ -84,7 +94,9 @@ export function IndexMechanics({
           </span>
           <h2 className="text-sm font-semibold text-ink">Index mechanics</h2>
           <span className="text-xs tabular-nums text-ink-3">
-            rarity swing ±{pct}%{dirty && <span className="text-amber"> · unsaved</span>}
+            D {pct(w.design)} · S {pct(w.setting)} · H {pct(w.heritage)} · C {pct(w.consensus)}
+            {w.pull > 0 && <> · P {pct(w.pull)}</>}%
+            {dirty && <span className="text-amber"> · unsaved</span>}
           </span>
           <ChevronDown
             aria-hidden
@@ -101,91 +113,105 @@ export function IndexMechanics({
         <div className="space-y-4 border-t border-rule/60 px-5 pb-5 pt-4">
           {/* The formula, written out. */}
           <div className="rounded-lg border border-rule/60 bg-paper-sunken/40 px-4 py-3">
-        <p className="font-mono text-[13px] leading-relaxed text-ink-2">
-          <span className="text-brand">index</span> = clamp( <span className="text-ink">prestige</span> ×
-          (1 + <span className="text-ink">swing</span> × (<span className="text-ink">rarity</span> − 50) / 50), 0, 100 )
-        </p>
-        <p className="mt-1 text-xs text-ink-3">
-          Prestige is your editorial anchor (0-100). Rarity (0-100, 100 = rarest) is computed live from plays. Swing
-          is how far rarity may push prestige, ±.
-        </p>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-[1fr_auto]">
-        {/* Rarity swing control. */}
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between gap-2">
-            <label htmlFor="swing-range" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
-              Rarity swing
-            </label>
-            <span className="text-xs tabular-nums text-ink-3">
-              ±{pct}% {dirty && <span className="text-amber">· unsaved</span>}
-            </span>
+            <p className="font-mono text-[13px] leading-relaxed text-ink-2">
+              <span className="text-brand">index</span> = clamp( (<span className="text-ink">wD</span>·design +{" "}
+              <span className="text-ink">wS</span>·setting + <span className="text-ink">wH</span>·heritage +{" "}
+              <span className="text-ink">wC</span>·consensus + <span className="text-ink">wP</span>·pull) / Σw, 0, 100 )
+            </p>
+            <p className="mt-1 text-xs text-ink-3">
+              Design, setting + heritage are hand-scored 0-100 (blank falls back to consensus, then the tier seed).
+              Consensus is the encoded external rankings — when a course has none, its weight redistributes. Pull is
+              live play demand, weighted 0 until the user base can carry it.
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              id="swing-range"
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={swing}
-              onChange={(e) => clampSwing(Number(e.target.value))}
-              className="h-1.5 flex-1 cursor-pointer accent-brand"
-            />
-            <input
-              type="number"
-              min={0}
-              max={1}
-              step={0.01}
-              value={swing}
-              onChange={(e) => clampSwing(Number(e.target.value))}
-              className="h-9 w-20 rounded-lg border border-rule/70 bg-paper-sunken/40 px-3 text-sm tabular-nums text-ink outline-none focus:border-brand/50"
-            />
-            <Button size="sm" disabled={pending || !dirty} onClick={() => setConfirmOpen(true)}>
-              Apply
-            </Button>
-          </div>
-          <p className="text-xs text-ink-3">
-            {updatedAt
-              ? `Last tuned ${relativeTime(updatedAt)} ago${updatedByName ? ` by ${updatedByName}` : ""}.`
-              : "Not yet tuned."}{" "}
-            Applying recomputes every course.
-          </p>
-        </div>
 
-        {/* Live worked example. */}
-        <div className="rounded-lg border border-rule/60 bg-paper-sunken/30 px-4 py-3 lg:w-56">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">Worked example</p>
-          <p className="mt-1 text-xs text-ink-3">
-            prestige {EXAMPLE.prestige} · rarity {EXAMPLE.rarity}
-          </p>
-          <p className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-ink-3">→ index</span>
-            <span className="font-display text-2xl font-semibold tabular-nums text-brand">{exampleIndex}</span>
-          </p>
-          <p className="mt-1 text-[11px] text-ink-3">at ±{pct}% swing</p>
-        </div>
+          <div className="grid gap-5 lg:grid-cols-[1fr_auto]">
+            {/* Weight controls. */}
+            <div className="space-y-3">
+              {WEIGHT_FIELDS.map(({ key, label, hint }) => (
+                <div key={key} className="flex flex-wrap items-center gap-3">
+                  <label
+                    htmlFor={`weight-${key}`}
+                    title={hint}
+                    className="w-24 shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3"
+                  >
+                    {label}
+                  </label>
+                  <input
+                    id={`weight-${key}`}
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={w[key]}
+                    onChange={(e) => setWeight(key, Number(e.target.value))}
+                    className="h-1.5 min-w-24 flex-1 cursor-pointer accent-brand"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={w[key]}
+                    onChange={(e) => setWeight(key, Number(e.target.value))}
+                    className="h-9 w-20 rounded-lg border border-rule/70 bg-paper-sunken/40 px-3 text-sm tabular-nums text-ink outline-none focus:border-brand/50"
+                  />
+                  <span className="w-10 text-right text-xs tabular-nums text-ink-3">{pct(w[key])}%</span>
+                </div>
+              ))}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <p className="text-xs text-ink-3">
+                  {sum <= 0 ? (
+                    <span className="text-alert">Weights can&apos;t all be zero.</span>
+                  ) : (
+                    <>
+                      Σ {sum.toFixed(2)} (renormalised at compute).{" "}
+                      {updatedAt
+                        ? `Last tuned ${relativeTime(updatedAt)} ago${updatedByName ? ` by ${updatedByName}` : ""}.`
+                        : "Not yet tuned."}{" "}
+                      Applying recomputes every course.
+                    </>
+                  )}
+                </p>
+                <Button size="sm" disabled={pending || !dirty || sum <= 0} onClick={() => setConfirmOpen(true)}>
+                  Apply
+                </Button>
+              </div>
+            </div>
+
+            {/* Live worked example. */}
+            <div className="rounded-lg border border-rule/60 bg-paper-sunken/30 px-4 py-3 lg:w-60">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">Worked example</p>
+              <p className="mt-1 text-xs text-ink-3">
+                design {EXAMPLE.design} · setting {EXAMPLE.setting}
+                <br />
+                heritage {EXAMPLE.heritage} · consensus {EXAMPLE.consensus}
+              </p>
+              <p className="mt-2 flex items-baseline gap-1.5">
+                <span className="text-ink-3">→ index</span>
+                <span className="font-display text-2xl font-semibold tabular-nums text-brand">{exampleIndex}</span>
+              </p>
+              <p className="mt-1 text-[11px] text-ink-3">at the staged weights</p>
+            </div>
           </div>
         </div>
       )}
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Apply rarity swing?"
-        confirmLabel={`Apply ±${pct}%`}
+        title="Apply blend weights?"
+        confirmLabel="Apply weights"
         busy={pending}
-        onConfirm={applySwing}
+        onConfirm={applyWeights}
         onCancel={() => {
           if (!pending) setConfirmOpen(false);
         }}
       >
         <p>
-          Setting the swing to <strong className="text-ink">±{pct}%</strong> recomputes the Vestige
-          Index for <strong className="text-ink">every course</strong> - shifting rankings across
-          the app.
+          Applying these weights recomputes the Vestige Index for{" "}
+          <strong className="text-ink">every course</strong> - shifting rankings across the app.
         </p>
-        <p className="mt-2 text-ink-3">Reversible: set it back and re-apply.</p>
+        <p className="mt-2 text-ink-3">Reversible: set them back and re-apply.</p>
       </ConfirmDialog>
     </section>
   );

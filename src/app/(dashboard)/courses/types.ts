@@ -41,12 +41,17 @@ export type CourseRow = {
   established: number | null;
   description: string | null;
   curated_list_ids: string[];
-  /** Editorial 0-100 prestige input to the Vestige Index (admin-set). */
-  prestige: number;
-  prestige_source: string | null;
-  /** Live computed 0-100 Vestige Index (prestige blended with rarity). */
+  /** Editorial axis scores (0-100, null = unscored) feeding the Vestige Index. */
+  design_score: number | null;
+  setting_score: number | null;
+  heritage_score: number | null;
+  /** Encoded external ranking consensus (0-100, null = not externally ranked). */
+  consensus_score: number | null;
+  /** Provenance note for the axis scores. */
+  score_source: string | null;
+  /** Live computed 0-100 Vestige Index (weighted blend of the axis scores). */
   vestige_index: number | null;
-  /** Computed 0-100 rarity score (100 = rarest). */
+  /** Legacy computed 0-100 rarity (100 = rarest) — no longer feeds the Index. */
   vestige_rarity: number | null;
   /** Distinct players who have this course in their collection. */
   play_count: number;

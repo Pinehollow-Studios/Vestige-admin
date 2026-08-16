@@ -174,24 +174,44 @@ export async function removeCourseCover(courseId: string): Promise<ActionResult>
   return { ok: true };
 }
 
+/** One course's stageable axis scores: null = unscored (cleared). */
+export type AxisScoreInput = {
+  design: number | null;
+  setting: number | null;
+  heritage: number | null;
+  consensus: number | null;
+};
+
+function validAxis(v: number | null): boolean {
+  return v === null || (Number.isFinite(v) && v >= 0 && v <= 100);
+}
+
+function validScores(s: AxisScoreInput): boolean {
+  return validAxis(s.design) && validAxis(s.setting) && validAxis(s.heritage) && validAxis(s.consensus);
+}
+
 /**
- * Set a course's editorial prestige (0-100) + optional source note via the
- * `admin_set_course_prestige` RPC, which writes the value, stamps the audit
- * columns, and recomputes the whole Vestige Index in one atomic call.
- * Returns the course's new index for an immediate optimistic readout.
+ * Set one course's editorial axis scores (design/setting/heritage/consensus,
+ * null = unscored) + optional provenance note via `admin_set_course_scores`,
+ * which writes the values, stamps the audit columns, and recomputes the whole
+ * Vestige Index in one atomic call. Returns the course's new index for an
+ * immediate optimistic readout.
  */
-export async function setCoursePrestige(
+export async function setCourseScores(
   courseId: string,
-  prestige: number,
+  scores: AxisScoreInput,
   source: string | null,
 ): Promise<ActionResult<number | null>> {
-  if (!Number.isFinite(prestige) || prestige < 0 || prestige > 100) {
-    return { ok: false, message: "Prestige must be 0-100." };
+  if (!validScores(scores)) {
+    return { ok: false, message: "Every score must be 0-100 (or blank)." };
   }
   const supabase = await createDevClient();
-  const { data, error } = await supabase.rpc("admin_set_course_prestige", {
+  const { data, error } = await supabase.rpc("admin_set_course_scores", {
     p_course: courseId,
-    p_prestige: Math.round(prestige),
+    p_design: scores.design === null ? null : Math.round(scores.design),
+    p_setting: scores.setting === null ? null : Math.round(scores.setting),
+    p_heritage: scores.heritage === null ? null : Math.round(scores.heritage),
+    p_consensus: scores.consensus === null ? null : Math.round(scores.consensus),
     p_source: source?.trim() || null,
   });
   if (error) return { ok: false, message: error.message };
@@ -203,29 +223,32 @@ export async function setCoursePrestige(
 }
 
 /**
- * Batch-set editorial prestige (+ optional source) for many courses in one
- * call via `admin_set_courses_prestige(jsonb)`, which applies every edit then
- * recomputes the Vestige Index **once** (vs the per-course RPC, which recomputes
- * the whole table on every single edit). Powers the Index batch editor's
- * "Save N changes". Validated all-or-nothing: any out-of-range value rejects the
- * whole batch before it touches the DB. Returns the number of rows updated.
+ * Batch-set axis scores (+ optional source) for many courses in one call via
+ * `admin_set_courses_scores(jsonb)`, which applies every edit then recomputes
+ * the Vestige Index **once** (vs the per-course RPC, which recomputes the
+ * whole table on every single edit). Powers the Index batch editor's
+ * "Save N changes". Validated all-or-nothing: any out-of-range value rejects
+ * the whole batch before it touches the DB. Returns the number of rows updated.
  */
-export async function setCoursesPrestige(
-  items: { courseId: string; prestige: number; source?: string | null }[],
+export async function setCoursesScores(
+  items: ({ courseId: string; source?: string | null } & AxisScoreInput)[],
 ): Promise<ActionResult<number>> {
   if (items.length === 0) return { ok: true, data: 0 };
   for (const it of items) {
-    if (!Number.isFinite(it.prestige) || it.prestige < 0 || it.prestige > 100) {
-      return { ok: false, message: "Every prestige must be 0-100." };
+    if (!validScores(it)) {
+      return { ok: false, message: "Every score must be 0-100 (or blank)." };
     }
   }
   const supabase = await createDevClient();
   const payload = items.map((it) => ({
     course_id: it.courseId,
-    prestige: Math.round(it.prestige),
+    design: it.design === null ? null : Math.round(it.design),
+    setting: it.setting === null ? null : Math.round(it.setting),
+    heritage: it.heritage === null ? null : Math.round(it.heritage),
+    consensus: it.consensus === null ? null : Math.round(it.consensus),
     source: it.source?.trim() || null,
   }));
-  const { data, error } = await supabase.rpc("admin_set_courses_prestige", {
+  const { data, error } = await supabase.rpc("admin_set_courses_scores", {
     p_items: payload,
   });
   if (error) return { ok: false, message: error.message };
@@ -246,17 +269,31 @@ export async function recomputeVestigeIndex(): Promise<ActionResult<number>> {
 }
 
 /**
- * Tune the global blend (rarity swing, 0-1) via `admin_set_vestige_index_config`,
- * which also recomputes every index. `rarity_swing` is the ± fraction rarity
- * applies to prestige (0.15 = ±15%).
+ * Tune the global blend weights via `admin_set_vestige_index_weights`, which
+ * also recomputes every index. Each weight is 0-1; they're renormalised at
+ * compute so they needn't sum to exactly 1 (but must sum > 0).
  */
-export async function setVestigeIndexSwing(raritySwing: number): Promise<ActionResult> {
-  if (!Number.isFinite(raritySwing) || raritySwing < 0 || raritySwing > 1) {
-    return { ok: false, message: "Rarity swing must be 0-1." };
+export async function setVestigeIndexWeights(w: {
+  design: number;
+  setting: number;
+  heritage: number;
+  consensus: number;
+  pull: number;
+}): Promise<ActionResult> {
+  const all = [w.design, w.setting, w.heritage, w.consensus, w.pull];
+  if (all.some((v) => !Number.isFinite(v) || v < 0 || v > 1)) {
+    return { ok: false, message: "Every weight must be 0-1." };
+  }
+  if (all.reduce((a, b) => a + b, 0) <= 0) {
+    return { ok: false, message: "Weights can't all be zero." };
   }
   const supabase = await createDevClient();
-  const { error } = await supabase.rpc("admin_set_vestige_index_config", {
-    p_rarity_swing: raritySwing,
+  const { error } = await supabase.rpc("admin_set_vestige_index_weights", {
+    p_design: w.design,
+    p_setting: w.setting,
+    p_heritage: w.heritage,
+    p_consensus: w.consensus,
+    p_pull: w.pull,
   });
   if (error) return { ok: false, message: error.message };
   revalidatePath("/vestige-index");

@@ -670,3 +670,16 @@ canonical write-up lives on disk.
   (`lib/curated-import/*`; two new `curated/actions.ts` server actions,
   `matchCoursesForImport` + `bulkAddMatchedCourses`). No schema change.
   Long-form in `CHANGELOG.md`.
+- **2026-08-16** — Vestige Index rework: **rarity removed from the blend**
+  (noise at beta user counts; the inverted-score bootstrap trap). New model =
+  weighted blend of three hand-scored axes (design/setting/heritage) +
+  encoded external **consensus** + a dormant live **pull** slot (w=0 at
+  launch), unscored axes falling back to consensus → tier seed; weights
+  tunable. iOS migration `20260816100000_vestige_index_rework.sql` (additive;
+  `vestige_rarity`/`play_count` still computed for live app readers; new
+  `admin_set_course(s)_scores` + `admin_set_vestige_index_weights` RPCs;
+  prestige left as legacy) **applied to dev + prod same-day** at Tom's
+  request. Bunker: `/vestige-index` 4-axis batch editor + weights mechanics
+  panel + "Seed" provisional chips; `PrestigeEditor` → `ScoreEditor` on
+  `/courses/[id]`. Verified `tsc`/`eslint`/`build`. Long-form in
+  `CHANGELOG.md`.

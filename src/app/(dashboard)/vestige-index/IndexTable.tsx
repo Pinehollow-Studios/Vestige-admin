@@ -6,9 +6,9 @@ import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { setCoursesPrestige } from "../courses/actions";
+import { setCoursesScores } from "../courses/actions";
 import { TIER_LABELS, type CourseTier } from "../courses/types";
-import { projectIndex } from "./formula";
+import { projectIndex, isUnscored, TIER_SEED, type IndexWeights } from "./formula";
 
 export type IndexRow = {
   rank: number;
@@ -17,42 +17,67 @@ export type IndexRow = {
   clubName: string | null;
   countyName: string | null;
   tier: CourseTier;
-  prestige: number;
-  prestigeSource: string | null;
+  established: number | null;
+  design: number | null;
+  setting: number | null;
+  heritage: number | null;
+  consensus: number | null;
+  scoreSource: string | null;
   vestigeIndex: number | null;
   vestigeRarity: number | null;
   playCount: number;
 };
 
-type Edit = { prestige: string; source: string };
+type Edit = { design: string; setting: string; heritage: string; consensus: string; source: string };
+
+const AXES = ["design", "setting", "heritage", "consensus"] as const;
+type Axis = (typeof AXES)[number];
+
+const AXIS_LABELS: Record<Axis, string> = {
+  design: "Design",
+  setting: "Setting",
+  heritage: "Heritage",
+  consensus: "Consensus",
+};
 
 /**
- * The ranked Index table as a *batch editor*. Prestige + source edits are
- * staged locally (not autosaved); each edited row previews its projected Index
- * live from the real formula, and a sticky bar commits every change at once via
- * the batch RPC (one recompute, not one per edit). Index + rarity are computed,
- * read-only. Expanding a row shows its plays → rarity → index breakdown and the
- * editorial source note.
+ * The ranked Index table as a *batch editor*. The four axis scores (design /
+ * setting / heritage / consensus; blank = unscored) + the source note stage
+ * locally (not autosaved); each edited row previews its projected Index live
+ * from the real blend, and a sticky bar commits every change at once via the
+ * batch RPC (one recompute, not one per edit). The Index itself is computed,
+ * read-only. Expanding a row shows the blend breakdown + the source note.
  */
-export function IndexTable({ rows, raritySwing }: { rows: IndexRow[]; raritySwing: number }) {
+export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: IndexWeights }) {
   const router = useRouter();
   const [edits, setEdits] = useState<Record<string, Edit>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const editFor = (row: IndexRow): Edit =>
-    edits[row.id] ?? { prestige: String(row.prestige), source: row.prestigeSource ?? "" };
+    edits[row.id] ?? {
+      design: row.design == null ? "" : String(row.design),
+      setting: row.setting == null ? "" : String(row.setting),
+      heritage: row.heritage == null ? "" : String(row.heritage),
+      consensus: row.consensus == null ? "" : String(row.consensus),
+      source: row.scoreSource ?? "",
+    };
 
-  const prestigeNum = (row: IndexRow): number => Number(editFor(row).prestige);
-  const prestigeValid = (row: IndexRow): boolean => {
-    const n = prestigeNum(row);
-    return Number.isFinite(n) && n >= 0 && n <= 100 && editFor(row).prestige.trim() !== "";
+  /** Parse one staged axis value: blank = null (unscored); otherwise a number. */
+  const axisNum = (row: IndexRow, axis: Axis): number | null => {
+    const raw = editFor(row)[axis].trim();
+    return raw === "" ? null : Number(raw);
   };
+  const axisValid = (row: IndexRow, axis: Axis): boolean => {
+    const n = axisNum(row, axis);
+    return n === null || (Number.isFinite(n) && n >= 0 && n <= 100);
+  };
+  const rowValid = (row: IndexRow): boolean => AXES.every((a) => axisValid(row, a));
   const isDirty = (row: IndexRow): boolean => {
     const e = editFor(row);
-    const prestigeChanged = prestigeValid(row) && prestigeNum(row) !== row.prestige;
-    const sourceChanged = e.source.trim() !== (row.prestigeSource ?? "").trim();
-    return prestigeChanged || sourceChanged;
+    const scoreChanged = AXES.some((a) => axisValid(row, a) && axisNum(row, a) !== row[a]);
+    const sourceChanged = e.source.trim() !== (row.scoreSource ?? "").trim();
+    return scoreChanged || sourceChanged;
   };
 
   const dirtyRows = useMemo(
@@ -61,7 +86,7 @@ export function IndexTable({ rows, raritySwing }: { rows: IndexRow[]; raritySwin
     [rows, edits],
   );
   const anyInvalid = useMemo(
-    () => rows.some((r) => !prestigeValid(r)),
+    () => rows.some((r) => !rowValid(r)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows, edits],
   );
@@ -77,16 +102,19 @@ export function IndexTable({ rows, raritySwing }: { rows: IndexRow[]; raritySwin
   function save() {
     if (dirtyRows.length === 0) return;
     if (anyInvalid) {
-      toast.error("Some prestige values are outside 0-100.");
+      toast.error("Some scores are outside 0-100.");
       return;
     }
     const items = dirtyRows.map((r) => ({
       courseId: r.id,
-      prestige: prestigeNum(r),
+      design: axisNum(r, "design"),
+      setting: axisNum(r, "setting"),
+      heritage: axisNum(r, "heritage"),
+      consensus: axisNum(r, "consensus"),
       source: editFor(r).source.trim() || null,
     }));
     startTransition(async () => {
-      const res = await setCoursesPrestige(items);
+      const res = await setCoursesScores(items);
       if (res.ok) {
         toast.success(`Saved ${res.data?.toLocaleString() ?? items.length} courses · index recomputed`);
         setEdits({});
@@ -104,21 +132,23 @@ export function IndexTable({ rows, raritySwing }: { rows: IndexRow[]; raritySwin
   return (
     <div className="space-y-3">
       <div className="overflow-hidden rounded-xl glass-panel">
-        {/* Horizontal scroll so the batch editor doesn't force the page wider
-            than the viewport on a phone (the other axes already hide columns). */}
+        {/* Horizontal scroll so the four score columns don't force the page
+            wider than the viewport on a phone. */}
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[520px] text-sm">
+        <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b border-rule/60 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
               <th className="px-3 py-2.5 text-right">#</th>
               <th className="px-3 py-2.5">Course</th>
-              <th className="hidden px-3 py-2.5 sm:table-cell">Tier</th>
-              <th className="hidden px-3 py-2.5 text-right md:table-cell">Plays</th>
-              <th className="hidden px-3 py-2.5 text-right md:table-cell">Rarity</th>
-              <th className="px-3 py-2.5 text-right">Prestige</th>
+              <th className="hidden px-3 py-2.5 xl:table-cell">Tier</th>
+              {AXES.map((a) => (
+                <th key={a} className="px-2 py-2.5 text-right">
+                  {AXIS_LABELS[a]}
+                </th>
+              ))}
               <th
                 className="px-3 py-2.5 text-right"
-                title="Live preview of this row's Index from the current prestige + swing. Exact for the edited row; other rows can shift a point on recompute."
+                title="Live preview of this row's Index from the staged scores + current weights. Commit to apply."
               >
                 Projected
               </th>
@@ -129,10 +159,24 @@ export function IndexTable({ rows, raritySwing }: { rows: IndexRow[]; raritySwin
             {rows.map((row) => {
               const e = editFor(row);
               const dirty = isDirty(row);
-              const valid = prestigeValid(row);
+              const valid = rowValid(row);
               const open = expanded === row.id;
-              const projected = valid ? projectIndex(prestigeNum(row), row.vestigeRarity, raritySwing) : null;
+              const staged = {
+                design: axisNum(row, "design"),
+                setting: axisNum(row, "setting"),
+                heritage: axisNum(row, "heritage"),
+                consensus: axisNum(row, "consensus"),
+              };
+              const projected = valid
+                ? projectIndex(staged, row.tier, row.established, row.vestigeRarity, weights)
+                : null;
               const showProjected = dirty && valid && projected !== row.vestigeIndex;
+              const provisional = isUnscored({
+                design: row.design,
+                setting: row.setting,
+                heritage: row.heritage,
+                consensus: row.consensus,
+              });
               return (
                 <FragmentRow key={row.id}>
                   <tr className={dirty ? "bg-brand/[0.04] transition-colors" : "transition-colors hover:bg-paper-sunken/30"}>
@@ -153,41 +197,50 @@ export function IndexTable({ rows, raritySwing }: { rows: IndexRow[]; raritySwin
                           {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
                         </button>
                         <div className="min-w-0">
-                          <Link href={`/courses/${row.id}`} className="font-medium text-ink hover:text-brand">
-                            {row.name}
-                          </Link>
+                          <div className="flex items-center gap-1.5">
+                            <Link href={`/courses/${row.id}`} className="font-medium text-ink hover:text-brand">
+                              {row.name}
+                            </Link>
+                            {provisional && (
+                              <span
+                                className="inline-flex shrink-0 items-center rounded-full border border-amber/30 bg-amber/5 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-amber"
+                                title="No hand-scored axes yet — Index running on the provisional tier seed"
+                              >
+                                Seed
+                              </span>
+                            )}
+                          </div>
                           <p className="truncate text-xs text-ink-3">
                             {[row.clubName, row.countyName].filter(Boolean).join(" · ") || "-"}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="hidden px-3 py-2 sm:table-cell">
+                    <td className="hidden px-3 py-2 xl:table-cell">
                       <span className="inline-flex items-center rounded-full border border-rule/70 bg-paper-sunken/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-2">
                         {TIER_LABELS[row.tier]}
                       </span>
                     </td>
-                    <td className="hidden px-3 py-2 text-right tabular-nums text-ink-3 md:table-cell">{row.playCount}</td>
-                    <td className="hidden px-3 py-2 text-right tabular-nums text-ink-3 md:table-cell">
-                      {row.vestigeRarity ?? "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        inputMode="numeric"
-                        value={e.prestige}
-                        onChange={(ev) => patch(row.id, e, "prestige", ev.target.value)}
-                        onKeyDown={(ev) => {
-                          if (ev.key === "Enter") ev.currentTarget.blur();
-                        }}
-                        className={
-                          "h-8 w-16 rounded-md border bg-paper-sunken/40 px-2 text-right text-sm tabular-nums text-ink outline-none focus:border-brand/50 " +
-                          (valid ? "border-rule/70" : "border-alert/70 text-alert")
-                        }
-                      />
-                    </td>
+                    {AXES.map((axis) => (
+                      <td key={axis} className="px-2 py-2 text-right">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          inputMode="numeric"
+                          placeholder="–"
+                          value={e[axis]}
+                          onChange={(ev) => patch(row.id, e, axis, ev.target.value)}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter") ev.currentTarget.blur();
+                          }}
+                          className={
+                            "h-8 w-14 rounded-md border bg-paper-sunken/40 px-1.5 text-right text-sm tabular-nums text-ink outline-none focus:border-brand/50 " +
+                            (axisValid(row, axis) ? "border-rule/70" : "border-alert/70 text-alert")
+                          }
+                        />
+                      </td>
+                    ))}
                     <td className="px-3 py-2 text-right">
                       {showProjected ? (
                         <span
@@ -209,20 +262,20 @@ export function IndexTable({ rows, raritySwing }: { rows: IndexRow[]; raritySwin
                   {open && (
                     <tr className="bg-paper-sunken/20">
                       <td />
-                      <td colSpan={7} className="px-3 pb-3 pt-0">
+                      <td colSpan={8} className="px-3 pb-3 pt-0">
                         <div className="space-y-2 rounded-lg border border-rule/50 bg-paper/40 p-3">
                           <p className="font-mono text-xs text-ink-2">
-                            {row.playCount} plays → rarity{" "}
-                            <span className="text-ink">{row.vestigeRarity ?? "-"}</span> → index{" "}
-                            <span className="text-brand">{row.vestigeIndex ?? "-"}</span>
+                            D {row.design ?? "seed"} · S {row.setting ?? "seed"} · H {row.heritage ?? "seed"} · C{" "}
+                            {row.consensus ?? "–"} → index <span className="text-brand">{row.vestigeIndex ?? "-"}</span>
                             <span className="text-ink-3">
                               {" "}
-                              (prestige {row.prestige}, swing ±{Math.round(raritySwing * 100)}%)
+                              (tier seed {TIER_SEED[row.tier]} · {row.playCount}{" "}
+                              {row.playCount === 1 ? "play" : "plays"})
                             </span>
                           </p>
                           <label className="block">
                             <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
-                              Prestige source
+                              Score source
                             </span>
                             <input
                               type="text"

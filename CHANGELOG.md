@@ -5,6 +5,89 @@
 
 ---
 
+## 2026-08-16 — Vestige Index rework: rarity out, editorial axes in
+
+Tom called the rework: rarity — half of the original blend — can't work at
+beta/launch user counts. With a handful of users the play-count spread is
+noise, and the bootstrap state actively inverted scores (unplayed courses
+drifting to ~58, played ones to ~43, the long-flagged "obscurity rewards"
+trap). Locked in a design session with Tom before building:
+
+**The new model.** The Index is now a weighted blend of per-course
+sub-scores, whole numbers on an honest full 0–100 spread:
+
+```
+index = clamp( round( (wD·design + wS·setting + wH·heritage
+                        + wC·consensus + wP·pull) / Σw ), 0, 100 )
+```
+
+- **Design / Setting / Heritage** — the three hand-scored editorial axes
+  (the golf itself; the land + sense of place; age/architect/pedigree).
+  Three judgments per course is the deliberate workload ceiling for ~1,150
+  courses — more axes would echo axis 1 without adding information.
+- **Consensus** — encoded external top-100 ranking positions (0–100).
+  Doubles as the pre-seed for the editorial pass; when a course has no
+  external ranking its weight redistributes (drops out of numerator and
+  denominator both).
+- **Pull** — the live slot (play demand, `100 − rarity`, neutral 50),
+  weighted **0** at launch and dialled up when the user base is real: the
+  "live index that breathes" story kept honest. List demand + photo volume
+  are flagged candidates to fold in later.
+- **Seeds** — unscored axes fall back axis → consensus → an objective-facts
+  tier seed (championship 60 / standard 48 / short 40 / par3 32; the
+  heritage seed gains +10 pre-1900, +5 pre-1946), so the unscored long tail
+  reads sensibly instead of flat-50. Courses with no hand scores wear a
+  provisional "Seed" chip.
+- **Weights** — tunable config (default 0.45 / 0.25 / 0.15 / 0.15 / 0),
+  renormalised at compute.
+
+**Schema (iOS migration `20260816100000_vestige_index_rework.sql`).** Four
+nullable score columns + `score_source` on `courses`; five `w_*` columns on
+`vestige_index_config` (`rarity_swing` stays as ignored legacy); rewritten
+`recompute_vestige_index()` — same signature, and it **still computes
+`play_count` + `vestige_rarity` exactly as before**, because the live iOS
+app reads both (CourseDTO, Scout signals): rarity is only decoupled from the
+index, never dropped. New self-gating admin RPCs: `admin_set_course_scores`,
+`admin_set_courses_scores(jsonb)` (batch, one recompute — the
+`admin_set_courses_prestige` pattern), `admin_set_vestige_index_weights`.
+Prestige columns + RPCs left intact as legacy. Fully additive /
+expand-contract-safe. Verified with a `begin…rollback` probe first
+(90/85/95/88 at default weights → 89, exact), then **applied to dev and
+prod same-day at Tom's explicit request** (dry-run showed it as the only
+pending migration; hold list empty; CLI relinked to dev after). Post-apply
+distribution on both: standard tier 48–50, short 40–42 — the seeds, as
+designed; the inverted rarity spread is gone.
+
+**Bunker rework.** `formula.ts` mirrors the new blend exactly (weights,
+seeds, consensus redistribution, pull) for live projection. `/vestige-index`:
+the batch editor (`IndexTable`) now stages all four axis scores per row
+(blank = unscored) with dirty pips, live projected Index, a "Seed"
+provisional chip, and one batch commit; `IndexMechanics` swaps the rarity
+slider for five bound slider+numeric weight controls (normalised % readout,
+Σ guard, confirm-recompute) with the formula written out and a live worked
+example; county landing "N to rank" now means "no hand-scored axes yet"
+(was "prestige still 50"); sort gains Design/Consensus (Prestige removed).
+Course detail: `PrestigeEditor` → `ScoreEditor` (`git mv`) — four axis
+fields + source with the same debounced autosave, seed-aware breakdown
+line. `courses/actions.ts`: `setCourseScores` / `setCoursesScores` /
+`setVestigeIndexWeights` replace the prestige/swing actions; recompute
+kept. `courses/types.ts` swaps prestige fields for the score columns
+(list page + import lib untouched — they have their own row types).
+
+Verified `tsc` / `eslint` / one `next build` (all clean; `/vestige-index`
+registered). Live UI is behind the admin login — Tom to eyeball on Vercel.
+
+### What this does not commit to
+
+No consensus source list yet — which rankings count and the rank→0–100
+encoding is a Jack+Tom decision before the scoring pass starts. No pull
+composition beyond play data. No iOS client change (the app keeps reading
+`vestige_index` + `vestige_rarity` untouched — it just gets better values
+when scoring starts). The editorial scoring pass itself hasn't begun:
+every course currently reads its provisional tier seed.
+
+---
+
 ## 2026-08-12 — Bulk course import for curated lists
 
 Jack had England's Top 100 lined up (ranked, from top100golfcourses.com) but

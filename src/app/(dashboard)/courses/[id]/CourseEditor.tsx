@@ -22,7 +22,7 @@ import { CoverCropDialog } from "./CoverCropDialog";
 import { CoursePhotoManager, type ManagedPhoto } from "./CoursePhotoManager";
 import { PolygonPreview } from "./PolygonPreview";
 import { StylePicker } from "./StylePicker";
-import { PrestigeEditor } from "./PrestigeEditor";
+import { ScoreEditor } from "./ScoreEditor";
 import {
   LAYOUTS,
   LAYOUT_LABELS,
@@ -201,9 +201,9 @@ export function CourseEditor({
 
       <EditorSection
         title="Vestige Index"
-        hint="The flagship 0-100 metric. Set prestige; the Index recomputes (prestige × live rarity)."
+        hint="The flagship 0-100 metric. Score the axes; the Index recomputes (weighted blend)."
       >
-        <PrestigeEditor row={row} />
+        <ScoreEditor row={row} />
       </EditorSection>
 
       {/* Advanced: structural / classification - rarely touched */}

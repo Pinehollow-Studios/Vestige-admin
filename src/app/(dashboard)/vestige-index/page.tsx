@@ -7,6 +7,7 @@ import { TablePagination } from "@/components/admin/table/TablePagination";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/admin/fetch-all";
 import { TIER_LABELS, type CourseTier } from "../courses/types";
+import { DEFAULT_WEIGHTS, type IndexWeights } from "./formula";
 import { IndexMechanics } from "./IndexMechanics";
 import { IndexTable, type IndexRow } from "./IndexTable";
 
@@ -16,7 +17,8 @@ const PAGE_SIZE = 50;
 const NO_COUNTY = "none";
 const SORT_COLUMN: Record<string, string> = {
   index: "vestige_index",
-  prestige: "prestige",
+  design: "design_score",
+  consensus: "consensus_score",
   name: "name",
   plays: "play_count",
 };
@@ -32,10 +34,10 @@ type SearchParams = Promise<{
 
 /**
  * The Vestige Index surface. Mirrors the Courses page shape: with no selection
- * it lands on a county grid (each tile showing how many courses still sit at
- * the default prestige, i.e. await ranking); picking a county / searching /
- * filtering drills into the scoped ranked batch editor. The global mechanics
- * panel (formula + rarity-swing + recompute) sits on top of both.
+ * it lands on a county grid (each tile showing how many courses are still
+ * unscored, i.e. running on the provisional tier seed); picking a county /
+ * searching / filtering drills into the scoped ranked batch editor. The global
+ * mechanics panel (formula + blend weights + recompute) sits on top of both.
  */
 export default async function VestigeIndexPage(props: { searchParams: SearchParams }) {
   const sp = await props.searchParams;
@@ -52,13 +54,19 @@ export default async function VestigeIndexPage(props: { searchParams: SearchPara
   return <TableView supabase={supabase} sp={sp} q={q} county={county} tier={tier} />;
 }
 
-// ── Shared: global mechanics (rarity swing + who/when) ──────────────────
+// ── Shared: global mechanics (blend weights + who/when) ─────────────────
 async function loadMechanics(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data } = await supabase
     .from("vestige_index_config")
-    .select("rarity_swing, updated_at, updated_by")
+    .select("w_design, w_setting, w_heritage, w_consensus, w_pull, updated_at, updated_by")
     .maybeSingle();
-  const raritySwing = (data?.rarity_swing as number | undefined) ?? 0.15;
+  const weights: IndexWeights = {
+    design: (data?.w_design as number | undefined) ?? DEFAULT_WEIGHTS.design,
+    setting: (data?.w_setting as number | undefined) ?? DEFAULT_WEIGHTS.setting,
+    heritage: (data?.w_heritage as number | undefined) ?? DEFAULT_WEIGHTS.heritage,
+    consensus: (data?.w_consensus as number | undefined) ?? DEFAULT_WEIGHTS.consensus,
+    pull: (data?.w_pull as number | undefined) ?? DEFAULT_WEIGHTS.pull,
+  };
   const updatedAt = (data?.updated_at as string | undefined) ?? null;
   let updatedByName: string | null = null;
   const updatedBy = data?.updated_by as string | undefined;
@@ -70,7 +78,7 @@ async function loadMechanics(supabase: Awaited<ReturnType<typeof createClient>>)
       .maybeSingle();
     updatedByName = ((u?.display_name as string) || (u?.username as string)) ?? null;
   }
-  return { raritySwing, updatedAt, updatedByName };
+  return { weights, updatedAt, updatedByName };
 }
 
 // ── Landing: county grid ────────────────────────────────────────────────
@@ -84,11 +92,11 @@ async function CountyLanding({
   const [aggRes, countiesRes, mechanics] = await Promise.all([
     // Page past PostgREST's 1000-row cap so the per-county index aggregates
     // cover every course, not just the first 1000.
-    fetchAllRows<{ county_id: string | null; prestige: number | null; vestige_index: number | null }>(
+    fetchAllRows<{ county_id: string | null; design_score: number | null; vestige_index: number | null }>(
       (from, to) =>
         supabase
           .from("courses")
-          .select("county_id, prestige, vestige_index")
+          .select("county_id, design_score, vestige_index")
           .order("id", { ascending: true })
           .range(from, to),
     ),
@@ -100,14 +108,14 @@ async function CountyLanding({
   const stats = new Map<string, Stat>();
   for (const r of (aggRes.data as Array<{
     county_id: string | null;
-    prestige: number | null;
+    design_score: number | null;
     vestige_index: number | null;
   }> | null) ?? []) {
     const key = r.county_id ?? NO_COUNTY;
     const s = stats.get(key) ?? { total: 0, unranked: 0, indexSum: 0, indexCount: 0 };
     s.total += 1;
-    // "Unranked" = still at the seed prestige of 50 (no editorial pass yet).
-    if ((r.prestige ?? 50) === 50) s.unranked += 1;
+    // "Unranked" = no hand-scored axes yet (running on the provisional seed).
+    if (r.design_score == null) s.unranked += 1;
     if (r.vestige_index != null) {
       s.indexSum += r.vestige_index;
       s.indexCount += 1;
@@ -127,7 +135,7 @@ async function CountyLanding({
       <SectionHeader eyebrow="Editorial" title="Vestige Index" />
 
       <IndexMechanics
-        raritySwing={mechanics.raritySwing}
+        weights={mechanics.weights}
         updatedAt={mechanics.updatedAt}
         updatedByName={mechanics.updatedByName}
       />
@@ -242,7 +250,7 @@ async function TableView({
   let listQ = supabase
     .from("courses")
     .select(
-      "id,name,tier,prestige,prestige_source,vestige_index,vestige_rarity,play_count,clubs(name),counties(name)",
+      "id,name,tier,established,design_score,setting_score,heritage_score,consensus_score,score_source,vestige_index,vestige_rarity,play_count,clubs(name),counties(name)",
       { count: "exact" },
     );
   if (q) listQ = listQ.ilike("name", `%${q}%`);
@@ -274,8 +282,12 @@ async function TableView({
     clubName: unwrap<{ name: string }>(r.clubs)?.name ?? null,
     countyName: unwrap<{ name: string }>(r.counties)?.name ?? null,
     tier: r.tier as CourseTier,
-    prestige: r.prestige ?? 50,
-    prestigeSource: r.prestige_source ?? null,
+    established: r.established ?? null,
+    design: r.design_score ?? null,
+    setting: r.setting_score ?? null,
+    heritage: r.heritage_score ?? null,
+    consensus: r.consensus_score ?? null,
+    scoreSource: r.score_source ?? null,
     vestigeIndex: r.vestige_index ?? null,
     vestigeRarity: r.vestige_rarity ?? null,
     playCount: r.play_count ?? 0,
@@ -296,7 +308,7 @@ async function TableView({
       />
 
       <IndexMechanics
-        raritySwing={mechanics.raritySwing}
+        weights={mechanics.weights}
         updatedAt={mechanics.updatedAt}
         updatedByName={mechanics.updatedByName}
       />
@@ -328,7 +340,8 @@ async function TableView({
           value={sort}
           options={[
             { value: "index", label: "Index" },
-            { value: "prestige", label: "Prestige" },
+            { value: "design", label: "Design" },
+            { value: "consensus", label: "Consensus" },
             { value: "plays", label: "Plays" },
             { value: "name", label: "Name" },
           ]}
@@ -341,7 +354,7 @@ async function TableView({
         </div>
       ) : (
         <>
-          <IndexTable rows={rows} raritySwing={mechanics.raritySwing} />
+          <IndexTable rows={rows} weights={mechanics.weights} />
           <TablePagination
             offset={offset}
             pageSize={PAGE_SIZE}
