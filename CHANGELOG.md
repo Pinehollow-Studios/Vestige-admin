@@ -5,6 +5,51 @@
 
 ---
 
+## 2026-08-16 — In-app previews resynced to the shipping iOS screens
+
+The editor previews had drifted a full design generation behind the app
+(they mirrored the 2026-06-27 iOS templates). Re-derived each from the
+current SwiftUI source and rebuilt:
+
+**Course preview (`CoursePreview.tsx` ← `CourseDetailSheet`).** The old
+"peek block with mint Par hero + glass detail/About cards" layout is gone
+from the app. Today's sheet: full-bleed 200pt hero with **no scrim**
+(grabber + camera button overlays; "Add the first photo" empty state),
+county eyebrow with an **Unplayed** pill, course name beside the **Vestige
+Index as a 44pt mint→lime gradient numeral top-right** (fallback ladder
+index → par → holes), a "Log a round" gradient CTA with mint under-glow +
+two glass icon buttons, then flat hairline-separated sections — Details
+2-up facts grid (yardage/style/par/established only; hole count, tier and
+layout deliberately absent), About (prose + "Featured on N curated lists"
+star line), Your rounds empty state, and the Mapbox attribution capsule.
+New props `vestigeIndex` + `curatedListCount` (from `row`); dead `tier` /
+`layout` props dropped.
+
+**Curated list preview (`CuratedPreview.tsx` ← `CuratedListDetailView`).**
+The app moved to a magazine masthead: cover **melts out via an alpha mask**
+with no text on the photo (title/pills-on-hero is gone), floating glass
+back/share chrome, centred masthead (hexagon **VESTIGE seal pill** →
+Manrope title → CURATED RANKING/LIST kicker), centred editorial intro
+(bio, else summary), a **progress ring row** ("0 of N played" +
+region·tags line), then **raised cards** per course — name + big mint rank
+numeral, hairline, the editor note as a centred italic pull-quote in curly
+quotes (with the app's exact 6-string deterministic filler when empty),
+county + a TO PLAY pill. The old stat strip / tier pill / row-list layout
+was already retired app-side and is gone here too.
+
+**Announcement pop-up (`AnnouncementEditor` PreviewCard ←
+`AnnouncementCardView`).** Scrim corrected to flat 55% black (was a radial),
+card to SurfaceGlass (72% `#0E1826`, 12% border, blur, radius-24 scale),
+hero moved *inside* the content padding at 16:9/radius-14 scale, highlights
+to filled check-circles with primary-colour text, CTA to the 52pt capsule
+with mint under-glow. The dismiss-link rule was already right (no action →
+dismiss label becomes the gradient CTA).
+
+All three re-derived from the live Swift files, not the old previews.
+Verified `tsc`/`eslint`/`build`; visuals are login-gated — Tom to eyeball.
+
+---
+
 ## 2026-08-16 — Vestige Index rework: rarity out, editorial axes in
 
 Tom called the rework: rarity — half of the original blend — can't work at

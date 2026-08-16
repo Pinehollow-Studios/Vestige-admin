@@ -103,8 +103,8 @@ export function CourseEditor({
           holeCount={values.hole_count}
           style={values.style}
           established={values.established}
-          tier={values.tier}
-          layout={values.layout}
+          vestigeIndex={row.vestige_index}
+          curatedListCount={row.curated_lists.length}
         />
       </PreviewFrame>
     </>

@@ -683,3 +683,15 @@ canonical write-up lives on disk.
   panel + "Seed" provisional chips; `PrestigeEditor` → `ScoreEditor` on
   `/courses/[id]`. Verified `tsc`/`eslint`/`build`. Long-form in
   `CHANGELOG.md`.
+- **2026-08-16** — In-app previews resynced to the shipping iOS screens (they
+  had drifted a design generation behind): `CoursePreview` rebuilt on today's
+  `CourseDetailSheet` (no-scrim hero, Unplayed pill, **Vestige Index gradient
+  numeral** top-right w/ par/holes fallback, "Log a round" CTA + glass
+  buttons, flat hairline Details/About/Your-rounds, Mapbox capsule; new
+  `vestigeIndex`/`curatedListCount` props), `CuratedPreview` rebuilt on
+  today's `CuratedListDetailView` (mask-fade cover with no hero text,
+  VESTIGE seal masthead, progress ring, raised rank-numeral cards w/ quoted
+  editor notes + the app's filler table, TO PLAY pills), announcement
+  `PreviewCard` drift-fixed (flat 55% scrim, SurfaceGlass card, inset 16:9
+  hero, filled check-circles, CTA glow). All re-derived from live Swift
+  source. Verified `tsc`/`eslint`/`build`. Long-form in `CHANGELOG.md`.
