@@ -110,6 +110,23 @@ export function ageFromYear(established: number | null): number | null {
   return null;
 }
 
+/**
+ * The same curve expressed as readable eras, for the reference table on
+ * `/vestige-index`. Labels only — the scores shown are computed from
+ * `ageFromYear()`, so the table can never drift from the maths.
+ */
+export const AGE_BANDS: { era: string; from: number | null; to: number }[] = [
+  { era: "The originals", from: null, to: 1800 },
+  { era: "Pre-boom", from: 1800, to: 1860 },
+  { era: "Victorian pioneers", from: 1860, to: 1890 },
+  { era: "The great boom", from: 1890, to: 1910 },
+  { era: "Between the wars", from: 1910, to: 1940 },
+  { era: "Post-war", from: 1940, to: 1970 },
+  { era: "Modern expansion", from: 1970, to: 1990 },
+  { era: "The nineties boom", from: 1990, to: 2010 },
+  { era: "Contemporary", from: 2010, to: 2026 },
+];
+
 /** Established-year bonus applied to the *age* seed only. */
 export function ageBonus(established: number | null): number {
   if (established == null) return 0;

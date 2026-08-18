@@ -5,6 +5,44 @@
 
 ---
 
+## 2026-08-18 — Every course ranked; the Age bands become readable in the Bunker
+
+Tail end of the Age work: close the four gaps, then put the curve on screen
+so Jack never has to ask what a number means.
+
+**The last four courses.** Researched rather than guessed, and the two
+outcomes were split:
+
+- **Chichester Golf Club → 1990** and **Sherdons Golf Centre → 1992** are
+  properly sourced, so the real founding year went into `established` and the
+  curve derived Age from it as normal (44 / 43).
+- **Ashton Court** (Bristol municipal) and **Lodmoor Pitch & Putt** (Weymouth
+  country park) have no reliable founding date anywhere — the upstream source
+  records Ashton Court as "built in 0", which is exactly where our junk `2`
+  came from. `established` is therefore left **null** (it is a factual column
+  and must not carry an invented year) while `heritage_score` is hand-set to
+  **45** — a legitimate editorial override, which is what the axis is for.
+  Both are stamped `score_source = "Age estimated - founding year unknown
+  (modern municipal facility); confirm"` so they surface for confirmation.
+
+**0 courses now unranked**, out of 1,794.
+
+**The Age bands panel** (`vestige-index/AgeBands.tsx`, collapsible inside
+Index mechanics) is a nine-row era table — The originals / Pre-boom /
+Victorian pioneers / The great boom / Between the wars / Post-war / Modern
+expansion / The nineties boom / Contemporary — against founding years and the
+resulting Age score. The **score column is computed by calling
+`ageFromYear()`**, not written out, so the table cannot drift from the curve
+it documents; `AGE_BANDS` in `formula.ts` carries only the era labels. Copy
+tells Jack the thing he actually needs: Age fills itself in, he only touches
+it when the year misleads (modern course on a historic site, club that
+moved), and the floor is 35 rather than 0.
+
+Verified `tsc` / `eslint` / `build`, band values checked against the curve.
+No migration.
+
+---
+
 ## 2026-08-18 — Age becomes a derived number; ranking + setting take the lead
 
 Second half of the Index rework. Age is the one axis the catalogue can
