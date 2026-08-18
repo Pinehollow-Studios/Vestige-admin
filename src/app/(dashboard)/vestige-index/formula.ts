@@ -3,48 +3,46 @@ import type { CourseTier } from "../courses/types";
 /**
  * The Vestige Index blend, mirrored client-side for live projection.
  *
- * Canonical definition lives in the iOS migration
- * `20260816100000_vestige_index_rework.sql` (which replaced the 2026-06
- * prestige × rarity blend — rarity didn't work at beta user counts):
+ * Three equally-weighted inputs (2026-08-18 decision — design + pull dropped
+ * from the blend; the 2026-08-16 five-input model was more than the editorial
+ * pipeline can actually feed):
  *
- *   index = clamp( round( (wD·design + wS·setting + wH·heritage
- *                           + wC·consensus + wP·pull) / Σw ), 0, 100 )
+ *   index = clamp( round( (wA·age + wR·ranking + wS·setting) / Σw ), 0, 100 )
  *
- * · design / setting / heritage — hand-scored editorial axes (0–100).
- * · consensus — encoded external ranking consensus; when null its weight
+ * · age     — how old / pedigreed the course is (hand-scored 0-100).
+ * · ranking — encoded external ranking consensus; when null its weight
  *   redistributes (drops out of both numerator and denominator).
- * · pull — live play-demand signal (100 − rarity, neutral 50), weight 0
- *   until the user base can support it.
- * · unscored axes fall back axis → consensus → tier seed (+ an
- *   established-year bonus on heritage) so the long tail gets a sensible
+ * · setting — the land, views, sense of place (hand-scored 0-100).
+ * · unscored axes fall back axis → ranking → tier seed (+ an
+ *   established-year bonus on age) so the long tail gets a sensible
  *   provisional number.
  *
- * Exact for a single course given its own inputs; `pull` uses the row's
- * last-computed rarity, so a committed value can drift a point if play
- * data moved since the page loaded (irrelevant while w_pull = 0).
+ * **Naming bridge**: the DB columns keep their original names because a rename
+ * would be an iOS-repo migration (`Vestige-ios` owns all schema). The mapping is
+ * the whole of it — UI `age` = `heritage_score` / `w_heritage`, UI `ranking` =
+ * `consensus_score` / `w_consensus`, UI `setting` = `setting_score` /
+ * `w_setting`. The retired `design_score` / `w_design` / `w_pull` columns still
+ * exist; the dashboard writes 0 to both retired weights on every Apply so the
+ * server-side blend in `recompute_vestige_index` matches what's shown here.
  */
 
 export type IndexWeights = {
-  design: number;
+  age: number;
+  ranking: number;
   setting: number;
-  heritage: number;
-  consensus: number;
-  pull: number;
 };
 
+/** Equal weight across all three inputs (renormalised at compute). */
 export const DEFAULT_WEIGHTS: IndexWeights = {
-  design: 0.45,
-  setting: 0.25,
-  heritage: 0.15,
-  consensus: 0.15,
-  pull: 0,
+  age: 0.33,
+  ranking: 0.33,
+  setting: 0.33,
 };
 
 export type AxisScores = {
-  design: number | null;
+  age: number | null;
+  ranking: number | null;
   setting: number | null;
-  heritage: number | null;
-  consensus: number | null;
 };
 
 /** Objective-facts seed: the tier baseline an unscored axis falls back to. */
@@ -55,41 +53,35 @@ export const TIER_SEED: Record<CourseTier, number> = {
   par3: 32,
 };
 
-/** Established-year bonus applied to the heritage *seed* only. */
-export function heritageBonus(established: number | null): number {
+/** Established-year bonus applied to the *age* seed only. */
+export function ageBonus(established: number | null): number {
   if (established == null) return 0;
   if (established <= 1900) return 10;
   if (established <= 1945) return 5;
   return 0;
 }
 
-/** A course is provisional until its axes have been hand-scored. */
+/** A course is provisional until at least one input has been entered. */
 export function isUnscored(scores: AxisScores): boolean {
-  return scores.design == null && scores.setting == null && scores.heritage == null;
+  return scores.age == null && scores.ranking == null && scores.setting == null;
 }
 
 export function projectIndex(
   scores: AxisScores,
   tier: CourseTier,
   established: number | null,
-  rarity: number | null,
   w: IndexWeights,
 ): number {
   const seed = TIER_SEED[tier] ?? 48;
-  const effDesign = scores.design ?? scores.consensus ?? seed;
-  const effSetting = scores.setting ?? scores.consensus ?? seed;
-  const effHeritage =
-    scores.heritage ?? scores.consensus ?? Math.min(100, seed + heritageBonus(established));
-  const pull = rarity == null ? 50 : 100 - rarity;
+  const effAge = scores.age ?? scores.ranking ?? Math.min(100, seed + ageBonus(established));
+  const effSetting = scores.setting ?? scores.ranking ?? seed;
 
-  const hasConsensus = scores.consensus != null;
+  const hasRanking = scores.ranking != null;
   const num =
-    w.design * effDesign +
-    w.setting * effSetting +
-    w.heritage * effHeritage +
-    (hasConsensus ? w.consensus * (scores.consensus as number) : 0) +
-    w.pull * pull;
-  const den = w.design + w.setting + w.heritage + (hasConsensus ? w.consensus : 0) + w.pull;
+    w.age * effAge +
+    (hasRanking ? w.ranking * (scores.ranking as number) : 0) +
+    w.setting * effSetting;
+  const den = w.age + (hasRanking ? w.ranking : 0) + w.setting;
   if (den <= 0) return seed;
   return Math.max(0, Math.min(100, Math.round(num / den)));
 }

@@ -706,3 +706,17 @@ canonical write-up lives on disk.
   lockstep: iOS `BadgeTier`/`BadgeCategory`/`VBadgeMedallion`/ceremony
   dials; web `badges/types.ts`/`BadgeMedallion`/category tile. Verified
   `tsc`/`eslint` + iOS Debug build. Long-form in `CHANGELOG.md`.
+- **2026-08-18** — **Vestige Index cut to three equal inputs**: design +
+  pull dropped from the blend; **heritage → Age**, **consensus → Ranking**,
+  setting unchanged, all three weighted equally (0.33). No migration — the
+  blend is weight-driven, so retiring an input is a `vestige_index_config`
+  change (`w_design`/`w_pull` = 0), applied to **prod + dev** and recomputed
+  (1,794 / 1,773 courses); nothing lost (prod had zero design scores, pull
+  was already 0). DB columns keep their old names (schema lives in
+  `Vestige-ios`), so the dashboard maps UI→column at the boundary —
+  documented in `vestige-index/formula.ts`; `setVestigeIndexWeights` pins the
+  two retired weights to 0 on every Apply so they can't drift back into the
+  server-side blend. `formula.ts` / `IndexMechanics` / `IndexTable` /
+  `ScoreEditor` / sort options all down to three axes; the county "N to rank"
+  counter now keys off all-three-null instead of `design_score`. Verified
+  `tsc`/`eslint`/`build` + live index spread. Long-form in `CHANGELOG.md`.

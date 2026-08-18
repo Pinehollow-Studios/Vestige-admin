@@ -24,7 +24,7 @@ export default async function CourseDetailPage(props: { params: RouteParams }) {
     supabase
       .from("courses")
       .select(
-        "id,legacy_fid,name,slug,club_id,county_id,tier,type,hole_count,par,yards,style,established,description,curated_list_ids,design_score,setting_score,heritage_score,consensus_score,score_source,vestige_index,vestige_rarity,play_count,hero_photo_storage_key,polygon,center_lat,center_lng,last_edited_by_admin_id,last_edited_at,updated_at,created_at,clubs(name),counties(id,name)",
+        "id,legacy_fid,name,slug,club_id,county_id,tier,type,hole_count,par,yards,style,established,description,curated_list_ids,setting_score,heritage_score,consensus_score,score_source,vestige_index,vestige_rarity,play_count,hero_photo_storage_key,polygon,center_lat,center_lng,last_edited_by_admin_id,last_edited_at,updated_at,created_at,clubs(name),counties(id,name)",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -87,7 +87,6 @@ export default async function CourseDetailPage(props: { params: RouteParams }) {
     established: data.established,
     description: data.description,
     curated_list_ids: data.curated_list_ids ?? [],
-    design_score: data.design_score ?? null,
     setting_score: data.setting_score ?? null,
     heritage_score: data.heritage_score ?? null,
     consensus_score: data.consensus_score ?? null,

@@ -8,26 +8,26 @@ import type { CourseDetailRow } from "../types";
 import { TIER_SEED } from "../../vestige-index/formula";
 
 const AXES: { key: keyof AxisScoreInput; label: string; hint: string }[] = [
-  { key: "design", label: "Design", hint: "The golf itself - routing, variety, strategy." },
+  { key: "age", label: "Age", hint: "How old + pedigreed the course is." },
+  { key: "ranking", label: "Ranking", hint: "Encoded external top-100 rankings." },
   { key: "setting", label: "Setting", hint: "The land, views, sense of place." },
-  { key: "heritage", label: "Heritage", hint: "Age, architect, pedigree, cultural weight." },
-  { key: "consensus", label: "Consensus", hint: "Encoded external top-100 rankings." },
 ];
 
 /**
- * Per-course Vestige Index editor. The four axis scores (0-100 each, blank =
- * unscored → falls back to consensus, then the tier seed) are the editorial
+ * Per-course Vestige Index editor. The three axis scores (0-100 each, blank =
+ * unscored → falls back to ranking, then the tier seed) are the editorial
  * inputs; the Index is computed server-side and shown read-only. Saving fires
  * `admin_set_course_scores`, which recomputes the whole Index - so the rest of
  * the ranking shifts too (visible on the Index tab). Debounced autosave to
  * match the rest of the course editor.
  */
 export function ScoreEditor({ row }: { row: CourseDetailRow }) {
+  // Column → UI vocabulary: heritage = Age, consensus = Ranking (see
+  // `vestige-index/formula.ts`).
   const initial: Record<keyof AxisScoreInput, number | ""> = {
-    design: row.design_score ?? "",
+    age: row.heritage_score ?? "",
+    ranking: row.consensus_score ?? "",
     setting: row.setting_score ?? "",
-    heritage: row.heritage_score ?? "",
-    consensus: row.consensus_score ?? "",
   };
   const [scores, setScores] = useState(initial);
   const [source, setSource] = useState(row.score_source ?? "");
@@ -43,10 +43,9 @@ export function ScoreEditor({ row }: { row: CourseDetailRow }) {
 
   async function save(next: typeof scores, nextSource: string) {
     const values: AxisScoreInput = {
-      design: next.design === "" ? null : next.design,
+      age: next.age === "" ? null : next.age,
+      ranking: next.ranking === "" ? null : next.ranking,
       setting: next.setting === "" ? null : next.setting,
-      heritage: next.heritage === "" ? null : next.heritage,
-      consensus: next.consensus === "" ? null : next.consensus,
     };
     const invalid = Object.values(values).some(
       (v) => v !== null && (!Number.isFinite(v) || v < 0 || v > 100),
@@ -82,7 +81,7 @@ export function ScoreEditor({ row }: { row: CourseDetailRow }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {AXES.map(({ key, label, hint }) => (
           <Field key={key} label={label} hint={hint}>
             <input
@@ -124,10 +123,9 @@ export function ScoreEditor({ row }: { row: CourseDetailRow }) {
 
       <div className="rounded-lg border border-rule/60 bg-paper-sunken/40 px-3 py-2 text-xs text-ink-2">
         <span className="tabular-nums">
-          D {scores.design === "" ? `seed ${seed}` : scores.design} · S{" "}
-          {scores.setting === "" ? `seed ${seed}` : scores.setting} · H{" "}
-          {scores.heritage === "" ? "seed" : scores.heritage} · C{" "}
-          {scores.consensus === "" ? "–" : scores.consensus}
+          A {scores.age === "" ? "seed" : scores.age} · R{" "}
+          {scores.ranking === "" ? "–" : scores.ranking} · S{" "}
+          {scores.setting === "" ? `seed ${seed}` : scores.setting}
         </span>
         {" → "}
         <span className="font-medium tabular-nums text-ink">index {index ?? "-"}</span>

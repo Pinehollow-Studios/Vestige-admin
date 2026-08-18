@@ -18,31 +18,28 @@ export type IndexRow = {
   countyName: string | null;
   tier: CourseTier;
   established: number | null;
-  design: number | null;
+  age: number | null;
+  ranking: number | null;
   setting: number | null;
-  heritage: number | null;
-  consensus: number | null;
   scoreSource: string | null;
   vestigeIndex: number | null;
-  vestigeRarity: number | null;
   playCount: number;
 };
 
-type Edit = { design: string; setting: string; heritage: string; consensus: string; source: string };
+type Edit = { age: string; ranking: string; setting: string; source: string };
 
-const AXES = ["design", "setting", "heritage", "consensus"] as const;
+const AXES = ["age", "ranking", "setting"] as const;
 type Axis = (typeof AXES)[number];
 
 const AXIS_LABELS: Record<Axis, string> = {
-  design: "Design",
+  age: "Age",
+  ranking: "Ranking",
   setting: "Setting",
-  heritage: "Heritage",
-  consensus: "Consensus",
 };
 
 /**
- * The ranked Index table as a *batch editor*. The four axis scores (design /
- * setting / heritage / consensus; blank = unscored) + the source note stage
+ * The ranked Index table as a *batch editor*. The three axis scores (age /
+ * ranking / setting; blank = unscored) + the source note stage
  * locally (not autosaved); each edited row previews its projected Index live
  * from the real blend, and a sticky bar commits every change at once via the
  * batch RPC (one recompute, not one per edit). The Index itself is computed,
@@ -56,10 +53,9 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
 
   const editFor = (row: IndexRow): Edit =>
     edits[row.id] ?? {
-      design: row.design == null ? "" : String(row.design),
+      age: row.age == null ? "" : String(row.age),
+      ranking: row.ranking == null ? "" : String(row.ranking),
       setting: row.setting == null ? "" : String(row.setting),
-      heritage: row.heritage == null ? "" : String(row.heritage),
-      consensus: row.consensus == null ? "" : String(row.consensus),
       source: row.scoreSource ?? "",
     };
 
@@ -107,10 +103,9 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
     }
     const items = dirtyRows.map((r) => ({
       courseId: r.id,
-      design: axisNum(r, "design"),
+      age: axisNum(r, "age"),
+      ranking: axisNum(r, "ranking"),
       setting: axisNum(r, "setting"),
-      heritage: axisNum(r, "heritage"),
-      consensus: axisNum(r, "consensus"),
       source: editFor(r).source.trim() || null,
     }));
     startTransition(async () => {
@@ -132,7 +127,7 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
   return (
     <div className="space-y-3">
       <div className="overflow-hidden rounded-xl glass-panel">
-        {/* Horizontal scroll so the four score columns don't force the page
+        {/* Horizontal scroll so the three score columns don't force the page
             wider than the viewport on a phone. */}
         <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
@@ -162,20 +157,16 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
               const valid = rowValid(row);
               const open = expanded === row.id;
               const staged = {
-                design: axisNum(row, "design"),
+                age: axisNum(row, "age"),
+                ranking: axisNum(row, "ranking"),
                 setting: axisNum(row, "setting"),
-                heritage: axisNum(row, "heritage"),
-                consensus: axisNum(row, "consensus"),
               };
-              const projected = valid
-                ? projectIndex(staged, row.tier, row.established, row.vestigeRarity, weights)
-                : null;
+              const projected = valid ? projectIndex(staged, row.tier, row.established, weights) : null;
               const showProjected = dirty && valid && projected !== row.vestigeIndex;
               const provisional = isUnscored({
-                design: row.design,
+                age: row.age,
+                ranking: row.ranking,
                 setting: row.setting,
-                heritage: row.heritage,
-                consensus: row.consensus,
               });
               return (
                 <FragmentRow key={row.id}>
@@ -262,11 +253,11 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
                   {open && (
                     <tr className="bg-paper-sunken/20">
                       <td />
-                      <td colSpan={8} className="px-3 pb-3 pt-0">
+                      <td colSpan={7} className="px-3 pb-3 pt-0">
                         <div className="space-y-2 rounded-lg border border-rule/50 bg-paper/40 p-3">
                           <p className="font-mono text-xs text-ink-2">
-                            D {row.design ?? "seed"} · S {row.setting ?? "seed"} · H {row.heritage ?? "seed"} · C{" "}
-                            {row.consensus ?? "–"} → index <span className="text-brand">{row.vestigeIndex ?? "-"}</span>
+                            A {row.age ?? "seed"} · R {row.ranking ?? "–"} · S {row.setting ?? "seed"} → index{" "}
+                            <span className="text-brand">{row.vestigeIndex ?? "-"}</span>
                             <span className="text-ink-3">
                               {" "}
                               (tier seed {TIER_SEED[row.tier]} · {row.playCount}{" "}

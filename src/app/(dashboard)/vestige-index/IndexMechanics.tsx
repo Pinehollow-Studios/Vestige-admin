@@ -10,19 +10,17 @@ import { recomputeVestigeIndex, setVestigeIndexWeights } from "../courses/action
 import { projectIndex, type IndexWeights } from "./formula";
 
 /** A fixed reference course used to show, live, what the current weights do. */
-const EXAMPLE = { design: 90, setting: 85, heritage: 95, consensus: 88 } as const;
+const EXAMPLE = { age: 95, ranking: 88, setting: 85 } as const;
 
 const WEIGHT_FIELDS: { key: keyof IndexWeights; label: string; hint: string }[] = [
-  { key: "design", label: "Design", hint: "The golf itself — routing, variety, strategy" },
+  { key: "age", label: "Age", hint: "How old + pedigreed the course is" },
+  { key: "ranking", label: "Ranking", hint: "Encoded external top-100 rankings" },
   { key: "setting", label: "Setting", hint: "The land, views, sense of place" },
-  { key: "heritage", label: "Heritage", hint: "Age, architect, pedigree, cultural weight" },
-  { key: "consensus", label: "Consensus", hint: "Encoded external top-100 rankings" },
-  { key: "pull", label: "Pull", hint: "Live play demand — dormant until the base is real" },
 ];
 
 /**
  * The Vestige Index control panel - the global mechanics, laid bare. Shows the
- * exact blend formula, the five input weights as bound slider+numeric pairs, a
+ * exact blend formula, the three input weights as bound slider+numeric pairs, a
  * live worked example, and a recompute-now action. Built so Jack can see *why*
  * every Index is what it is and tune the blend with full confidence. The axis
  * scores themselves are edited per-course in the table below.
@@ -43,8 +41,8 @@ export function IndexMechanics({
   const [open, setOpen] = useState(false);
 
   const dirty = WEIGHT_FIELDS.some(({ key }) => w[key] !== weights[key]);
-  const sum = w.design + w.setting + w.heritage + w.consensus + w.pull;
-  const exampleIndex = projectIndex(EXAMPLE, "championship", 1895, null, w);
+  const sum = w.age + w.ranking + w.setting;
+  const exampleIndex = projectIndex(EXAMPLE, "championship", 1895, w);
 
   function setWeight(key: keyof IndexWeights, v: number) {
     if (!Number.isFinite(v)) return;
@@ -94,8 +92,7 @@ export function IndexMechanics({
           </span>
           <h2 className="text-sm font-semibold text-ink">Index mechanics</h2>
           <span className="text-xs tabular-nums text-ink-3">
-            D {pct(w.design)} · S {pct(w.setting)} · H {pct(w.heritage)} · C {pct(w.consensus)}
-            {w.pull > 0 && <> · P {pct(w.pull)}</>}%
+            A {pct(w.age)} · R {pct(w.ranking)} · S {pct(w.setting)}%
             {dirty && <span className="text-amber"> · unsaved</span>}
           </span>
           <ChevronDown
@@ -114,14 +111,12 @@ export function IndexMechanics({
           {/* The formula, written out. */}
           <div className="rounded-lg border border-rule/60 bg-paper-sunken/40 px-4 py-3">
             <p className="font-mono text-[13px] leading-relaxed text-ink-2">
-              <span className="text-brand">index</span> = clamp( (<span className="text-ink">wD</span>·design +{" "}
-              <span className="text-ink">wS</span>·setting + <span className="text-ink">wH</span>·heritage +{" "}
-              <span className="text-ink">wC</span>·consensus + <span className="text-ink">wP</span>·pull) / Σw, 0, 100 )
+              <span className="text-brand">index</span> = clamp( (<span className="text-ink">wA</span>·age +{" "}
+              <span className="text-ink">wR</span>·ranking + <span className="text-ink">wS</span>·setting) / Σw, 0, 100 )
             </p>
             <p className="mt-1 text-xs text-ink-3">
-              Design, setting + heritage are hand-scored 0-100 (blank falls back to consensus, then the tier seed).
-              Consensus is the encoded external rankings — when a course has none, its weight redistributes. Pull is
-              live play demand, weighted 0 until the user base can carry it.
+              Age + setting are hand-scored 0-100 (blank falls back to ranking, then the tier seed). Ranking is the
+              encoded external rankings — when a course has none, its weight redistributes across the other two.
             </p>
           </div>
 
@@ -183,9 +178,9 @@ export function IndexMechanics({
             <div className="rounded-lg border border-rule/60 bg-paper-sunken/30 px-4 py-3 lg:w-60">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">Worked example</p>
               <p className="mt-1 text-xs text-ink-3">
-                design {EXAMPLE.design} · setting {EXAMPLE.setting}
+                age {EXAMPLE.age} · ranking {EXAMPLE.ranking}
                 <br />
-                heritage {EXAMPLE.heritage} · consensus {EXAMPLE.consensus}
+                setting {EXAMPLE.setting}
               </p>
               <p className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-ink-3">→ index</span>

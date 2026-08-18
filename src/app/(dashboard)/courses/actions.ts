@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createDevClient } from "@/lib/supabase/server";
 import { courseCoverStorageKey } from "@/lib/storage";
 import type { CourseLayout, CourseTier } from "./types";
+import type { IndexWeights } from "../vestige-index/formula";
 
 export type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -174,12 +175,18 @@ export async function removeCourseCover(courseId: string): Promise<ActionResult>
   return { ok: true };
 }
 
-/** One course's stageable axis scores: null = unscored (cleared). */
+/**
+ * One course's stageable axis scores: null = unscored (cleared).
+ *
+ * UI vocabulary → DB columns (see `vestige-index/formula.ts`): `age` =
+ * `heritage_score`, `ranking` = `consensus_score`, `setting` = `setting_score`.
+ * The retired `design_score` is written null on every save so it can't drift
+ * back into the (server-side) blend.
+ */
 export type AxisScoreInput = {
-  design: number | null;
+  age: number | null;
+  ranking: number | null;
   setting: number | null;
-  heritage: number | null;
-  consensus: number | null;
 };
 
 function validAxis(v: number | null): boolean {
@@ -187,12 +194,14 @@ function validAxis(v: number | null): boolean {
 }
 
 function validScores(s: AxisScoreInput): boolean {
-  return validAxis(s.design) && validAxis(s.setting) && validAxis(s.heritage) && validAxis(s.consensus);
+  return validAxis(s.age) && validAxis(s.ranking) && validAxis(s.setting);
 }
 
+const round = (v: number | null) => (v === null ? null : Math.round(v));
+
 /**
- * Set one course's editorial axis scores (design/setting/heritage/consensus,
- * null = unscored) + optional provenance note via `admin_set_course_scores`,
+ * Set one course's editorial axis scores (age/ranking/setting, null =
+ * unscored) + optional provenance note via `admin_set_course_scores`,
  * which writes the values, stamps the audit columns, and recomputes the whole
  * Vestige Index in one atomic call. Returns the course's new index for an
  * immediate optimistic readout.
@@ -208,10 +217,10 @@ export async function setCourseScores(
   const supabase = await createDevClient();
   const { data, error } = await supabase.rpc("admin_set_course_scores", {
     p_course: courseId,
-    p_design: scores.design === null ? null : Math.round(scores.design),
-    p_setting: scores.setting === null ? null : Math.round(scores.setting),
-    p_heritage: scores.heritage === null ? null : Math.round(scores.heritage),
-    p_consensus: scores.consensus === null ? null : Math.round(scores.consensus),
+    p_design: null,
+    p_setting: round(scores.setting),
+    p_heritage: round(scores.age),
+    p_consensus: round(scores.ranking),
     p_source: source?.trim() || null,
   });
   if (error) return { ok: false, message: error.message };
@@ -242,10 +251,10 @@ export async function setCoursesScores(
   const supabase = await createDevClient();
   const payload = items.map((it) => ({
     course_id: it.courseId,
-    design: it.design === null ? null : Math.round(it.design),
-    setting: it.setting === null ? null : Math.round(it.setting),
-    heritage: it.heritage === null ? null : Math.round(it.heritage),
-    consensus: it.consensus === null ? null : Math.round(it.consensus),
+    design: null,
+    setting: round(it.setting),
+    heritage: round(it.age),
+    consensus: round(it.ranking),
     source: it.source?.trim() || null,
   }));
   const { data, error } = await supabase.rpc("admin_set_courses_scores", {
@@ -272,15 +281,14 @@ export async function recomputeVestigeIndex(): Promise<ActionResult<number>> {
  * Tune the global blend weights via `admin_set_vestige_index_weights`, which
  * also recomputes every index. Each weight is 0-1; they're renormalised at
  * compute so they needn't sum to exactly 1 (but must sum > 0).
+ *
+ * The retired inputs (design, pull) are pinned to 0 here rather than left at
+ * whatever the config row holds — the server-side blend still reads those
+ * columns, so this is what keeps `recompute_vestige_index` in agreement with
+ * the three-input formula the dashboard shows.
  */
-export async function setVestigeIndexWeights(w: {
-  design: number;
-  setting: number;
-  heritage: number;
-  consensus: number;
-  pull: number;
-}): Promise<ActionResult> {
-  const all = [w.design, w.setting, w.heritage, w.consensus, w.pull];
+export async function setVestigeIndexWeights(w: IndexWeights): Promise<ActionResult> {
+  const all = [w.age, w.ranking, w.setting];
   if (all.some((v) => !Number.isFinite(v) || v < 0 || v > 1)) {
     return { ok: false, message: "Every weight must be 0-1." };
   }
@@ -289,11 +297,11 @@ export async function setVestigeIndexWeights(w: {
   }
   const supabase = await createDevClient();
   const { error } = await supabase.rpc("admin_set_vestige_index_weights", {
-    p_design: w.design,
+    p_design: 0,
     p_setting: w.setting,
-    p_heritage: w.heritage,
-    p_consensus: w.consensus,
-    p_pull: w.pull,
+    p_heritage: w.age,
+    p_consensus: w.ranking,
+    p_pull: 0,
   });
   if (error) return { ok: false, message: error.message };
   revalidatePath("/vestige-index");

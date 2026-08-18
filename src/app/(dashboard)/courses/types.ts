@@ -41,11 +41,14 @@ export type CourseRow = {
   established: number | null;
   description: string | null;
   curated_list_ids: string[];
-  /** Editorial axis scores (0-100, null = unscored) feeding the Vestige Index. */
-  design_score: number | null;
+  /**
+   * Editorial axis scores (0-100, null = unscored) feeding the Vestige Index.
+   * Column names predate the 2026-08-18 rename — `heritage_score` surfaces as
+   * **Age** and `consensus_score` as **Ranking** (see `vestige-index/formula.ts`);
+   * the retired `design_score` column is no longer read or written.
+   */
   setting_score: number | null;
   heritage_score: number | null;
-  /** Encoded external ranking consensus (0-100, null = not externally ranked). */
   consensus_score: number | null;
   /** Provenance note for the axis scores. */
   score_source: string | null;

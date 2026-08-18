@@ -17,10 +17,20 @@ const PAGE_SIZE = 50;
 const NO_COUNTY = "none";
 const SORT_COLUMN: Record<string, string> = {
   index: "vestige_index",
-  design: "design_score",
-  consensus: "consensus_score",
+  age: "heritage_score",
+  ranking: "consensus_score",
+  setting: "setting_score",
   name: "name",
   plays: "play_count",
+};
+
+/** Per-course columns the county landing rolls up. */
+type CountyAggRow = {
+  county_id: string | null;
+  setting_score: number | null;
+  heritage_score: number | null;
+  consensus_score: number | null;
+  vestige_index: number | null;
 };
 
 type SearchParams = Promise<{
@@ -58,14 +68,15 @@ export default async function VestigeIndexPage(props: { searchParams: SearchPara
 async function loadMechanics(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data } = await supabase
     .from("vestige_index_config")
-    .select("w_design, w_setting, w_heritage, w_consensus, w_pull, updated_at, updated_by")
+    .select("w_setting, w_heritage, w_consensus, updated_at, updated_by")
     .maybeSingle();
+  // Column → UI vocabulary: heritage = Age, consensus = Ranking (see
+  // `formula.ts`). The retired w_design / w_pull aren't read — every Apply
+  // pins them to 0 so the server-side blend stays three-input.
   const weights: IndexWeights = {
-    design: (data?.w_design as number | undefined) ?? DEFAULT_WEIGHTS.design,
+    age: (data?.w_heritage as number | undefined) ?? DEFAULT_WEIGHTS.age,
+    ranking: (data?.w_consensus as number | undefined) ?? DEFAULT_WEIGHTS.ranking,
     setting: (data?.w_setting as number | undefined) ?? DEFAULT_WEIGHTS.setting,
-    heritage: (data?.w_heritage as number | undefined) ?? DEFAULT_WEIGHTS.heritage,
-    consensus: (data?.w_consensus as number | undefined) ?? DEFAULT_WEIGHTS.consensus,
-    pull: (data?.w_pull as number | undefined) ?? DEFAULT_WEIGHTS.pull,
   };
   const updatedAt = (data?.updated_at as string | undefined) ?? null;
   let updatedByName: string | null = null;
@@ -92,13 +103,12 @@ async function CountyLanding({
   const [aggRes, countiesRes, mechanics] = await Promise.all([
     // Page past PostgREST's 1000-row cap so the per-county index aggregates
     // cover every course, not just the first 1000.
-    fetchAllRows<{ county_id: string | null; design_score: number | null; vestige_index: number | null }>(
-      (from, to) =>
-        supabase
-          .from("courses")
-          .select("county_id, design_score, vestige_index")
-          .order("id", { ascending: true })
-          .range(from, to),
+    fetchAllRows<CountyAggRow>((from, to) =>
+      supabase
+        .from("courses")
+        .select("county_id, setting_score, heritage_score, consensus_score, vestige_index")
+        .order("id", { ascending: true })
+        .range(from, to),
     ),
     supabase.from("counties").select("id, name").order("name", { ascending: true }),
     loadMechanics(supabase),
@@ -106,16 +116,15 @@ async function CountyLanding({
 
   type Stat = { total: number; unranked: number; indexSum: number; indexCount: number };
   const stats = new Map<string, Stat>();
-  for (const r of (aggRes.data as Array<{
-    county_id: string | null;
-    design_score: number | null;
-    vestige_index: number | null;
-  }> | null) ?? []) {
+  for (const r of (aggRes.data as CountyAggRow[] | null) ?? []) {
     const key = r.county_id ?? NO_COUNTY;
     const s = stats.get(key) ?? { total: 0, unranked: 0, indexSum: 0, indexCount: 0 };
     s.total += 1;
-    // "Unranked" = no hand-scored axes yet (running on the provisional seed).
-    if (r.design_score == null) s.unranked += 1;
+    // "Unranked" = nothing entered on any of the three inputs, so the Index is
+    // still running on the provisional tier seed.
+    if (r.heritage_score == null && r.consensus_score == null && r.setting_score == null) {
+      s.unranked += 1;
+    }
     if (r.vestige_index != null) {
       s.indexSum += r.vestige_index;
       s.indexCount += 1;
@@ -250,7 +259,7 @@ async function TableView({
   let listQ = supabase
     .from("courses")
     .select(
-      "id,name,tier,established,design_score,setting_score,heritage_score,consensus_score,score_source,vestige_index,vestige_rarity,play_count,clubs(name),counties(name)",
+      "id,name,tier,established,setting_score,heritage_score,consensus_score,score_source,vestige_index,play_count,clubs(name),counties(name)",
       { count: "exact" },
     );
   if (q) listQ = listQ.ilike("name", `%${q}%`);
@@ -283,13 +292,11 @@ async function TableView({
     countyName: unwrap<{ name: string }>(r.counties)?.name ?? null,
     tier: r.tier as CourseTier,
     established: r.established ?? null,
-    design: r.design_score ?? null,
+    age: r.heritage_score ?? null,
+    ranking: r.consensus_score ?? null,
     setting: r.setting_score ?? null,
-    heritage: r.heritage_score ?? null,
-    consensus: r.consensus_score ?? null,
     scoreSource: r.score_source ?? null,
     vestigeIndex: r.vestige_index ?? null,
-    vestigeRarity: r.vestige_rarity ?? null,
     playCount: r.play_count ?? 0,
   }));
 
@@ -340,8 +347,9 @@ async function TableView({
           value={sort}
           options={[
             { value: "index", label: "Index" },
-            { value: "design", label: "Design" },
-            { value: "consensus", label: "Consensus" },
+            { value: "age", label: "Age" },
+            { value: "ranking", label: "Ranking" },
+            { value: "setting", label: "Setting" },
             { value: "plays", label: "Plays" },
             { value: "name", label: "Name" },
           ]}

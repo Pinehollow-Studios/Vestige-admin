@@ -5,6 +5,55 @@
 
 ---
 
+## 2026-08-18 — Vestige Index cut to three equal inputs: Age · Ranking · Setting
+
+Tom + Jack's decision after walking through what each axis actually means
+and what it would take to populate 1,773 courses: the 2026-08-16 five-input
+model asks for more editorial judgement than the pipeline can feed. **Design
+and pull are dropped from the blend**; the three that remain are renamed to
+the vocabulary Jack will use — **heritage → Age**, **consensus → Ranking**,
+**setting** unchanged — and weighted **equally** to start.
+
+    index = clamp( round( (wA·age + wR·ranking + wS·setting) / Σw ), 0, 100 )
+
+Nothing is lost in the cut: prod had **zero** design scores and `w_pull` was
+already 0, so no editorial work was discarded.
+
+**No migration.** The blend is weight-driven — `recompute_vestige_index()`
+reads `w_*` off the `vestige_index_config` singleton and renormalises — so
+retiring an input is a *config* change, not DDL. Set `w_design = 0`,
+`w_pull = 0`, `w_setting = w_heritage = w_consensus = 0.33` and the retired
+terms fall out of both numerator and denominator. Applied to **prod and dev**
+(recomputed 1,794 / 1,773 courses). Verified after: standard tier now spans
+48–53, short 40–45 — exactly seed + half the established-year bonus, which is
+what a three-input blend with nothing hand-scored must produce.
+
+**Naming bridge.** The DB columns keep their old names (a rename is an
+iOS-repo migration, and `Vestige-ios` owns all schema — CLAUDE.md §4.3), so
+the dashboard maps the vocabulary at the boundary and documents it in one
+place, `vestige-index/formula.ts`: UI `age` = `heritage_score` / `w_heritage`,
+`ranking` = `consensus_score` / `w_consensus`, `setting` = `setting_score`.
+The established-year bonus now lands on an axis literally called Age, which
+reads better than it did on "heritage". `setVestigeIndexWeights` **pins
+`p_design` and `p_pull` to 0 on every Apply** rather than passing through
+whatever the config row holds — that's the guard that stops a retired input
+drifting back into the server-side blend, since the SQL still reads those
+columns. Both score RPCs write `design_score = null`.
+
+**Surfaces.** `formula.ts` rewritten (3 axes, `heritageBonus` → `ageBonus`,
+`projectIndex` loses its now-unused rarity argument); `IndexMechanics` down to
+three sliders + new formula line + worked example; `IndexTable` to three
+score columns; `ScoreEditor` to three fields; `/vestige-index` sort options
+become Index · Age · Ranking · Setting · Plays · Name. The county landing's
+"N to rank" counter had keyed off `design_score is null` — now correctly
+counts courses with **nothing** entered on any of the three.
+
+Verified `tsc` / `eslint` / `build`, plus the live weight + index-spread
+check above. Open question, deliberately deferred: how each number actually
+gets sourced across 1,773 courses.
+
+---
+
 ## 2026-08-16 — The Founder badge + the Obsidian tier
 
 Tom's call: a badge for the two founders, in a rarity tier **above
