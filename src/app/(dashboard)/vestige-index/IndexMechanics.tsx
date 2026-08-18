@@ -6,10 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { setVestigeIndexWeights } from "../courses/actions";
-import { projectIndex, type IndexWeights } from "./formula";
-
-/** A fixed reference course used to show, live, what the current weights do. */
-const EXAMPLE = { age: 95, ranking: 88, setting: 85 } as const;
+import type { IndexWeights } from "./formula";
 
 const WEIGHT_FIELDS: { key: keyof IndexWeights; label: string; hint: string }[] = [
   { key: "age", label: "Age", hint: "How old + pedigreed the course is" },
@@ -40,7 +37,6 @@ export function IndexWeightsPanel({
 
   const dirty = WEIGHT_FIELDS.some(({ key }) => w[key] !== weights[key]);
   const sum = w.age + w.ranking + w.setting;
-  const exampleIndex = projectIndex(EXAMPLE, "championship", 1895, w);
 
   function setWeight(key: keyof IndexWeights, v: number) {
     if (!Number.isFinite(v)) return;
@@ -66,87 +62,52 @@ export function IndexWeightsPanel({
 
   return (
     <div className="space-y-4">
-          {/* The formula, written out. */}
-          <div className="rounded-lg border border-rule/60 bg-paper-sunken/40 px-4 py-3">
-            <p className="font-mono text-[13px] leading-relaxed text-ink-2">
-              <span className="text-brand">index</span> = clamp( (<span className="text-ink">wA</span>·age +{" "}
-              <span className="text-ink">wR</span>·ranking + <span className="text-ink">wS</span>·setting) / Σw, 0, 100 )
-            </p>
-            <p className="mt-1 text-xs text-ink-3">
-              Age + setting are hand-scored 0-100 (blank falls back to ranking, then the tier seed). Ranking is the
-              encoded external rankings — when a course has none, its weight redistributes across the other two.
-            </p>
+      <div className="space-y-3">
+        {WEIGHT_FIELDS.map(({ key, label, hint }) => (
+          <div key={key} className="flex flex-wrap items-center gap-3">
+            <label
+              htmlFor={`weight-${key}`}
+              title={hint}
+              className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3"
+            >
+              {label}
+            </label>
+            <input
+              id={`weight-${key}`}
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={w[key]}
+              onChange={(e) => setWeight(key, Number(e.target.value))}
+              className="h-1.5 min-w-24 flex-1 cursor-pointer accent-brand"
+            />
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.01}
+              value={w[key]}
+              onChange={(e) => setWeight(key, Number(e.target.value))}
+              className="h-9 w-20 rounded-lg border border-rule/70 bg-paper-sunken/40 px-3 text-sm tabular-nums text-ink outline-none focus:border-brand/50"
+            />
+            <span className="w-10 text-right text-xs tabular-nums text-ink-3">{pct(w[key])}%</span>
           </div>
+        ))}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <p className="text-xs text-ink-3">
+            {sum <= 0 ? (
+              <span className="text-alert">Weights can&apos;t all be zero.</span>
+            ) : updatedAt ? (
+              `Last changed ${relativeTime(updatedAt)} ago${updatedByName ? ` by ${updatedByName}` : ""}`
+            ) : null}
+          </p>
+          <Button size="sm" disabled={pending || !dirty || sum <= 0} onClick={() => setConfirmOpen(true)}>
+            Apply
+          </Button>
+        </div>
+      </div>
 
-          <div className="grid gap-5 lg:grid-cols-[1fr_auto]">
-            {/* Weight controls. */}
-            <div className="space-y-3">
-              {WEIGHT_FIELDS.map(({ key, label, hint }) => (
-                <div key={key} className="flex flex-wrap items-center gap-3">
-                  <label
-                    htmlFor={`weight-${key}`}
-                    title={hint}
-                    className="w-24 shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3"
-                  >
-                    {label}
-                  </label>
-                  <input
-                    id={`weight-${key}`}
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={w[key]}
-                    onChange={(e) => setWeight(key, Number(e.target.value))}
-                    className="h-1.5 min-w-24 flex-1 cursor-pointer accent-brand"
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={w[key]}
-                    onChange={(e) => setWeight(key, Number(e.target.value))}
-                    className="h-9 w-20 rounded-lg border border-rule/70 bg-paper-sunken/40 px-3 text-sm tabular-nums text-ink outline-none focus:border-brand/50"
-                  />
-                  <span className="w-10 text-right text-xs tabular-nums text-ink-3">{pct(w[key])}%</span>
-                </div>
-              ))}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                <p className="text-xs text-ink-3">
-                  {sum <= 0 ? (
-                    <span className="text-alert">Weights can&apos;t all be zero.</span>
-                  ) : (
-                    <>
-                      Σ {sum.toFixed(2)} (renormalised at compute).{" "}
-                      {updatedAt
-                        ? `Last tuned ${relativeTime(updatedAt)} ago${updatedByName ? ` by ${updatedByName}` : ""}.`
-                        : "Not yet tuned."}{" "}
-                      Applying recomputes every course.
-                    </>
-                  )}
-                </p>
-                <Button size="sm" disabled={pending || !dirty || sum <= 0} onClick={() => setConfirmOpen(true)}>
-                  Apply
-                </Button>
-              </div>
-            </div>
-
-            {/* Live worked example. */}
-            <div className="rounded-lg border border-rule/60 bg-paper-sunken/30 px-4 py-3 lg:w-60">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">Worked example</p>
-              <p className="mt-1 text-xs text-ink-3">
-                age {EXAMPLE.age} · ranking {EXAMPLE.ranking}
-                <br />
-                setting {EXAMPLE.setting}
-              </p>
-              <p className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-ink-3">→ index</span>
-                <span className="font-display text-2xl font-semibold tabular-nums text-brand">{exampleIndex}</span>
-              </p>
-              <p className="mt-1 text-[11px] text-ink-3">at the staged weights</p>
-            </div>
-          </div>
       <ConfirmDialog
         open={confirmOpen}
         title="Apply blend weights?"
@@ -158,10 +119,8 @@ export function IndexWeightsPanel({
         }}
       >
         <p>
-          Applying these weights recomputes the Vestige Index for{" "}
-          <strong className="text-ink">every course</strong> - shifting rankings across the app.
+          Recomputes the Index for <strong className="text-ink">every course</strong>. Reversible.
         </p>
-        <p className="mt-2 text-ink-3">Reversible: set them back and re-apply.</p>
       </ConfirmDialog>
     </div>
   );

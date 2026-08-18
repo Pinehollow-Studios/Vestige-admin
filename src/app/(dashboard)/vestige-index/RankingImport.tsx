@@ -50,10 +50,8 @@ export function RankingImportPanel() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-ink-2">
-          {preview
-            ? `${preview.applying.length} to set · ${preview.exceptions.length} to check`
-            : "Match the published top-100s against the catalogue. Nothing is written until you apply."}
+        <p className="text-xs text-ink-3">
+          {preview ? "" : "Nothing is written until you apply."}
         </p>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" disabled={pending} onClick={runPreview}>
@@ -71,57 +69,16 @@ export function RankingImportPanel() {
         <div className="space-y-4">
           <>
               <div className="grid gap-3 sm:grid-cols-4">
-                <Stat label="Will be set" value={preview.applying.length} tone="brand" />
-                <Stat label="Already correct" value={preview.unchangedCount} />
-                <Stat label="Yours, untouched" value={preview.protectedCount} />
-                <Stat label="Need a look" value={preview.exceptions.length} tone="amber" />
+                <Stat label="To set" value={preview.applying.length} tone="brand" />
+                <Stat label="Unchanged" value={preview.unchangedCount} />
+                <Stat label="Hand-set" value={preview.protectedCount} />
+                <Stat label="To check" value={preview.exceptions.length} tone="amber" />
               </div>
-
-              <div className="flex flex-wrap gap-2">
-                {preview.sources.map((s) => (
-                  <span
-                    key={s.short}
-                    className="rounded-full border border-rule/70 bg-paper-sunken/50 px-2.5 py-1 text-[11px] text-ink-2"
-                  >
-                    {s.publisher} · {s.size}
-                  </span>
-                ))}
-              </div>
-
-              {preview.applying.length > 0 && (
-                <div>
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
-                    Top of the list
-                  </p>
-                  <div className="overflow-x-auto rounded-lg border border-rule/50">
-                    <table className="w-full min-w-[420px] text-sm">
-                      <tbody className="divide-y divide-rule/40">
-                        {preview.applying.slice(0, 10).map((p) => (
-                          <tr key={p.courseId}>
-                            <td className="px-3 py-1.5 text-ink">{p.courseName}</td>
-                            <td className="px-3 py-1.5 text-xs text-ink-3">
-                              {p.hits.map((h) => `${h.short} #${h.rank}`).join(" · ")}
-                            </td>
-                            <td className="px-3 py-1.5 text-right font-display font-semibold tabular-nums text-brand">
-                              {p.score}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {preview.applying.length > 10 && (
-                    <p className="mt-1.5 text-[11px] text-ink-3">
-                      …and {preview.applying.length - 10} more.
-                    </p>
-                  )}
-                </div>
-              )}
 
               {preview.exceptions.length > 0 && (
                 <div>
                   <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber">
-                    Couldn&apos;t place these — set them by hand
+                    Set these by hand
                   </p>
                   <div className="overflow-x-auto rounded-lg border border-amber/25 bg-amber/[0.03]">
                     <table className="w-full min-w-[460px] text-sm">
@@ -162,11 +119,9 @@ export function RankingImportPanel() {
       >
         <p>
           Sets Ranking on <strong className="text-ink">{preview?.applying.length ?? 0} courses</strong>{" "}
-          and recomputes the Vestige Index for every course.
+          and recomputes the Index.
         </p>
-        <p className="mt-2 text-ink-3">
-          Anything you&apos;ve set by hand is left alone. Re-runnable — safe to do again.
-        </p>
+        <p className="mt-2 text-ink-3">Anything set by hand is left alone.</p>
       </ConfirmDialog>
     </div>
   );

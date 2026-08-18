@@ -5,6 +5,37 @@
 
 ---
 
+## 2026-08-18 — Stripping the Index panels back to the numbers
+
+Follow-up to the same-day page simplification. When the guide was first built
+the brief was "make sure Jack understands everything", and it over-corrected
+into paragraphs. Tom's call: cut the prose, keep the numbers.
+
+**How it works** — rebuilt as tables only. Gone: the intro paragraphs, the
+Setting high/low descriptor cards, the "what that means" explainer under each
+axis, the calibration write-up. Kept: the axes table (now ordered by weight,
+ranking first, so the most important number leads), the Setting rubric, the Age
+bands, the rank→score table, and one line for the scale — best ≈99, typical
+≈50, unranked capped at 88. Every remaining sentence is a rule you'd need to
+score a course, not an explanation of why the rule exists. 240 → 132 lines, and
+it's now a server component (the collapse state it needed is owned by
+`IndexControls`).
+
+**Weights** — dropped the written-out formula and its paragraph, and the live
+worked-example box. What's left is the three sliders and Apply; the footer is a
+bare "Last changed 2h ago by Tom" instead of a sentence about renormalisation.
+
+**Ranking import** — dropped the source chips and the "Top of the list" preview
+table (ten rows restating what the main table shows after applying). Left: the
+four counters, now single-word — To set · Unchanged · Hand-set · To check — and
+the exceptions list, which is the only part needing action. Confirm-dialog copy
+halved.
+
+Presentation only, no schema/data/dependency change. Verified `tsc`/`eslint`/
+`build`; gated behind the admin login, so Tom-to-eyeball.
+
+---
+
 ## 2026-08-18 — Simplifying the Index page
 
 The Index surface had grown three stacked collapsible panels — mechanics,
