@@ -35,8 +35,8 @@ export function IndexGuide({ weights }: { weights: IndexWeights }) {
     {
       name: "Setting",
       weight: pct(weights.setting),
-      source: "You",
-      detail: "The only one that needs your judgement.",
+      source: "Draft — check it",
+      detail: "Started off from the landscape. Yours to correct.",
     },
   ];
 
@@ -122,6 +122,19 @@ export function IndexGuide({ weights }: { weights: IndexWeights }) {
             <p className="mb-2 text-xs leading-relaxed text-ink-2">
               The land, the views, the sense of place. Not the condition, not the difficulty, and
               not how good the golf is — just: <em>does standing here feel like somewhere?</em>
+            </p>
+            <p className="mb-3 rounded-md border border-rule/50 bg-paper/40 px-3 py-2 text-xs leading-relaxed text-ink-2">
+              Every course already has a <strong className="text-ink">starting number</strong>,
+              worked out from where it sits — how close the sea is, how much the land rises and
+              falls, whether it&apos;s in a National Park or National Landscape, and how many big
+              roads run past. Open a course and the note under it shows exactly what it used, e.g.{" "}
+              <span className="text-ink-3">&ldquo;Links · 1.4km to coast · Norfolk Coast&rdquo;</span>.
+              <br />
+              <br />
+              These are drafts, not verdicts — geography can only see so much. It is generous to
+              anything near the sea and hard on inland courses near a main road, so the great
+              heathland courses are the ones most likely to be scored too low. If you know a course,
+              trust yourself over the number.
             </p>
             <div className="mb-3 grid gap-2 sm:grid-cols-2">
               <div className="rounded-md border border-rule/50 bg-paper/40 px-3 py-2">
