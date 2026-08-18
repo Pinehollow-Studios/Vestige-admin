@@ -9,6 +9,8 @@ import { fetchAllRows } from "@/lib/admin/fetch-all";
 import { TIER_LABELS, type CourseTier } from "../courses/types";
 import { DEFAULT_WEIGHTS, type IndexWeights } from "./formula";
 import { IndexMechanics } from "./IndexMechanics";
+import { IndexGuide } from "./IndexGuide";
+import { RankingImport } from "./RankingImport";
 import { IndexTable, type IndexRow } from "./IndexTable";
 
 export const dynamic = "force-dynamic";
@@ -148,6 +150,10 @@ async function CountyLanding({
         updatedAt={mechanics.updatedAt}
         updatedByName={mechanics.updatedByName}
       />
+
+      <IndexGuide weights={mechanics.weights} />
+
+      <RankingImport />
 
       <TableToolbar
         initialQuery={initialQuery}
@@ -319,6 +325,10 @@ async function TableView({
         updatedAt={mechanics.updatedAt}
         updatedByName={mechanics.updatedByName}
       />
+
+      <IndexGuide weights={mechanics.weights} />
+
+      <RankingImport />
 
       <TableToolbar
         initialQuery={q}

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { recomputeVestigeIndex, setVestigeIndexWeights } from "../courses/actions";
 import { projectIndex, type IndexWeights } from "./formula";
-import { AgeBands } from "./AgeBands";
 
 /** A fixed reference course used to show, live, what the current weights do. */
 const EXAMPLE = { age: 95, ranking: 88, setting: 85 } as const;
@@ -120,8 +119,6 @@ export function IndexMechanics({
               encoded external rankings — when a course has none, its weight redistributes across the other two.
             </p>
           </div>
-
-          <AgeBands />
 
           <div className="grid gap-5 lg:grid-cols-[1fr_auto]">
             {/* Weight controls. */}

@@ -1,12 +1,16 @@
 
-- **2026-08-18** — **Last four courses ranked + Age bands on screen.**
-  Chichester (1990) + Sherdons (1992) sourced properly, so `established` got
-  the real year and the curve derived Age; Ashton Court + Lodmoor have no
-  findable founding date (the upstream source literally records "built in 0",
-  the origin of our junk `2`), so `established` stays null and
-  `heritage_score` is hand-set to 45 with a "confirm" `score_source` — a year
-  is factual and must not be invented, a score is editorial. **0 of 1,794 now
-  unranked.** New collapsible `AgeBands.tsx` in Index mechanics: a nine-era
-  table (founding years → Age) whose score column is computed by calling
-  `ageFromYear()` so it can't drift from the curve; `AGE_BANDS` holds only the
-  labels. Verified `tsc`/`eslint`/`build`. Long-form in `CHANGELOG.md`.
+- **2026-08-18** — **Ranking axis built** (`/vestige-index` → "Ranking
+  import"). Three published top-100s as independent votes — Top100GolfCourses,
+  Golf Empire, Today's Golfer (200) — stored as typed constants in
+  `lib/ranking-import/`; NCG skipped (only 25 of 100 render). Rank → concave
+  sub-score (#1→100 … #200→73, floor 73 so being ranked can't drag a course
+  below unranked), plain average across sources, **best rank wins** within a
+  club (catalogue is one row per club; sources rank individual courses).
+  Matching reuses `curated-import/match.ts` and applies **only** auto-confidence
+  matches — trial run: 393/400 rows, 185 courses, 7 genuine ambiguities
+  reported not guessed. Never overwrites hand-edits (`Ranking ·` prefix on
+  `score_source`); writes via `setCoursesScores` passing age+setting through so
+  the set-explicit RPC can't clear them. New `IndexGuide` panel explains all
+  three axes to Jack (which he sets, Age bands, rank→score, Setting rubric).
+  Verified `tsc`/`eslint`/`build`; **not applied to prod yet** — preview→apply
+  is a deliberate gate. Long-form in `CHANGELOG.md`.

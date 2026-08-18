@@ -5,6 +5,68 @@
 
 ---
 
+## 2026-08-18 — Ranking: three published top-100s become the second Index axis
+
+The Ranking axis, and the last of the three to be filled. Decisions locked
+with Tom question-by-question before any code.
+
+**Three sources, each a vote** — Top100GolfCourses (100, already in the repo
+for the curated importer), Golf Empire (100), Today's Golfer (200, the only
+one reaching past 100). Stored as typed constants in `lib/ranking-import/`
+alongside the existing `TOP100_ENGLAND`, so the import is reproducible,
+diffable when the lists are republished, and needs no live scrape at runtime.
+
+**NCG was dropped deliberately** — only 25 of its 100 render without
+paginated fetches. Tom first merged Golf Empire into T100 (they share 14 of 16
+courses across ranks 11-26, near-identical order) *and* skipped NCG, which
+would have left two views; flagged the combined effect and he un-merged Golf
+Empire instead. Three votes, no extra extraction. NCG can join later with no
+change to `score.ts`. Worth noting for then: Golf Empire republishes NCG's
+list at `/magazine-lists/national-club-golfer-england`, which may be a far
+easier route in than NCG's own site.
+
+**Scoring.** Rank → sub-score per source (concave: #1→100, #10→95, #50→85,
+#100→79, #200→73), then a plain average of the sources a course appears in —
+no corroboration bonus, so Ranking measures *position*, not breadth of
+agreement. Within a club, **best rank wins**: Sunningdale takes the Old's #2
+rather than being averaged down by the New, which matters because the
+catalogue holds one row per club while the sources rank individual courses.
+The **floor of 73 is load-bearing** — an unranked course carries null and its
+weight redistributes, so a low floor would mean *being ranked* could drag a
+course below where it would have sat unranked.
+
+**Matching is automatic but conservative.** Reuses `curated-import/match.ts`
+untouched. Only `auto`-confidence matches are applied; `ambiguous` and
+unmatched rows are reported, never guessed — nobody reviews these row by row,
+so a wrong match would silently set a course's Ranking. Trial run over the
+live catalogue: **393 of 400 rows matched, 185 distinct courses, 7
+exceptions** — and the 7 are real ambiguities (`YORK` ties between "York Golf
+Club" and "The York Club"), not bad matches slipping through.
+
+**Never overwrites hand-edits.** `score_source` carries a `Ranking ·` prefix
+with the positions used (`Ranking · T100 #2 · GE #2 · TG #4`); anything with a
+ranking set whose note isn't ours is skipped and counted. Limitation worth
+knowing: `score_source` is one field shared across axes, so this is provenance
+by convention rather than by schema — a dedicated column would need an iOS
+migration.
+
+Writes go through the existing `setCoursesScores`, reading age + setting back
+and passing them through unchanged, because `admin_set_courses_scores` is
+set-explicit and would otherwise clear them. One batch, one recompute.
+
+**`IndexGuide` — the page now explains itself.** A "How the Index works" panel
+covering all three axes: which of them Jack actually sets (only Setting), the
+Age band table, the rank→score table, and a 0-100 rubric for Setting with
+high/low descriptors. Deliberately explanatory against the dashboard's
+no-helper-text rule — this is the one surface where the scoring model is the
+subject, and a wrong score here moves every ranking in the app. `AgeBands`
+became a plain table owned by the guide; `IndexMechanics` keeps only tuning.
+
+Verified `tsc` / `eslint` / `build` + the trial match run. No migration.
+**Not yet applied to prod** — the panel gates on preview → apply by design.
+
+---
+
 ## 2026-08-18 — Every course ranked; the Age bands become readable in the Bunker
 
 Tail end of the Age work: close the four gaps, then put the curve on screen
