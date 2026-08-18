@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { BookOpen, ChevronDown } from "lucide-react";
 import { AgeBandsTable } from "./AgeBands";
 import type { IndexWeights } from "./formula";
 import { RANKING_SOURCES, scoreForRank } from "@/lib/ranking-import/score";
@@ -14,8 +12,7 @@ import { RANKING_SOURCES, scoreForRank } from "@/lib/ranking-import/score";
  * rule: this is the one surface where the scoring model itself is the subject,
  * and getting a score wrong here moves every ranking in the app.
  */
-export function IndexGuide({ weights }: { weights: IndexWeights }) {
-  const [open, setOpen] = useState(false);
+export function IndexGuideContent({ weights }: { weights: IndexWeights }) {
   const sum = weights.age + weights.ranking + weights.setting;
   const pct = (v: number) => (sum > 0 ? Math.round((v / sum) * 100) : 0);
 
@@ -52,26 +49,7 @@ export function IndexGuide({ weights }: { weights: IndexWeights }) {
   const RANK_ROWS = [1, 10, 25, 50, 100, 200];
 
   return (
-    <section className="rounded-xl glass-panel">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 px-5 py-3.5 text-left"
-      >
-        <span className="grid size-7 place-items-center rounded-lg bg-brand/10 text-brand">
-          <BookOpen aria-hidden className="size-3.5" />
-        </span>
-        <h2 className="text-sm font-semibold text-ink">How the Index works</h2>
-        <span className="text-xs text-ink-3">what each number means, and where it comes from</span>
-        <ChevronDown
-          aria-hidden
-          className={"ml-auto size-4 text-ink-3 transition-transform " + (open ? "rotate-180" : "")}
-        />
-      </button>
-
-      {open && (
-        <div className="space-y-5 border-t border-rule/60 px-5 pb-5 pt-4">
+    <div className="space-y-5">
           {/* 1 — the three axes at a glance */}
           <div>
             <SectionLabel>The three numbers</SectionLabel>
@@ -240,9 +218,7 @@ export function IndexGuide({ weights }: { weights: IndexWeights }) {
               summit is reserved for courses with outside evidence behind them.
             </p>
           </div>
-        </div>
-      )}
-    </section>
+    </div>
   );
 }
 

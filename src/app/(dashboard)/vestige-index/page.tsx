@@ -8,9 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/admin/fetch-all";
 import { TIER_LABELS, type CourseTier } from "../courses/types";
 import { DEFAULT_WEIGHTS, type IndexWeights } from "./formula";
-import { IndexMechanics } from "./IndexMechanics";
-import { IndexGuide } from "./IndexGuide";
-import { RankingImport } from "./RankingImport";
+import { IndexControls } from "./IndexControls";
 import { IndexTable, type IndexRow } from "./IndexTable";
 
 export const dynamic = "force-dynamic";
@@ -29,9 +27,6 @@ const SORT_COLUMN: Record<string, string> = {
 /** Per-course columns the county landing rolls up. */
 type CountyAggRow = {
   county_id: string | null;
-  setting_score: number | null;
-  heritage_score: number | null;
-  consensus_score: number | null;
   vestige_index: number | null;
 };
 
@@ -108,7 +103,7 @@ async function CountyLanding({
     fetchAllRows<CountyAggRow>((from, to) =>
       supabase
         .from("courses")
-        .select("county_id, setting_score, heritage_score, consensus_score, vestige_index")
+        .select("county_id, vestige_index")
         .order("id", { ascending: true })
         .range(from, to),
     ),
@@ -116,17 +111,12 @@ async function CountyLanding({
     loadMechanics(supabase),
   ]);
 
-  type Stat = { total: number; unranked: number; indexSum: number; indexCount: number };
+  type Stat = { total: number; indexSum: number; indexCount: number };
   const stats = new Map<string, Stat>();
   for (const r of (aggRes.data as CountyAggRow[] | null) ?? []) {
     const key = r.county_id ?? NO_COUNTY;
-    const s = stats.get(key) ?? { total: 0, unranked: 0, indexSum: 0, indexCount: 0 };
+    const s = stats.get(key) ?? { total: 0, indexSum: 0, indexCount: 0 };
     s.total += 1;
-    // "Unranked" = nothing entered on any of the three inputs, so the Index is
-    // still running on the provisional tier seed.
-    if (r.heritage_score == null && r.consensus_score == null && r.setting_score == null) {
-      s.unranked += 1;
-    }
     if (r.vestige_index != null) {
       s.indexSum += r.vestige_index;
       s.indexCount += 1;
@@ -135,32 +125,25 @@ async function CountyLanding({
   }
 
   const counties = ((countiesRes.data as Array<{ id: string; name: string }> | null) ?? [])
-    .map((c) => ({ ...c, ...(stats.get(c.id) ?? { total: 0, unranked: 0, indexSum: 0, indexCount: 0 }) }))
+    .map((c) => ({ ...c, ...(stats.get(c.id) ?? { total: 0, indexSum: 0, indexCount: 0 }) }))
     .filter((c) => c.total > 0);
   const orphan = stats.get(NO_COUNTY);
   const totalCourses = Array.from(stats.values()).reduce((n, s) => n + s.total, 0);
-  const totalUnranked = Array.from(stats.values()).reduce((n, s) => n + s.unranked, 0);
 
   return (
     <div className={pageShell("wide")}>
       <SectionHeader eyebrow="Editorial" title="Vestige Index" />
 
-      <IndexMechanics
+      <IndexControls
         weights={mechanics.weights}
         updatedAt={mechanics.updatedAt}
         updatedByName={mechanics.updatedByName}
       />
 
-      <IndexGuide weights={mechanics.weights} />
-
-      <RankingImport />
-
       <TableToolbar
         initialQuery={initialQuery}
         searchPlaceholder="Search every course by name…"
-        countLabel={`${totalCourses.toLocaleString()} courses across ${counties.length} counties${
-          totalUnranked > 0 ? ` · ${totalUnranked.toLocaleString()} still to rank` : ""
-        } - pick a county or search`}
+        countLabel={`${totalCourses.toLocaleString()} courses across ${counties.length} counties — pick a county or search`}
       />
 
       {aggRes.error ? (
@@ -175,7 +158,6 @@ async function CountyLanding({
               href={`/vestige-index?county=${c.id}`}
               name={c.name}
               total={c.total}
-              unranked={c.unranked}
               avgIndex={c.indexCount ? Math.round(c.indexSum / c.indexCount) : null}
             />
           ))}
@@ -184,7 +166,6 @@ async function CountyLanding({
               href={`/vestige-index?county=${NO_COUNTY}`}
               name="No county"
               total={orphan.total}
-              unranked={orphan.unranked}
               avgIndex={orphan.indexCount ? Math.round(orphan.indexSum / orphan.indexCount) : null}
             />
           )}
@@ -198,13 +179,11 @@ function CountyCard({
   href,
   name,
   total,
-  unranked,
   avgIndex,
 }: {
   href: string;
   name: string;
   total: number;
-  unranked: number;
   avgIndex: number | null;
 }) {
   return (
@@ -229,14 +208,7 @@ function CountyCard({
           <span className="tabular-nums text-ink-2">{total}</span> {total === 1 ? "course" : "courses"}
         </p>
       </div>
-      <div className="flex items-center justify-between gap-2">
-        {unranked > 0 ? (
-          <span className="inline-flex w-fit items-center gap-1 rounded-full border border-amber/30 bg-amber/5 px-2 py-0.5 text-[10px] font-medium text-amber">
-            {unranked} to rank
-          </span>
-        ) : (
-          <span className="text-[10px] font-medium text-ink-3">all ranked</span>
-        )}
+      <div className="flex items-center justify-end">
         <ChevronRight aria-hidden className="size-4 text-ink-3 opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
     </Link>
@@ -320,15 +292,11 @@ async function TableView({
         title={countyName ?? "Vestige Index"}
       />
 
-      <IndexMechanics
+      <IndexControls
         weights={mechanics.weights}
         updatedAt={mechanics.updatedAt}
         updatedByName={mechanics.updatedByName}
       />
-
-      <IndexGuide weights={mechanics.weights} />
-
-      <RankingImport />
 
       <TableToolbar
         initialQuery={q}

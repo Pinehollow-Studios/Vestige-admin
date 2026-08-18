@@ -5,6 +5,38 @@
 
 ---
 
+## 2026-08-18 — Simplifying the Index page
+
+The Index surface had grown three stacked collapsible panels — mechanics,
+guide, ranking import — above the toolbar, so the actual work (the ranked
+list) started a long way down the page and three headers competed for
+attention before you saw a single course.
+
+**One control strip instead** (`IndexControls.tsx`): a quiet row of three
+toggles — How it works · Weights · Ranking import — opening **one panel at a
+time**, with Recompute pulled out to the right of the row where it belongs as
+a standalone action. The three panels lost their own collapse chrome and
+became plain content components (`IndexGuideContent`, `IndexWeightsPanel`,
+`RankingImportPanel`), so the page owns the disclosure rather than each panel
+arguing for itself.
+
+**Table**: dropped the separate "Projected" column, which sat next to Index
+showing a second number for the same thing. A pending edit now recolours the
+Index cell amber in place — one number, one column, and the min-width falls
+760px → 680px so it fits more screens without scrolling.
+
+**County landing**: removed the amber "N to rank" chip. It counted courses
+with nothing entered on any axis, which was every course when it was written
+and is now none of them — it had quietly become a permanent "all ranked" on
+every tile. The cards are back to name · count · average Index. The landing
+query drops to `county_id, vestige_index` as a result.
+
+Presentation only — no schema, data or dependency change. Verified `tsc` /
+`eslint` / `build` + a clean dev boot with no server errors; the page itself
+is behind the admin login so it's Tom-to-eyeball.
+
+---
+
 ## 2026-08-18 — Calibrating the Index: the best courses finally read 99
 
 The first full-blend result didn't work. Royal St George's read 88, and

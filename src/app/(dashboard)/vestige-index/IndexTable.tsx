@@ -130,7 +130,7 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
         {/* Horizontal scroll so the three score columns don't force the page
             wider than the viewport on a phone. */}
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[680px] text-sm">
           <thead>
             <tr className="border-b border-rule/60 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
               <th className="px-3 py-2.5 text-right">#</th>
@@ -141,12 +141,6 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
                   {AXIS_LABELS[a]}
                 </th>
               ))}
-              <th
-                className="px-3 py-2.5 text-right"
-                title="Live preview of this row's Index from the staged scores + current weights. Commit to apply."
-              >
-                Projected
-              </th>
               <th className="px-3 py-2.5 text-right">Index</th>
             </tr>
           </thead>
@@ -236,24 +230,21 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
                       {showProjected ? (
                         <span
                           className="font-display text-base font-semibold tabular-nums text-amber"
-                          title="Projected - commit to apply"
+                          title="Projected from your edits — save to apply"
                         >
                           {projected}
                         </span>
                       ) : (
-                        <span className="tabular-nums text-ink-3">-</span>
+                        <span className="font-display text-base font-semibold tabular-nums text-brand">
+                          {row.vestigeIndex ?? "-"}
+                        </span>
                       )}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <span className="font-display text-base font-semibold tabular-nums text-brand">
-                        {row.vestigeIndex ?? "-"}
-                      </span>
                     </td>
                   </tr>
                   {open && (
                     <tr className="bg-paper-sunken/20">
                       <td />
-                      <td colSpan={7} className="px-3 pb-3 pt-0">
+                      <td colSpan={6} className="px-3 pb-3 pt-0">
                         <div className="space-y-2 rounded-lg border border-rule/50 bg-paper/40 p-3">
                           <p className="font-mono text-xs text-ink-2">
                             A {row.age ?? "seed"} · R {row.ranking ?? "–"} · S {row.setting ?? "seed"} → index{" "}

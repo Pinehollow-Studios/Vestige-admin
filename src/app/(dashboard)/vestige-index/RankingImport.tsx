@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronDown, ListOrdered, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { previewRankingImport, applyRankingImport, type RankingPreview } from "./ranking-actions";
@@ -16,9 +16,8 @@ import { previewRankingImport, applyRankingImport, type RankingPreview } from ".
  * guessed at, since nobody reviews these row by row. Preview first, then
  * apply: one batch write, one Index recompute.
  */
-export function RankingImport() {
+export function RankingImportPanel() {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<RankingPreview | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -28,7 +27,6 @@ export function RankingImport() {
       const res = await previewRankingImport();
       if (res.ok && res.data) {
         setPreview(res.data);
-        setOpen(true);
       } else if (!res.ok) {
         toast.error(res.message);
       }
@@ -50,28 +48,13 @@ export function RankingImport() {
   }
 
   return (
-    <section className="rounded-xl glass-panel">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="flex min-w-0 items-center gap-2 text-left"
-        >
-          <span className="grid size-7 place-items-center rounded-lg bg-brand/10 text-brand">
-            <ListOrdered aria-hidden className="size-3.5" />
-          </span>
-          <h2 className="text-sm font-semibold text-ink">Ranking import</h2>
-          <span className="text-xs text-ink-3">
-            {preview
-              ? `${preview.applying.length} to set · ${preview.exceptions.length} to check`
-              : "from the published top-100s"}
-          </span>
-          <ChevronDown
-            aria-hidden
-            className={"size-4 text-ink-3 transition-transform " + (open ? "rotate-180" : "")}
-          />
-        </button>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-ink-2">
+          {preview
+            ? `${preview.applying.length} to set · ${preview.exceptions.length} to check`
+            : "Match the published top-100s against the catalogue. Nothing is written until you apply."}
+        </p>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" disabled={pending} onClick={runPreview}>
             <Download aria-hidden className="size-3.5" />
@@ -84,16 +67,9 @@ export function RankingImport() {
           )}
         </div>
       </div>
-
-      {open && (
-        <div className="space-y-4 border-t border-rule/60 px-5 pb-5 pt-4">
-          {!preview ? (
-            <p className="text-xs text-ink-2">
-              Press <span className="text-ink">Preview</span> to match the published lists against
-              the catalogue. Nothing is written until you apply.
-            </p>
-          ) : (
-            <>
+      {preview && (
+        <div className="space-y-4">
+          <>
               <div className="grid gap-3 sm:grid-cols-4">
                 <Stat label="Will be set" value={preview.applying.length} tone="brand" />
                 <Stat label="Already correct" value={preview.unchangedCount} />
@@ -170,8 +146,7 @@ export function RankingImport() {
                   </div>
                 </div>
               )}
-            </>
-          )}
+          </>
         </div>
       )}
 
@@ -193,7 +168,7 @@ export function RankingImport() {
           Anything you&apos;ve set by hand is left alone. Re-runnable — safe to do again.
         </p>
       </ConfirmDialog>
-    </section>
+    </div>
   );
 }
 
