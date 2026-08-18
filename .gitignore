@@ -43,3 +43,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Supabase CLI local state (this repo holds no migrations - schema lives in Vestige-ios)
+supabase/.temp/

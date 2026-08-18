@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ChevronRight,
+  Hexagon,
   Layers,
   ListChecks,
   MapPin,
@@ -40,6 +41,7 @@ const STATUS_RANK: Record<BadgeStatus, number> = { live: 0, draft: 1, archived: 
 
 /** Group metadata - mirrors how badges are grouped on the iOS Badges wall. */
 const CATEGORY_META: Record<BadgeCategory, { label: string; blurb: string; icon: LucideIcon }> = {
+  founders: { label: "Founders", blurb: "The two originals", icon: Hexagon },
   collection: { label: "Collection", blurb: "Courses played", icon: Layers },
   counties: { label: "Counties", blurb: "County completion", icon: MapPin },
   lists: { label: "Lists", blurb: "Curated lists finished", icon: ListChecks },

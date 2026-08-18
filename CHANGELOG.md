@@ -5,6 +5,45 @@
 
 ---
 
+## 2026-08-16 — The Founder badge + the Obsidian tier
+
+Tom's call: a badge for the two founders, in a rarity tier **above
+Legendary** — ultra sleek, dark, moody. Design locked with Tom via the
+colour/name pickers: bespoke **Obsidian** (his pick over the nine existing
+theme families) — a graphite-black frame gradient (`#C7D0DB → #39434F →
+#0B0F16`) whose signature is a **cold white-steel rim light** catching the
+outer silhouette from the top-left; the tier is named **Obsidian** too.
+
+**The badge.** Slug `founder` — name "Founder", tagline *"From the very
+first marker."*, hexagon shape + hexagon glyph (the Vestige seal echo),
+slate theme with a steel `tint_hex` (`#C7D0DB`), manual criteria, in a new
+**founders** category, `display_priority` 1000. **Secret** — invisible in
+the catalogue to anyone who hasn't earned it — and published. Granted to
+the two founder accounts on prod (@tomhatesgolf, @tivs20) via
+`_grant_badge_definition` (so both got the real badge-earned notification).
+
+**Schema (iOS migration `20260816120000_founder_badge_obsidian_tier.sql`).**
+Widens the `badge_definitions` tier + category CHECKs (add-only), inserts
+the definition idempotently, grants guarded on user-row existence (dev has
+no founder accounts — 0 grants there, by design). Probed with
+`begin…rollback` first; applied to dev + prod; grants verified on prod
+(2 rows, obsidian/founders/secret). Expand/contract-safe: live builds
+decode unknown tiers/categories tolerantly (`?? .bronze` / `?? .collection`),
+so stale builds render it modestly rather than crashing; the next iOS build
+renders it properly.
+
+**Renderers (both sides, kept in lockstep).** Obsidian rank 5; drawn rings
+cap at `min(rank+1, 5)` so a sixth ring never crowds the glyph — the rim
+light is the tier's signature instead; effect guardrail pins obsidian to
+**glow** (steel aura — never the legendary rainbow); default shape hexagon.
+iOS: `BadgeTier`/`BadgeCategory` cases + `VBadgeMedallion` rim light +
+bespoke **ceremony dials** (darker room, longer hold, no aurora — the drama
+is restraint). Web: `badges/types.ts` vocab + `BadgeMedallion` rim-light
+gradient stroke + Founders category tile (hexagon icon) + hexagon glyph
+mapping. Verified web `tsc`/`eslint` + iOS Debug build.
+
+---
+
 ## 2026-08-16 — In-app previews resynced to the shipping iOS screens
 
 The editor previews had drifted a full design generation behind the app

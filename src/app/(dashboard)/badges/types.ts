@@ -23,13 +23,13 @@ export type BadgeTheme =
   | "mint" | "lime" | "amber" | "claret" | "sea"
   | "violet" | "gold" | "slate" | "rose";
 
-export type BadgeTier = "bronze" | "silver" | "gold" | "platinum" | "legendary";
+export type BadgeTier = "bronze" | "silver" | "gold" | "platinum" | "legendary" | "obsidian";
 /** Silhouette — defaults from tier (coin → rosette), overridable. */
 export type BadgeShape = "rosette" | "shield" | "coin" | "hexagon" | "seal";
 /** Extra flair — auto-corrected to the tier (see `resolveEffect`). */
 export type BadgeEffect = "none" | "glow" | "metallic" | "holographic";
 export type BadgeCategory =
-  | "collection" | "counties" | "lists" | "social" | "rounds" | "milestones" | "special";
+  | "collection" | "counties" | "lists" | "social" | "rounds" | "milestones" | "special" | "founders";
 
 /** The engraved plate face - flat deep slate, matches iOS `Theme.Color.paperRaised`
  *  (`rgb(0.078,0.133,0.208)` = #142235). The mint glyph reads against it. */
@@ -70,11 +70,12 @@ export const TIER_RING: Record<BadgeTier, string[]> = {
   gold:      ["#FBE38C", "#C79A2E"],
   platinum:  ["#DDF0FF", "#9BC2DE"],
   legendary: ["#A98BE8", "#5BE4C3", "#F4C44B"],
+  obsidian:  ["#C7D0DB", "#39434F"],
 };
 
 /** Rim thickness fraction per tier (matches iOS `BadgeTier.ringWidth`). */
 export const TIER_RIM_WIDTH: Record<BadgeTier, number> = {
-  bronze: 0.045, silver: 0.045, gold: 0.055, platinum: 0.055, legendary: 0.07,
+  bronze: 0.045, silver: 0.045, gold: 0.055, platinum: 0.055, legendary: 0.07, obsidian: 0.07,
 };
 
 // ── Sigil renderer palette (shared source of truth — badge-spec.json + iOS) ──
@@ -99,19 +100,21 @@ export const SIGIL_FRAME: Record<BadgeTier, string[]> = {
   gold:      ["#FCEFC0", "#F4D277", "#AE7A1F"],
   platinum:  ["#FFFFFF", "#EFF4FA", "#A6B4C5"],
   legendary: ["#5BE4C3", "#4FA8E8", "#A78BFA", "#F2789F", "#F4A85C"],
+  obsidian:  ["#C7D0DB", "#39434F", "#0B0F16"],
 };
 
 /** Legendary spectral ring / burst. */
 export const SIGIL_HOLO = ["#5BE4C3", "#4FA8E8", "#A78BFA", "#F2789F", "#F4A85C"];
 
-/** Ring count = tier index + 1. */
+/** Ring count = tier index + 1 (renderers cap drawn rings at 5). */
 export const TIER_INDEX: Record<BadgeTier, number> = {
-  bronze: 0, silver: 1, gold: 2, platinum: 3, legendary: 4,
+  bronze: 0, silver: 1, gold: 2, platinum: 3, legendary: 4, obsidian: 5,
 };
 
 /** Silhouette a tier defaults to (climbs with rarity). Overridable per badge. */
 export const TIER_DEFAULT_SHAPE: Record<BadgeTier, BadgeShape> = {
   bronze: "coin", silver: "seal", gold: "shield", platinum: "hexagon", legendary: "rosette",
+  obsidian: "hexagon",
 };
 
 export const THEME_LABELS: Record<BadgeTheme, string> = {
@@ -129,10 +132,12 @@ export const EFFECT_LABELS: Record<BadgeEffect, string> = {
 
 /**
  * The light guardrail — effects auto-correct to the tier so any authored
- * combination renders intentionally. Legendary is always holographic. Identical
- * to iOS `BadgeMedallion.resolvedEffect` and `badge-spec.json → guardrails`.
+ * combination renders intentionally. Legendary is always holographic; obsidian
+ * is always a restrained glow (its steel aura — never rainbow). Identical to
+ * iOS `VBadgeMedallion.resolvedEffect`.
  */
 export function resolveEffect(effect: BadgeEffect, tier: BadgeTier): BadgeEffect {
+  if (tier === "obsidian") return "glow";
   if (tier === "legendary") return "holographic";
   const ti = TIER_INDEX[tier];
   switch (effect) {
@@ -144,7 +149,7 @@ export function resolveEffect(effect: BadgeEffect, tier: BadgeTier): BadgeEffect
 }
 
 export const THEMES: BadgeTheme[] = Object.keys(THEME_COLORS) as BadgeTheme[];
-export const TIERS: BadgeTier[] = ["bronze", "silver", "gold", "platinum", "legendary"];
+export const TIERS: BadgeTier[] = ["bronze", "silver", "gold", "platinum", "legendary", "obsidian"];
 
 /** Display labels for the rarity tiers. */
 export const TIER_LABELS: Record<BadgeTier, string> = {
@@ -153,14 +158,15 @@ export const TIER_LABELS: Record<BadgeTier, string> = {
   gold: "Gold",
   platinum: "Platinum",
   legendary: "Legendary",
+  obsidian: "Obsidian",
 };
 
 /** Catalogue grouping order - rarest (most prestigious) first. */
-export const TIER_ORDER: BadgeTier[] = ["legendary", "platinum", "gold", "silver", "bronze"];
+export const TIER_ORDER: BadgeTier[] = ["obsidian", "legendary", "platinum", "gold", "silver", "bronze"];
 export const SHAPES: BadgeShape[] = ["rosette", "shield", "coin", "hexagon", "seal"];
 export const EFFECTS: BadgeEffect[] = ["none", "glow", "metallic", "holographic"];
 export const CATEGORIES: BadgeCategory[] = [
-  "collection", "counties", "lists", "social", "rounds", "milestones", "special",
+  "founders", "collection", "counties", "lists", "social", "rounds", "milestones", "special",
 ];
 
 /**

@@ -695,3 +695,14 @@ canonical write-up lives on disk.
   `PreviewCard` drift-fixed (flat 55% scrim, SurfaceGlass card, inset 16:9
   hero, filled check-circles, CTA glow). All re-derived from live Swift
   source. Verified `tsc`/`eslint`/`build`. Long-form in `CHANGELOG.md`.
+- **2026-08-16** — **Founder badge + Obsidian tier**: new rarity tier above
+  Legendary (graphite-black frame `#C7D0DB→#39434F→#0B0F16`, steel rim-light
+  signature, rings capped at 5, effect pinned to glow) + new **founders**
+  category; badge `founder` (hexagon shape+glyph, slate/steel tint, manual,
+  **secret**, published) granted to @tomhatesgolf + @tivs20 on prod (grants
+  verified; dev has no founder accounts). iOS migration `20260816120000`
+  (add-only CHECK widenings; expand/contract-safe — old builds decode
+  obsidian→bronze tolerantly) applied dev+prod. Renderers updated in
+  lockstep: iOS `BadgeTier`/`BadgeCategory`/`VBadgeMedallion`/ceremony
+  dials; web `badges/types.ts`/`BadgeMedallion`/category tile. Verified
+  `tsc`/`eslint` + iOS Debug build. Long-form in `CHANGELOG.md`.

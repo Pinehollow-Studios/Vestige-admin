@@ -3,8 +3,8 @@
 import { useId } from "react";
 import {
   Award, BadgeCheck, Bolt, Calendar, Camera, CheckSquare, Clock, Crown, Flag,
-  Flame, Footprints, Globe, Heart, Image as ImageIcon, Images, Leaf, Lock, MapPin,
-  Map as MapIcon, Medal, Moon, Mountain, Sparkles, Star, Sun, Trophy, User,
+  Flame, Footprints, Globe, Heart, Hexagon, Image as ImageIcon, Images, Leaf, Lock,
+  MapPin, Map as MapIcon, Medal, Moon, Mountain, Sparkles, Star, Sun, Trophy, User,
   Users, type LucideIcon,
 } from "lucide-react";
 import {
@@ -31,6 +31,7 @@ import {
 
 /** SF Symbol name → lucide preview icon (iOS renders the real SF Symbol). */
 const GLYPH_LUCIDE: Record<string, LucideIcon> = {
+  hexagon: Hexagon,
   rosette: Award,
   "trophy.fill": Trophy,
   "crown.fill": Crown,
@@ -142,7 +143,10 @@ function SigilArt({
   px: number;
 }) {
   const isLeg = tier === "legendary";
-  const ringCount = TIER_INDEX[tier] + 1;
+  const isObsidian = tier === "obsidian";
+  // Drawn rings cap at 5 — obsidian's signature is the steel rim light, not a
+  // sixth ring crowding the glyph. Mirrors iOS `VBadgeMedallion`.
+  const ringCount = Math.min(TIER_INDEX[tier] + 1, 5);
   const stops = frameStops(tier);
 
   let shadow = `drop-shadow(0 ${px * 0.05}px ${px * 0.08}px rgba(0,0,0,0.4))`;
@@ -159,6 +163,12 @@ function SigilArt({
           <linearGradient id={`${id}-frame`} x1="0" y1="0" x2="1" y2="1">
             {stops.map((s, i) => <stop key={i} offset={`${s.offset * 100}%`} stopColor={s.color} />)}
           </linearGradient>
+          {isObsidian && (
+            <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="rgba(230,237,244,0.9)" />
+              <stop offset="45%" stopColor="rgba(230,237,244,0)" />
+            </linearGradient>
+          )}
         </defs>
 
         {/* Duotone fill + theme stroke. */}
@@ -176,6 +186,9 @@ function SigilArt({
 
         {/* Legendary radial burst. */}
         {isLeg && legendaryBurst(id)}
+
+        {/* Obsidian steel rim light — catches top-left, dissolves to nothing. */}
+        {isObsidian && shapeEl(shape, { fill: "none", stroke: `url(#${id}-rim)`, strokeWidth: 2.6 })}
       </svg>
 
       <GlyphLayer Glyph={Glyph} size={px * 0.34} color={tint} />
