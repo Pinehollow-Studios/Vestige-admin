@@ -33,15 +33,17 @@ export type IndexWeights = {
 };
 
 /**
- * Ranking + setting lead; age is the supporting input (2026-08-18, Tom's
- * call). Age carries half the weight of each of the other two, so a genuinely
- * good modern course isn't capped by its founding year. Renormalised at
- * compute, so these needn't sum to 1.
+ * Ranking leads (2026-08-18). For the ~185 courses that appear in a published
+ * top-100 we hold genuine external consensus; for the rest we hold proxies.
+ * Averaging good evidence down with weak proxies was pushing Sunningdale — #2
+ * in England by every source — to #68, so ranking carries the majority weight
+ * wherever it exists. Where it doesn't, its weight redistributes and setting
+ * leads instead. Renormalised at compute, so these needn't sum to 1.
  */
 export const DEFAULT_WEIGHTS: IndexWeights = {
-  age: 0.2,
-  ranking: 0.4,
-  setting: 0.4,
+  age: 0.15,
+  ranking: 0.55,
+  setting: 0.3,
 };
 
 export type AxisScores = {

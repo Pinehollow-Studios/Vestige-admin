@@ -43,9 +43,9 @@ export type SettingSignals = {
 /** Where each style starts before geography is applied. */
 export const STYLE_BASELINE: Record<string, number> = {
   Links: 72,
-  Heathland: 64,
-  Downland: 62,
-  Moorland: 64,
+  Heathland: 70,
+  Downland: 68,
+  Moorland: 70,
   Parkland: 52,
   "Pitch & Putt": 40,
 };
@@ -82,10 +82,11 @@ export function draftSetting(s: SettingSignals): SettingDraft {
   if (s.nationalPark) { score += 7; reasons.push(titleCase(s.nationalPark)); }
   else if (s.aonb) { score += 5; reasons.push(titleCase(s.aonb)); }
 
-  if (s.bigRoads >= 3) { score -= 5; reasons.push("major roads"); }
-  else if (s.bigRoads >= 1) { score -= 3; reasons.push("main road"); }
-  if (s.streets >= 15) { score -= 3; reasons.push("built up"); }
-  else if (s.streets >= 8) { score -= 1; }
+  // No road penalty (2026-08-18). A trunk road on the far side of a treeline
+  // is not an intrusion — this was demoting the Surrey/Berkshire heathland belt
+  // (Sunningdale, Swinley, Walton Heath) for roads you cannot hear from the
+  // course. Genuine suburban enclosure still counts, softened.
+  if (s.streets >= 15) { score -= 2; reasons.push("built up"); }
 
   return {
     score: Math.max(DRAFT_MIN, Math.min(DRAFT_MAX, Math.round(score))),

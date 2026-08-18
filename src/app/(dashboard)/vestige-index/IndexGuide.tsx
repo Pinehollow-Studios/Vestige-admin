@@ -126,15 +126,14 @@ export function IndexGuide({ weights }: { weights: IndexWeights }) {
             <p className="mb-3 rounded-md border border-rule/50 bg-paper/40 px-3 py-2 text-xs leading-relaxed text-ink-2">
               Every course already has a <strong className="text-ink">starting number</strong>,
               worked out from where it sits — how close the sea is, how much the land rises and
-              falls, whether it&apos;s in a National Park or National Landscape, and how many big
-              roads run past. Open a course and the note under it shows exactly what it used, e.g.{" "}
+              falls, and whether it&apos;s in a National Park or National Landscape. Open a course
+              and the note under it shows exactly what it used, e.g.{" "}
               <span className="text-ink-3">&ldquo;Links · 1.4km to coast · Norfolk Coast&rdquo;</span>.
               <br />
               <br />
-              These are drafts, not verdicts — geography can only see so much. It is generous to
-              anything near the sea and hard on inland courses near a main road, so the great
-              heathland courses are the ones most likely to be scored too low. If you know a course,
-              trust yourself over the number.
+              These are drafts, not verdicts — geography can only see so much. It still leans
+              generous towards anything near the sea, so a fine inland course is more likely to be
+              under-scored than over-scored. If you know a course, trust yourself over the number.
             </p>
             <div className="mb-3 grid gap-2 sm:grid-cols-2">
               <div className="rounded-md border border-rule/50 bg-paper/40 px-3 py-2">
@@ -221,6 +220,24 @@ export function IndexGuide({ weights }: { weights: IndexWeights }) {
               courses appears in any list. A blank ranking isn&apos;t a bad score: it drops out
               entirely and the other two numbers share its weight. Even last place scores 73,
               because #200 of 1,794 is still the top tenth of English golf.
+            </p>
+          </div>
+          {/* 5 — the final scale */}
+          <div>
+            <SectionLabel>Why the final number isn&apos;t just the average</SectionLabel>
+            <p className="text-xs leading-relaxed text-ink-2">
+              Averaging three numbers always pulls towards the middle, so even England&apos;s very
+              best would land in the high 80s. The blend decides the <em>order</em>; a fixed curve
+              then stretches it onto the published scale — the best course in the country reads
+              about <strong className="text-ink">99</strong>, the top twenty sit in the
+              <strong className="text-ink"> 90s</strong>, and a typical course lands near{" "}
+              <strong className="text-ink">50</strong>. The curve never changes the order, only the
+              labels.
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
+              One rule on top: a course no published list has ever ranked stops at 88. If no panel
+              anywhere has noticed it, it isn&apos;t one of the twenty best in England — so the
+              summit is reserved for courses with outside evidence behind them.
             </p>
           </div>
         </div>

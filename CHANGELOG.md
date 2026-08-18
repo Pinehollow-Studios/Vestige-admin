@@ -5,6 +5,66 @@
 
 ---
 
+## 2026-08-18 — Calibrating the Index: the best courses finally read 99
+
+The first full-blend result didn't work. Royal St George's read 88, and
+Sunningdale — #2 in England by every source — sat at **#85**. Two separate
+faults, diagnosed apart:
+
+**The scale.** Averaging compresses. Across the top-30 ranked courses the
+inputs average ranking 95, age 80, setting 74, so no weighting could ever
+produce 99 — a flawless #1 blended to ~91 because an 1890 course simply isn't
+99-old and the conservative Setting draft caps at 88.
+
+**The order.** Sunningdale's problem was a *wrong input*, not weighting. Even
+at 55% ranking weight it only reached #25, because its Setting draft was 62.
+
+Three fixes:
+
+1. **Setting's inland bias corrected.** Heathland/downland baselines raised
+   (64→70, 62→68) and the **road-intrusion penalty dropped entirely** — a trunk
+   road behind a treeline is not an intrusion, and it was demoting the whole
+   Surrey/Berkshire heathland belt for roads inaudible from the course. Genuine
+   suburban enclosure survives, softened. Sunningdale's Setting: 62 → 74.
+2. **Ranking leads at 0.55** (age 0.15, setting 0.30). For the 185 courses with
+   a published ranking we hold real external consensus; averaging that down
+   with geography proxies was the error. Where ranking is absent its weight
+   redistributes and setting leads instead.
+3. **A calibration curve on the blend's output**, in SQL — iOS migration
+   `20260818100000_vestige_index_calibration.sql`. Frozen piecewise-linear
+   anchors fitted to the live distribution: raw 91→99, raw 86→90 (top twenty
+   spread across the 90s), raw 61 (median)→50, raw 39→20. Strictly monotonic,
+   so it re-labels the scale without reordering anything — and crucially it
+   leaves the axes meaning what the guide says they mean, rather than distorting
+   them to fake a high average. Plus an **unranked ceiling of 88**: if no panel
+   has ever ranked a course it isn't top-20 in England.
+
+Anchors are frozen deliberately; a percentile scale would reshuffle every
+course each time the catalogue grows. They'll need re-tuning if the
+distribution shifts materially — one edit, documented in the migration header.
+
+**Result** (prod): scale runs **20-99**, median exactly **50**, 18 courses in
+the 90s, zero unranked breaching the cap.
+
+| | before | after |
+|---|---|---|
+| Royal St George's | 88 (#4) | **99 (#1)** |
+| Sunningdale | 80 (#85) | **95 (#7)** |
+| Swinley Forest | 81 (#50) | 92 (#14) |
+| Walton Heath | 81 (#66) | 90 (#17) |
+| Axe Cliff (unranked) | 86 (#12) | 88 (#23) — capped |
+
+Migration is `create or replace` on an existing function, signature and return
+type unchanged, `vestige_index` still a 0-100 smallint — expand/contract-safe,
+no live app version affected. Rollback-probed before applying; applied to dev
+and prod with both ledgers repaired. `IndexGuide` gained a section explaining
+why the final number isn't the plain average, and its stale road-penalty copy
+was removed.
+
+Verified `tsc` / `eslint` / `build`.
+
+---
+
 ## 2026-08-18 — Setting: a landscape-derived draft for all 1,794 courses
 
 The third axis, and the one with no number to pull from. Setting is "the land,
