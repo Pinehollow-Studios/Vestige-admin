@@ -25,6 +25,7 @@ import {
   uploadCuratedCover,
 } from "../actions";
 import { BulkImportPanel } from "./BulkImportPanel";
+import { BulkNotesPanel } from "./BulkNotesPanel";
 import { CoverCropDialog } from "./CoverCropDialog";
 import { CoursePicker } from "./CoursePicker";
 import { CourseRowList } from "./CourseRowList";
@@ -426,7 +427,10 @@ function CourseSection({ row, courses }: { row: CuratedListRow; courses: Curated
       ) : (
         <CourseRowList listId={row.id} courses={courses} />
       )}
-      <BulkImportPanel listId={row.id} alreadyOnList={onListIds} />
+      <div className="flex flex-wrap gap-2">
+        <BulkImportPanel listId={row.id} alreadyOnList={onListIds} />
+        {courses.length > 0 && <BulkNotesPanel listId={row.id} courses={courses} />}
+      </div>
     </EditorSection>
   );
 }

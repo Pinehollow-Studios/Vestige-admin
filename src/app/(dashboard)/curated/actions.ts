@@ -320,6 +320,41 @@ export async function setEditorNote(
 }
 
 /**
+ * Bulk-write editor notes for courses already on the list - the notes
+ * counterpart to `bulkAddMatchedCourses`, for filling in a whole ranking's
+ * worth of editorial copy in one paste instead of one `setEditorNote` click
+ * per row. Every course must already be on the list (this only patches
+ * `editor_note`, never adds/removes membership).
+ */
+export async function bulkSetEditorNotes(
+  listId: string,
+  entries: { course_id: string; note: string }[],
+): Promise<ActionResult<{ updated: number }>> {
+  if (entries.length === 0) return { ok: false, message: "Nothing to save." };
+
+  const seen = new Set<string>();
+  const deduped = entries.filter((e) => {
+    if (seen.has(e.course_id)) return false;
+    seen.add(e.course_id);
+    return true;
+  });
+
+  const supabase = await createDevClient();
+  const rows = deduped.map((e) => ({
+    curated_list_id: listId,
+    course_id: e.course_id,
+    editor_note: e.note.trim() || null,
+  }));
+  const { error } = await supabase
+    .from("curated_list_courses")
+    .upsert(rows, { onConflict: "curated_list_id,course_id", ignoreDuplicates: false });
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/curated/${listId}`);
+  return { ok: true, data: { updated: rows.length } };
+}
+
+/**
  * Cover-image upload. The browser POSTs the file via FormData;
  * we re-encode to JPEG via Storage's content-type header (no
  * server-side resize in v1 - admins should upload pre-cropped
