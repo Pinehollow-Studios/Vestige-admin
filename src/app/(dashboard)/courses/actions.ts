@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createDevClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { courseCoverStorageKey } from "@/lib/storage";
 import { slugify } from "@/lib/courses-import/transform";
 import type { CourseLayout, CourseTier } from "./types";
@@ -334,12 +336,17 @@ export async function splitCourseVariant(
   const trimmedName = newName.trim();
   if (!trimmedName) return { ok: false, message: "Name is required." };
 
-  const supabase = await createDevClient();
+  const session = await createDevClient();
   const {
     data: { user },
     error: userErr,
-  } = await supabase.auth.getUser();
+  } = await session.auth.getUser();
   if (userErr || !user) return { ok: false, message: "Not signed in." };
+
+  // `courses` has no admin INSERT policy - only the import pipeline writes
+  // new rows, through the service-role client. Match that here; the session
+  // client (RLS) can UPDATE courses but not INSERT them.
+  const supabase = await createServiceClient();
 
   const { data: source, error: sourceErr } = await supabase
     .from("courses")
@@ -392,7 +399,7 @@ function unwrapJoinName(value: { name: string }[] | { name: string } | null): st
 }
 
 async function uniqueCourseSlug(
-  supabase: Awaited<ReturnType<typeof createDevClient>>,
+  supabase: SupabaseClient,
   base: string,
 ): Promise<string> {
   const candidate = base || crypto.randomUUID().slice(0, 8);
