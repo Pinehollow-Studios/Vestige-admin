@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { bulkAddMatchedCourses, matchCoursesForImport } from "../actions";
+import { splitCourseVariant } from "../../courses/actions";
 import {
   confidenceFor,
   parseImportText,
@@ -35,6 +36,23 @@ export function BulkImportPanel({ listId, alreadyOnList }: { listId: string; alr
   const [text, setText] = useState("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [pending, startTransition] = useTransition();
+  const [splitNames, setSplitNames] = useState<Record<number, string>>({});
+  const [splittingRow, setSplittingRow] = useState<number | null>(null);
+
+  // Rows whose chosen course collides with an earlier row's choice - the
+  // matcher's top pick isn't always unique (e.g. sibling courses at the same
+  // club can both default to the same catalogue match). Only the first
+  // occurrence is kept on confirm; later ones need a different candidate.
+  const duplicateRowIndexes = useMemo(() => {
+    const seen = new Set<string>();
+    const dupes = new Set<number>();
+    rows.forEach((r, i) => {
+      if (!r.chosen || alreadyOnList.has(r.chosen)) return;
+      if (seen.has(r.chosen)) dupes.add(i);
+      else seen.add(r.chosen);
+    });
+    return dupes;
+  }, [rows, alreadyOnList]);
 
   const summary = useMemo(() => {
     let auto = 0;
@@ -42,19 +60,24 @@ export function BulkImportPanel({ listId, alreadyOnList }: { listId: string; alr
     let none = 0;
     let already = 0;
     let toAdd = 0;
-    for (const r of rows) {
+    let duplicate = 0;
+    rows.forEach((r, i) => {
       if (alreadyOnList.has(r.chosen)) {
         already++;
-        continue;
+        return;
+      }
+      if (duplicateRowIndexes.has(i)) {
+        duplicate++;
+        return;
       }
       const conf = confidenceFor(r.candidates);
       if (conf === "auto") auto++;
       else if (conf === "ambiguous") ambiguous++;
       else none++;
       if (r.chosen) toAdd++;
-    }
-    return { auto, ambiguous, none, already, toAdd };
-  }, [rows, alreadyOnList]);
+    });
+    return { auto, ambiguous, none, already, toAdd, duplicate };
+  }, [rows, alreadyOnList, duplicateRowIndexes]);
 
   function close() {
     setOpen(false);
@@ -85,9 +108,46 @@ export function BulkImportPanel({ listId, alreadyOnList }: { listId: string; alr
     });
   }
 
+  // Clone the colliding row's chosen course into a new sibling course (same
+  // polygon/club/county - just a distinct id + name) so this row can point
+  // at its own `course_id` instead of losing to the earlier row's pick.
+  async function handleSplit(rowIndex: number, name: string) {
+    const row = rows[rowIndex];
+    if (!row?.chosen || !name.trim()) return;
+    setSplittingRow(rowIndex);
+    const res = await splitCourseVariant(row.chosen, name);
+    setSplittingRow(null);
+    if (!res.ok || !res.data) {
+      toast.error(!res.ok ? res.message : "Split failed.");
+      return;
+    }
+    const created = res.data;
+    setRows((prev) =>
+      prev.map((r, i) =>
+        i === rowIndex
+          ? {
+              ...r,
+              chosen: created.id,
+              candidates: [
+                {
+                  course_id: created.id,
+                  course_name: created.name,
+                  club_name: created.club_name,
+                  county_name: created.county_name,
+                  score: 1,
+                },
+                ...r.candidates,
+              ],
+            }
+          : r,
+      ),
+    );
+    toast.success(`Created "${created.name}" as a separate course`);
+  }
+
   function onConfirm() {
     const picks = rows
-      .filter((r) => r.chosen && !alreadyOnList.has(r.chosen))
+      .filter((r, i) => r.chosen && !alreadyOnList.has(r.chosen) && !duplicateRowIndexes.has(i))
       .map((r) => ({ course_id: r.chosen, position: r.rank }));
     if (picks.length === 0) {
       toast.error("Nothing selected to add.");
@@ -146,6 +206,7 @@ export function BulkImportPanel({ listId, alreadyOnList }: { listId: string; alr
             <p className="text-xs text-ink-2">
               {summary.auto} matched · {summary.ambiguous} to check · {summary.none} unmatched
               {summary.already > 0 ? ` · ${summary.already} already on list` : ""}
+              {summary.duplicate > 0 ? ` · ${summary.duplicate} duplicate picks` : ""}
             </p>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" disabled={pending} onClick={() => setStep("input")}>
@@ -163,8 +224,9 @@ export function BulkImportPanel({ listId, alreadyOnList }: { listId: string; alr
                 {rows.map((r, i) => {
                   const conf = confidenceFor(r.candidates);
                   const onList = alreadyOnList.has(r.chosen);
+                  const isDuplicate = duplicateRowIndexes.has(i);
                   return (
-                    <tr key={`${r.rank}-${r.input_name}`}>
+                    <tr key={`${r.rank}-${r.input_name}`} className={isDuplicate ? "bg-red-500/10" : undefined}>
                       <td className="w-10 px-2 py-1.5 text-ink-3">{r.rank}</td>
                       <td className="min-w-0 max-w-[10rem] truncate px-2 py-1.5" title={r.input_name}>
                         {r.input_name}
@@ -190,11 +252,37 @@ export function BulkImportPanel({ listId, alreadyOnList }: { listId: string; alr
                           </select>
                         )}
                       </td>
-                      <td className="w-28 px-2 py-1.5">
-                        <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-ink-3">
-                          <span aria-hidden className={cn("size-1.5 rounded-full", CONFIDENCE_DOT[conf])} />
-                          {onList ? "On list" : CONFIDENCE_LABEL[conf]}
-                        </span>
+                      <td className="w-40 px-2 py-1.5">
+                        {isDuplicate ? (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-red-400">
+                              <span aria-hidden className="size-1.5 rounded-full bg-red-400" />
+                              Duplicate pick
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                value={splitNames[i] ?? r.input_name}
+                                onChange={(e) => setSplitNames((prev) => ({ ...prev, [i]: e.target.value }))}
+                                placeholder="New course name"
+                                className="w-full min-w-0 rounded border border-rule/70 bg-paper-sunken/40 px-1 py-0.5 text-[10px] text-ink"
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 shrink-0 px-1.5 text-[10px]"
+                                disabled={splittingRow === i}
+                                onClick={() => handleSplit(i, splitNames[i] ?? r.input_name)}
+                              >
+                                {splittingRow === i ? <Loader2 aria-hidden className="size-3 animate-spin" /> : "Split"}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-ink-3">
+                            <span aria-hidden className={cn("size-1.5 rounded-full", CONFIDENCE_DOT[conf])} />
+                            {onList ? "On list" : CONFIDENCE_LABEL[conf]}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

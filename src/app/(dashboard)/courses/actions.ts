@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createDevClient } from "@/lib/supabase/server";
 import { courseCoverStorageKey } from "@/lib/storage";
+import { slugify } from "@/lib/courses-import/transform";
 import type { CourseLayout, CourseTier } from "./types";
 import type { IndexWeights } from "../vestige-index/formula";
 
@@ -307,6 +308,97 @@ export async function setVestigeIndexWeights(w: IndexWeights): Promise<ActionRes
   revalidatePath("/vestige-index");
   revalidatePath("/courses");
   return { ok: true };
+}
+
+export type CourseVariant = {
+  id: string;
+  name: string;
+  club_name: string | null;
+  county_name: string | null;
+};
+
+/**
+ * Split a sibling course (e.g. "Old"/"New" at a club still mapped as one
+ * merged polygon) off an existing course row. Clones the source's geo +
+ * club/county/layout fields as-is - both variants point at the same
+ * boundary until a real one gets mapped separately in `vestige-tool` and
+ * pulled in via `/courses/import` - and takes only the new `name` (+ the
+ * slug derived from it). Lets a curated-list entry that needs two distinct
+ * `course_id`s (e.g. two Top 100 ranks for the same club) exist without
+ * waiting on real boundary data.
+ */
+export async function splitCourseVariant(
+  sourceCourseId: string,
+  newName: string,
+): Promise<ActionResult<CourseVariant>> {
+  const trimmedName = newName.trim();
+  if (!trimmedName) return { ok: false, message: "Name is required." };
+
+  const supabase = await createDevClient();
+  const {
+    data: { user },
+    error: userErr,
+  } = await supabase.auth.getUser();
+  if (userErr || !user) return { ok: false, message: "Not signed in." };
+
+  const { data: source, error: sourceErr } = await supabase
+    .from("courses")
+    .select("club_id,county_id,tier,type,hole_count,polygon,center_lat,center_lng,style,established,par,yards")
+    .eq("id", sourceCourseId)
+    .maybeSingle();
+  if (sourceErr) return { ok: false, message: sourceErr.message };
+  if (!source) return { ok: false, message: "Source course not found." };
+
+  const slug = await uniqueCourseSlug(supabase, slugify(trimmedName));
+
+  const { data: created, error: insertErr } = await supabase
+    .from("courses")
+    .insert({
+      name: trimmedName,
+      slug,
+      club_id: source.club_id,
+      county_id: source.county_id,
+      tier: source.tier,
+      type: source.type,
+      hole_count: source.hole_count,
+      polygon: source.polygon,
+      center_lat: source.center_lat,
+      center_lng: source.center_lng,
+      style: source.style,
+      established: source.established,
+      par: source.par,
+      yards: source.yards,
+      curated_list_ids: [],
+      last_edited_by_admin_id: user.id,
+      last_edited_at: new Date().toISOString(),
+    })
+    .select("id,name,clubs(name),counties(name)")
+    .single();
+  if (insertErr) return { ok: false, message: insertErr.message };
+
+  const clubName = unwrapJoinName(created.clubs);
+  const countyName = unwrapJoinName(created.counties);
+
+  revalidatePath("/courses");
+  return {
+    ok: true,
+    data: { id: created.id, name: created.name, club_name: clubName, county_name: countyName },
+  };
+}
+
+function unwrapJoinName(value: { name: string }[] | { name: string } | null): string | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0]?.name ?? null) : value.name;
+}
+
+async function uniqueCourseSlug(
+  supabase: Awaited<ReturnType<typeof createDevClient>>,
+  base: string,
+): Promise<string> {
+  const candidate = base || crypto.randomUUID().slice(0, 8);
+  const { data } = await supabase.from("courses").select("id").eq("slug", candidate).maybeSingle();
+  if (!data) return candidate;
+  return `${candidate}-${crypto.randomUUID().slice(0, 6)}`;
 }
 
 // ---------------------------------------------------------

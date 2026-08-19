@@ -232,8 +232,19 @@ export async function bulkAddMatchedCourses(
 ): Promise<ActionResult<{ added: number }>> {
   if (picks.length === 0) return { ok: false, message: "Nothing selected to add." };
 
+  // A course can only appear once per list - Postgres rejects an upsert that
+  // hits the same conflict target twice in one statement, which happens when
+  // the matcher's top pick collides across two input rows (e.g. two sibling
+  // courses both defaulting to the same catalogue match). Keep the first.
+  const seen = new Set<string>();
+  const deduped = picks.filter((p) => {
+    if (seen.has(p.course_id)) return false;
+    seen.add(p.course_id);
+    return true;
+  });
+
   const supabase = await createDevClient();
-  const rows = picks.map((p) => ({
+  const rows = deduped.map((p) => ({
     curated_list_id: listId,
     course_id: p.course_id,
     position: p.position,

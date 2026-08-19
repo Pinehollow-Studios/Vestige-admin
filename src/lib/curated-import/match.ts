@@ -76,12 +76,19 @@ export function matchRow(row: ImportInputRow, catalogue: CourseForMatching[]): M
   const locationTokens = row.location ? tokenize(row.location) : [];
 
   const scored: MatchCandidate[] = catalogue.map((c) => {
-    const courseTokens = tokenize(c.name);
+    // Base score ignores each side's parenthetical - a candidate suffixed
+    // "(New)" must score identically to an unsuffixed sibling on the base
+    // name, otherwise the extra token dilutes its dice score and an
+    // unsuffixed candidate can out-rank the *correct* sibling even after
+    // the variant bonus below (e.g. "Sunningdale Golf Club" beating
+    // "Sunningdale Golf Club (New)" for an input asking for "(New)").
+    const courseTokens = tokenize(c.name.replace(/\([^)]*\)/g, ""));
+    const courseVariantTokens = extractVariant(c.name);
     const clubTokens = c.club_name ? tokenize(c.club_name) : [];
     let score = dice(inputTokens, [...clubTokens, ...courseTokens]);
 
     if (variantTokens.length > 0) {
-      const hits = variantTokens.filter((t) => courseTokens.includes(t)).length;
+      const hits = variantTokens.filter((t) => courseVariantTokens.includes(t)).length;
       if (hits > 0) score += 0.3 * (hits / variantTokens.length);
     }
     if (locationTokens.length > 0 && c.county_name) {
