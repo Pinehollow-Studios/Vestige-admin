@@ -74,7 +74,7 @@ export function BulkNotesPanel({ listId, courses }: { listId: string; courses: C
   }
 
   return (
-    <div className="w-full space-y-3 rounded-lg glass-panel p-3">
+    <div className="w-full min-w-0 space-y-3 rounded-lg glass-panel p-3">
       {!rows ? (
         <>
           <div className="flex items-center justify-between gap-2">
@@ -114,16 +114,20 @@ export function BulkNotesPanel({ listId, courses }: { listId: string; courses: C
               </Button>
             </div>
           </div>
+          {/* `table-fixed` is load-bearing: with the default auto layout a long
+              note sizes its own column, widening the table past its container
+              and pushing the header's Save button off-screen. Fixed layout
+              makes `truncate` actually bite. */}
           <div className="max-h-96 overflow-y-auto rounded-md border border-rule/70">
-            <table className="w-full text-xs">
+            <table className="w-full table-fixed text-xs">
               <tbody className="divide-y divide-rule/50">
                 {rows.map((r, i) => (
                   <tr key={`${r.position}-${i}`} className={!r.course_id ? "bg-red-500/10" : undefined}>
-                    <td className="w-10 px-2 py-1.5 text-ink-3">{r.position}</td>
-                    <td className="min-w-0 max-w-[10rem] truncate px-2 py-1.5" title={r.course_name ?? undefined}>
+                    <td className="w-10 px-2 py-1.5 align-top text-ink-3">{r.position}</td>
+                    <td className="w-40 truncate px-2 py-1.5 align-top" title={r.course_name ?? undefined}>
                       {r.course_name ?? <span className="text-red-400">No course at this position</span>}
                     </td>
-                    <td className="min-w-0 truncate px-2 py-1.5 text-ink-2" title={r.note}>
+                    <td className="truncate px-2 py-1.5 align-top text-ink-2" title={r.note}>
                       {r.note}
                     </td>
                   </tr>
