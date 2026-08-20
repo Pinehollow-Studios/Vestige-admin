@@ -148,6 +148,61 @@ export async function uploadCourseCover(
   return { ok: true, data: key };
 }
 
+/**
+ * Delete a course row outright - for cleaning up stray/mistaken entries
+ * (e.g. an accidental `splitCourseVariant`), not for real catalogue
+ * management. Refuses when there's any real user data attached (a played
+ * round, or a community photo) so it can never destroy something a user
+ * created; membership rows on curated/user lists are cascade-removed since
+ * a list can't sensibly keep pointing at a deleted course.
+ */
+export async function deleteCourse(courseId: string): Promise<ActionResult> {
+  const session = await createDevClient();
+  const {
+    data: { user },
+    error: userErr,
+  } = await session.auth.getUser();
+  if (userErr || !user) return { ok: false, message: "Not signed in." };
+
+  const supabase = await createServiceClient();
+
+  const { data: course, error: fetchErr } = await supabase
+    .from("courses")
+    .select("play_count")
+    .eq("id", courseId)
+    .maybeSingle();
+  if (fetchErr) return { ok: false, message: fetchErr.message };
+  if (!course) return { ok: false, message: "Course not found." };
+  if ((course.play_count ?? 0) > 0) {
+    return {
+      ok: false,
+      message: `${course.play_count} round${course.play_count === 1 ? "" : "s"} logged here - can't delete a course with real play data.`,
+    };
+  }
+
+  const { count: photoCount, error: photoErr } = await supabase
+    .from("photos")
+    .select("id", { count: "exact", head: true })
+    .eq("course_id", courseId)
+    .is("deleted_at", null);
+  if (photoErr) return { ok: false, message: photoErr.message };
+  if ((photoCount ?? 0) > 0) {
+    return { ok: false, message: "This course has community photos attached - can't delete it." };
+  }
+
+  await supabase.from("curated_list_courses").delete().eq("course_id", courseId);
+  await supabase.from("user_list_courses").delete().eq("course_id", courseId);
+
+  const { path } = courseCoverStorageKey(courseId);
+  await supabase.storage.from("course-covers").remove([path]);
+
+  const { error } = await supabase.from("courses").delete().eq("id", courseId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/courses");
+  return { ok: true };
+}
+
 export async function removeCourseCover(courseId: string): Promise<ActionResult> {
   const supabase = await createDevClient();
 

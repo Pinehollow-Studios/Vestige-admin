@@ -258,6 +258,19 @@ export async function bulkAddMatchedCourses(
   return { ok: true, data: { added: rows.length } };
 }
 
+/**
+ * Remove every course from a list in one call - a clean reset before
+ * re-running the bulk importer over a changed source list, instead of
+ * removing rows one at a time.
+ */
+export async function clearListCourses(listId: string): Promise<ActionResult> {
+  const supabase = await createDevClient();
+  const { error } = await supabase.from("curated_list_courses").delete().eq("curated_list_id", listId);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath(`/curated/${listId}`);
+  return { ok: true };
+}
+
 export async function removeCourseFromList(
   listId: string,
   courseId: string,

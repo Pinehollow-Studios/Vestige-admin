@@ -17,6 +17,7 @@ import { CuratedPreviewContent } from "./CuratedPreview";
 import { useFormAutosave } from "@/lib/hooks/useFormAutosave";
 import {
   archiveList,
+  clearListCourses,
   deleteCuratedList,
   removeCuratedCover,
   setPublishState,
@@ -26,6 +27,7 @@ import {
 } from "../actions";
 import { BulkImportPanel } from "./BulkImportPanel";
 import { BulkNotesPanel } from "./BulkNotesPanel";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { CoverCropDialog } from "./CoverCropDialog";
 import { CoursePicker } from "./CoursePicker";
 import { CourseRowList } from "./CourseRowList";
@@ -414,6 +416,18 @@ function DangerSection({ row, status }: { row: CuratedListRow; status: string })
 // ── Courses ────────────────────────────────────────────────────────────
 function CourseSection({ row, courses }: { row: CuratedListRow; courses: CuratedCourseRow[] }) {
   const onListIds = useMemo(() => new Set(courses.map((c) => c.course_id)), [courses]);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, startClear] = useTransition();
+
+  function onClearAll() {
+    startClear(async () => {
+      const res = await clearListCourses(row.id);
+      setConfirmClear(false);
+      if (!res.ok) toast.error(res.message);
+      else toast.success("Cleared all courses from the list");
+    });
+  }
+
   return (
     <EditorSection
       title="Courses"
@@ -427,10 +441,34 @@ function CourseSection({ row, courses }: { row: CuratedListRow; courses: Curated
       ) : (
         <CourseRowList listId={row.id} courses={courses} />
       )}
-      <div className="flex flex-wrap gap-2">
-        <BulkImportPanel listId={row.id} alreadyOnList={onListIds} />
-        {courses.length > 0 && <BulkNotesPanel listId={row.id} courses={courses} />}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          <BulkImportPanel listId={row.id} alreadyOnList={onListIds} />
+          {courses.length > 0 && <BulkNotesPanel listId={row.id} courses={courses} />}
+        </div>
+        {courses.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-alert hover:bg-alert/10 hover:text-alert"
+            onClick={() => setConfirmClear(true)}
+          >
+            Clear all courses
+          </Button>
+        )}
       </div>
+      <ConfirmDialog
+        open={confirmClear}
+        title={`Remove all ${courses.length} courses from this list?`}
+        confirmLabel="Clear all"
+        tone="danger"
+        busy={clearing}
+        onConfirm={onClearAll}
+        onCancel={() => setConfirmClear(false)}
+      >
+        This empties the list's membership and editor notes - useful before re-running a bulk import over a
+        changed source list. The course catalogue itself is untouched.
+      </ConfirmDialog>
     </EditorSection>
   );
 }

@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Calendar, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import {
   AdvancedSection,
   EditorSection,
@@ -17,7 +19,7 @@ import { PreviewFrame } from "@/components/admin/editor/PreviewFrame";
 import { Readiness, type ReadinessCheck } from "@/components/admin/editor/Readiness";
 import { CoursePreviewContent } from "./CoursePreview";
 import { useFormAutosave } from "@/lib/hooks/useFormAutosave";
-import { removeCourseCover, updateCourse, uploadCourseCover } from "../actions";
+import { deleteCourse, removeCourseCover, updateCourse, uploadCourseCover } from "../actions";
 import { CoverCropDialog } from "./CoverCropDialog";
 import { CoursePhotoManager, type ManagedPhoto } from "./CoursePhotoManager";
 import { PolygonPreview } from "./PolygonPreview";
@@ -291,7 +293,58 @@ export function CourseEditor({
           </Field>
         </div>
       </EditorSection>
+
+      <AdvancedSection title="Danger zone" hint="Permanently removes this course row - the catalogue entry, not just a listing.">
+        <DangerSection row={row} />
+      </AdvancedSection>
     </EditorShell>
+  );
+}
+
+// ── Danger ─────────────────────────────────────────────────────────────
+function DangerSection({ row }: { row: CourseDetailRow }) {
+  const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function onDelete() {
+    startTransition(async () => {
+      const res = await deleteCourse(row.id);
+      if (!res.ok) {
+        toast.error(res.message);
+        setConfirmOpen(false);
+        return;
+      }
+      toast.success(`Deleted "${row.name}"`);
+      router.push("/courses");
+    });
+  }
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={pending}
+        className="border-alert/40 text-alert hover:bg-alert/10 hover:text-alert"
+        onClick={() => setConfirmOpen(true)}
+      >
+        Delete course
+      </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`Delete "${row.name}" permanently?`}
+        confirmLabel="Delete course"
+        tone="danger"
+        busy={pending}
+        onConfirm={onDelete}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        This removes the course row and its cover photo, and takes it off any curated or user lists it&apos;s on
+        {row.curated_lists.length > 0 ? ` (${row.curated_lists.length} curated list${row.curated_lists.length === 1 ? "" : "s"})` : ""}.
+        Blocked if anyone has logged a round or added a community photo here. This can&apos;t be undone.
+      </ConfirmDialog>
+    </>
   );
 }
 
