@@ -4,12 +4,23 @@
  * Three sources, each an independent vote (decisions locked with Tom
  * 2026-08-18):
  *
- * · Top100GolfCourses — 100, already in the repo for the curated importer
+ * · Top100GolfCourses — 100
  * · Golf Empire — 100
  * · Today's Golfer — 200, the only source covering the 100-200 band
  *
+ * The Top100GolfCourses vote was briefly circular and is now genuine. It had
+ * been wired up as `TOP100_ENGLAND` from `curated-import/top100-england`, but
+ * that constant is not a capture of anything — it is *our own blended output*,
+ * derived from the other sources. Feeding it back in gave Golf Empire and
+ * Today's Golfer roughly 1.5 votes each while adding no independent
+ * information, and stamped `publisher: "top100golfcourses.com"` into the
+ * `score_source` provenance note, attributing positions to a publisher that
+ * never published them. Fixed 2026-08-23 by restoring the real capture from
+ * git history into `./top100golfcourses.ts`; see that file on why holding it
+ * is consistent with the copyright reasoning that had it deleted.
+ *
  * NCG was considered and deliberately skipped: only 25 of its 100 render
- * without paginated fetches. It can be added later as a fourth source with no
+ * without paginated fetches. It can be added later as a further source with no
  * change to anything here.
  *
  * The method, and why:
@@ -32,12 +43,19 @@
  * 5. **Plain average across sources, no corroboration bonus** (Tom's call).
  *    Ranking therefore measures *position*, not breadth of agreement: a course
  *    in one list at #150 scores the same as one at #150 in all three.
+ *
+ * Note this is the opposite of what `./blend.ts` does when it *orders* the Top
+ * 100, and deliberately so. Here the question is "how good is this course",
+ * where one credible source saying #40 is evidence of a #40-calibre course. In
+ * the blend the question is "which course outranks which", where breadth of
+ * agreement is exactly what separates two courses a single list happens to
+ * disagree about. Same inputs, different question, different treatment.
  */
 
 import type { ImportInputRow } from "@/lib/curated-import/match";
-import { TOP100_ENGLAND } from "@/lib/curated-import/top100-england";
 import { GOLF_EMPIRE_ENGLAND } from "./golf-empire";
 import { TODAYS_GOLFER_ENGLAND } from "./todays-golfer";
+import { TOP100_GOLFCOURSES_ENGLAND } from "./top100golfcourses";
 
 export type RankingSource = {
   key: "t100" | "golfEmpire" | "todaysGolfer";
@@ -55,8 +73,8 @@ export const RANKING_SOURCES: RankingSource[] = [
     short: "T100",
     label: "Top 100 England",
     publisher: "top100golfcourses.com",
-    size: TOP100_ENGLAND.length,
-    rows: TOP100_ENGLAND,
+    size: TOP100_GOLFCOURSES_ENGLAND.length,
+    rows: TOP100_GOLFCOURSES_ENGLAND,
   },
   {
     key: "golfEmpire",

@@ -19,6 +19,7 @@ import {
   archiveList,
   clearListCourses,
   deleteCuratedList,
+  reapplyTop100Order,
   removeCuratedCover,
   setPublishState,
   unarchiveList,
@@ -418,6 +419,7 @@ function CourseSection({ row, courses }: { row: CuratedListRow; courses: Curated
   const onListIds = useMemo(() => new Set(courses.map((c) => c.course_id)), [courses]);
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearing, startClear] = useTransition();
+  const [resyncing, startResync] = useTransition();
 
   function onClearAll() {
     startClear(async () => {
@@ -425,6 +427,36 @@ function CourseSection({ row, courses }: { row: CuratedListRow; courses: Curated
       setConfirmClear(false);
       if (!res.ok) toast.error(res.message);
       else toast.success("Cleared all courses from the list");
+    });
+  }
+
+  /**
+   * Push a regenerated Top 100 blend onto this list. Positions only - notes
+   * live on the same rows and clearing would take them with it.
+   */
+  function onReapplyOrder() {
+    startResync(async () => {
+      const res = await reapplyTop100Order(row.id);
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      const { reordered, missing, extra } = res.data!;
+      const tail = [
+        missing.length > 0 ? `${missing.length} not on the list` : null,
+        extra > 0 ? `${extra} off-list course${extra === 1 ? "" : "s"} moved to the end` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      toast.success(`Reordered ${reordered} courses${tail ? ` — ${tail}` : ""}`);
+      if (missing.length > 0) {
+        toast.message("Missing from this list", {
+          description: missing
+            .slice(0, 8)
+            .map((m) => `#${m.rank} ${m.name}`)
+            .join(", "),
+        });
+      }
     });
   }
 
@@ -445,6 +477,11 @@ function CourseSection({ row, courses }: { row: CuratedListRow; courses: Curated
         <div className="flex flex-wrap gap-2">
           <BulkImportPanel listId={row.id} alreadyOnList={onListIds} />
           {courses.length > 0 && <BulkNotesPanel listId={row.id} courses={courses} />}
+          {courses.length > 0 && (
+            <Button variant="outline" size="sm" disabled={resyncing} onClick={onReapplyOrder}>
+              {resyncing ? "Reordering…" : "Re-apply Top 100 order"}
+            </Button>
+          )}
         </div>
         {courses.length > 0 && (
           <Button
@@ -466,8 +503,9 @@ function CourseSection({ row, courses }: { row: CuratedListRow; courses: Curated
         onConfirm={onClearAll}
         onCancel={() => setConfirmClear(false)}
       >
-        This empties the list's membership and editor notes - useful before re-running a bulk import over a
-        changed source list. The course catalogue itself is untouched.
+        This empties the list&apos;s membership and editor notes. To push a regenerated Top 100 onto a list
+        without losing its notes, use &ldquo;Re-apply Top 100 order&rdquo; instead. The course catalogue itself
+        is untouched.
       </ConfirmDialog>
     </EditorSection>
   );

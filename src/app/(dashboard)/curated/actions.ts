@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createDevClient } from "@/lib/supabase/server";
 import { curatedCoverStorageKey } from "@/lib/storage";
-import { matchAll, type CourseForMatching, type ImportInputRow, type MatchResult } from "@/lib/curated-import/match";
+import {
+  confidenceFor,
+  matchAll,
+  type CourseForMatching,
+  type ImportInputRow,
+  type MatchResult,
+} from "@/lib/curated-import/match";
+import { TOP100_ENGLAND } from "@/lib/curated-import/top100-england";
 
 export type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -313,6 +320,92 @@ export async function reorderCourses(
   if (error) return { ok: false, message: error.message };
   revalidatePath(`/curated/${listId}`);
   return { ok: true };
+}
+
+/**
+ * Re-apply the computed Top 100 England order to a list that already holds
+ * those courses, without adding or removing anything.
+ *
+ * The obvious way to push a changed blend onto a live list is "clear, then
+ * bulk-import again". Don't: `editor_note` lives on `curated_list_courses`, so
+ * clearing throws away every note on the list. This rewrites `position` only,
+ * on rows that already exist - the same upsert `reorderCourses` uses, and
+ * notes survive it untouched.
+ *
+ * Membership is deliberately left alone. When the blend promotes or drops a
+ * club the answer comes back as `missing` / `extra` counts for the admin to
+ * settle with the bulk importer and the row remove button, rather than this
+ * action silently deleting a course someone may have written a note for.
+ *
+ * Matching runs against the list's own membership rather than the whole
+ * catalogue, so a Top 100 entry matches the course already on the list or not
+ * at all - it cannot wander off to a similarly-named course elsewhere.
+ */
+export async function reapplyTop100Order(listId: string): Promise<
+  ActionResult<{ reordered: number; missing: { rank: number; name: string }[]; extra: number }>
+> {
+  const supabase = await createDevClient();
+  const { data, error } = await supabase
+    .from("curated_list_courses")
+    .select("course_id,position,courses(name,clubs(name),counties(name))")
+    .eq("curated_list_id", listId)
+    .order("position", { ascending: true });
+  if (error) return { ok: false, message: error.message };
+
+  const membership = (data ?? []) as { course_id: string; position: number; courses: unknown }[];
+  if (membership.length === 0) return { ok: false, message: "This list has no courses to reorder." };
+
+  // Supabase returns joined relations as arrays even for a one-to-one FK, the
+  // same unwrapping the list page does.
+  type CourseJoin = {
+    name: string;
+    clubs: { name: string }[] | { name: string } | null;
+    counties: { name: string }[] | { name: string } | null;
+  };
+  const catalogue: CourseForMatching[] = membership.flatMap((m) => {
+    const c = unwrapJoin<CourseJoin>(m.courses);
+    if (!c) return [];
+    return [
+      {
+        id: m.course_id,
+        name: c.name,
+        club_name: unwrapJoin<{ name: string }>(c.clubs)?.name ?? null,
+        county_name: unwrapJoin<{ name: string }>(c.counties)?.name ?? null,
+      },
+    ];
+  });
+
+  const ordered: string[] = [];
+  const claimed = new Set<string>();
+  const missing: { rank: number; name: string }[] = [];
+
+  for (const result of matchAll(TOP100_ENGLAND, catalogue)) {
+    const top = result.candidates[0];
+    if (!top || confidenceFor(result.candidates) === "none" || claimed.has(top.course_id)) {
+      missing.push({ rank: result.rank, name: result.input_name });
+      continue;
+    }
+    claimed.add(top.course_id);
+    ordered.push(top.course_id);
+  }
+
+  // Anything on the list but not in the Top 100 keeps its relative order and
+  // follows on behind, so nothing is stranded at position 0 or lost.
+  const extra = membership.filter((m) => !claimed.has(m.course_id));
+  for (const m of extra) ordered.push(m.course_id);
+
+  const rows = ordered.map((id, index) => ({
+    curated_list_id: listId,
+    course_id: id,
+    position: index + 1,
+  }));
+  const { error: writeError } = await supabase
+    .from("curated_list_courses")
+    .upsert(rows, { onConflict: "curated_list_id,course_id", ignoreDuplicates: false });
+  if (writeError) return { ok: false, message: writeError.message };
+
+  revalidatePath(`/curated/${listId}`);
+  return { ok: true, data: { reordered: rows.length, missing, extra: extra.length } };
 }
 
 export async function setEditorNote(
