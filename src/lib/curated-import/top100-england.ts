@@ -1,133 +1,198 @@
 /**
  * "Vestige's Top 100 England" - a blended consensus, not a copy of any one
- * publisher's list. Each club's position is derived by averaging its rank
- * (Borda-style, normalised 0-100 regardless of source list length) across
- * three published England rankings: this site's own top100golfcourses.com
- * capture, Today's Golfer's Top 200 England, and Golf Empire's Top 100
- * England (all in `src/lib/ranking-import/`, which also feed the Vestige
- * Index `ranking` axis). Reproducing a single publisher's exact compiled
- * order/selection risks their asserted copyright + UK database right over
- * that compilation (checked: top100golfcourses.com's terms explicitly
- * prohibit reproduction without written permission, no attribution
- * exemption) - averaging facts (rank positions) from three independent
- * sources into an original derived order is a materially different, and
- * standard, practice.
+ * publisher's list.
  *
- * One entry per CLUB, not per individual course - Old/New/Red/Blue/East/
- * West siblings (Sunningdale, Walton Heath, Wentworth, Saunton, The
- * Berkshire, Woburn) collapse to a single ranked slot, since most of these
- * clubs currently exist as one row in the course catalogue and the app has
- * no per-course disambiguation at play-tracking time yet. 96 of the 100
- * have 2-3 source agreement; the last 4 (Piltdown, Berkhamsted, Northants
- * County, St Annes Old Links) rest on Today's Golfer alone, since its list
- * runs to 200 where the other two stop at 100 - all four are genuine,
- * well-regarded clubs, just without independent cross-source corroboration.
+ * The order is no longer written down here. It is *computed*, on load, by
+ * `ranking-import/blend.ts` from the published source rankings in that folder;
+ * this file supplies only the presentation layer - which name and county we
+ * show for each club - because the sources publish neither. Facts derived,
+ * presentation curated.
  *
- * Used by `BulkImportPanel` as the one-click seed for a curated list; the
- * panel also accepts pasted CSV/plain-text for any future top-N list.
+ * Until 2026-08-23 the order was a hand-committed constant. It could not be
+ * reproduced or re-run, and two errors had gone unnoticed inside it for exactly
+ * that reason: the method described in this docstring (length-normalised
+ * Borda) was not the method the numbers actually reflected, and the stated
+ * corroboration figures were wrong - it claimed four single-source entries and
+ * named Northamptonshire County as one, when in truth ten rested on a single
+ * source and Northamptonshire County was in both. `blend.ts` carries the full
+ * account. The lesson worth keeping: a ranking nobody can re-run is a ranking
+ * nobody can check.
+ *
+ * **Copyright.** Reproducing a single publisher's exact compiled order or
+ * selection risks their asserted copyright and UK database right over that
+ * compilation (checked: top100golfcourses.com's terms explicitly prohibit
+ * reproduction without written permission, with no attribution exemption).
+ * Averaging facts - rank positions - from independent sources into an original
+ * derived order is a materially different, and standard, practice, and it rests
+ * on three genuine sources again. For a period the "Top100GolfCourses" vote was
+ * this very file being fed back into `score.ts` as though it were an
+ * independent capture, because the real capture had been deleted from the tree;
+ * it is restored at `ranking-import/top100golfcourses.ts`, which explains why
+ * holding the input is consistent with this reasoning rather than against it.
+ *
+ * **One entry per CLUB, not per individual course** - Old/New/Red/Blue/East/
+ * West siblings (Sunningdale, Walton Heath, Wentworth, Saunton, The Berkshire,
+ * Woburn) collapse to a single ranked slot, since most of these clubs exist as
+ * one row in the course catalogue and the app has no per-course disambiguation
+ * at play-tracking time yet.
+ *
+ * **Corroboration.** 86 of the 100 appear in all three sources, 7 in two, and 7
+ * in one. Those last are not silently demoted by hand as they were before - an
+ * absence is imputed and weighted, see `MISSING_SOURCE_WEIGHT` in `blend.ts`,
+ * which is the single dial governing where they land.
+ *
+ * **Known limitation.** Two of the three sources stop at 100 clubs (93 each
+ * after sibling collapse), so from roughly rank 95 downwards this list is
+ * Today's Golfer alone - the last four entries rest on it single-handed. No
+ * weighting fixes that; only a fourth source reaching past 100 would.
+ *
+ * Used by `BulkImportPanel` as the one-click seed for a curated list; the panel
+ * also accepts pasted CSV/plain-text for any future top-N list.
+ *
+ * `top100_england_golf_courses.{csv,json}` at the repo root are exports of this
+ * list, generated for sharing and deliberately not committed - this module is
+ * the source of truth, and they go stale the moment the blend is re-run.
  */
 
 import type { ImportInputRow } from "./match";
+import { blendClubs } from "@/lib/ranking-import/blend";
 
-export const TOP100_ENGLAND: ImportInputRow[] = [
-  { rank: 1, name: "Royal St George's Golf Club", location: "Kent, United Kingdom" },
-  { rank: 2, name: "Sunningdale Golf Club", location: "Berkshire, United Kingdom" },
-  { rank: 3, name: "Swinley Forest Golf Club", location: "Berkshire, United Kingdom" },
-  { rank: 4, name: "Royal Lytham & St Annes Golf Club", location: "Lancashire, United Kingdom" },
-  { rank: 5, name: "St Enodoc Golf Club (Church)", location: "Cornwall, United Kingdom" },
-  { rank: 6, name: "Royal Birkdale Golf Club", location: "Merseyside, United Kingdom" },
-  { rank: 7, name: "Ganton Golf Club", location: "Yorkshire, United Kingdom" },
-  { rank: 8, name: "St George's Hill Golf Club (Red & Blue)", location: "Surrey, United Kingdom" },
-  { rank: 9, name: "Royal Cinque Ports Golf Club", location: "Kent, United Kingdom" },
-  { rank: 10, name: "Woodhall Spa Golf Club (Hotchkin)", location: "Lincolnshire, United Kingdom" },
-  { rank: 11, name: "West Sussex Golf Club", location: "Sussex, United Kingdom" },
-  { rank: 12, name: "Rye Golf Club (Old)", location: "Sussex, United Kingdom" },
-  { rank: 13, name: "Royal Liverpool Golf Club", location: "Merseyside, United Kingdom" },
-  { rank: 14, name: "Walton Heath Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 15, name: "Royal West Norfolk Golf Club (Brancaster)", location: "Norfolk, United Kingdom" },
-  { rank: 16, name: "Alwoodley Golf Club", location: "Yorkshire, United Kingdom" },
-  { rank: 17, name: "Formby Golf Club", location: "Merseyside, United Kingdom" },
-  { rank: 18, name: "Hollinwell (Notts Golf Club)", location: "Nottinghamshire, United Kingdom" },
-  { rank: 19, name: "Silloth on Solway Golf Club", location: "Cumbria, United Kingdom" },
-  { rank: 20, name: "Saunton Golf Club", location: "Devon, United Kingdom" },
-  { rank: 21, name: "The Berkshire Golf Club", location: "Berkshire, United Kingdom" },
-  { rank: 22, name: "Hankley Common Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 23, name: "Woking Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 24, name: "Hillside Golf Club", location: "Merseyside, United Kingdom" },
-  { rank: 25, name: "Burnham & Berrow Golf Club (Championship)", location: "Somerset, United Kingdom" },
-  { rank: 26, name: "Wentworth Club", location: "Surrey, United Kingdom" },
-  { rank: 27, name: "Hunstanton Golf Club", location: "Norfolk, United Kingdom" },
-  { rank: 28, name: "West Lancashire Golf Club", location: "Merseyside, United Kingdom" },
-  { rank: 29, name: "Liphook Golf Club", location: "Hampshire, United Kingdom" },
-  { rank: 30, name: "Prince's Golf Club", location: "Kent, United Kingdom" },
-  { rank: 31, name: "Worplesdon Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 32, name: "The Addington Golf Club", location: "Greater London, United Kingdom" },
-  { rank: 33, name: "Parkstone Golf Club", location: "Dorset, United Kingdom" },
-  { rank: 34, name: "West Hill Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 35, name: "Broadstone Golf Club", location: "Dorset, United Kingdom" },
-  { rank: 36, name: "Moortown Golf Club", location: "Yorkshire, United Kingdom" },
-  { rank: 37, name: "Wallasey Golf Club", location: "Merseyside, United Kingdom" },
-  { rank: 38, name: "Southport & Ainsdale Golf Club", location: "Merseyside, United Kingdom" },
-  { rank: 39, name: "Hindhead Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 40, name: "Royal Ashdown Forest Golf Club (Old)", location: "Sussex, United Kingdom" },
-  { rank: 41, name: "Aldeburgh Golf Club (Championship)", location: "Suffolk, United Kingdom" },
-  { rank: 42, name: "Beau Desert Golf Club", location: "Staffordshire, United Kingdom" },
-  { rank: 43, name: "Hayling Golf Club", location: "Hampshire, United Kingdom" },
-  { rank: 44, name: "New Zealand Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 45, name: "Delamere Forest Golf Club", location: "Cheshire, United Kingdom" },
-  { rank: 46, name: "Ferndown Golf Club (Old)", location: "Dorset, United Kingdom" },
-  { rank: 47, name: "Sherwood Forest Golf Club", location: "Nottinghamshire, United Kingdom" },
-  { rank: 48, name: "JCB Golf & Country Club", location: "Staffordshire, United Kingdom" },
-  { rank: 49, name: "Ipswich Golf Club (Purdis Heath)", location: "Suffolk, United Kingdom" },
-  { rank: 50, name: "Woburn Golf Club", location: "Buckinghamshire, United Kingdom" },
-  { rank: 51, name: "Royal North Devon Golf Club", location: "Devon, United Kingdom" },
-  { rank: 52, name: "Stoneham Golf Club", location: "Hampshire, United Kingdom" },
-  { rank: 53, name: "Seaton Carew Golf Club (Micklem)", location: "Durham, United Kingdom" },
-  { rank: 54, name: "Little Aston Golf Club", location: "Staffordshire, United Kingdom" },
-  { rank: 55, name: "Huntercombe Golf Club", location: "Oxfordshire, United Kingdom" },
-  { rank: 56, name: "Littlestone Golf Club (Championship)", location: "Kent, United Kingdom" },
-  { rank: 57, name: "Trevose Golf & Country Club (Championship)", location: "Cornwall, United Kingdom" },
-  { rank: 58, name: "Seacroft Golf Club", location: "Lincolnshire, United Kingdom" },
-  { rank: 59, name: "Queenwood Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 60, name: "Perranporth Golf Club", location: "Cornwall, United Kingdom" },
-  { rank: 61, name: "Blackmoor Golf Club", location: "Hampshire, United Kingdom" },
-  { rank: 62, name: "East Devon Golf Club", location: "Devon, United Kingdom" },
-  { rank: 63, name: "Tandridge Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 64, name: "Goswick Links", location: "Northumberland, United Kingdom" },
-  { rank: 65, name: "Bearwood Lakes Golf Club", location: "Berkshire, United Kingdom" },
-  { rank: 66, name: "Blackwell Golf Club", location: "Worcestershire, United Kingdom" },
-  { rank: 67, name: "Hadley Wood Golf Club", location: "Greater London, United Kingdom" },
-  { rank: 68, name: "Royal Wimbledon Golf Club", location: "Greater London, United Kingdom" },
-  { rank: 69, name: "Kington Golf Club", location: "Herefordshire, United Kingdom" },
-  { rank: 70, name: "Camberley Heath Golf Club", location: "Surrey, United Kingdom" },
-  { rank: 71, name: "Lindrick Golf Club", location: "Yorkshire, United Kingdom" },
-  { rank: 72, name: "Royal Worlington & Newmarket Golf Club", location: "Suffolk, United Kingdom" },
-  { rank: 73, name: "Ashridge Golf Club", location: "Hertfordshire, United Kingdom" },
-  { rank: 74, name: "Coombe Hill Golf Club", location: "Greater London, United Kingdom" },
-  { rank: 75, name: "The Grove", location: "Hertfordshire, United Kingdom" },
-  { rank: 76, name: "Knole Park Golf Club", location: "Kent, United Kingdom" },
-  { rank: 77, name: "Remedy Oak Golf Club", location: "Dorset, United Kingdom" },
-  { rank: 78, name: "Sutton Coldfield Golf Club", location: "Birmingham, United Kingdom" },
-  { rank: 79, name: "Cavendish Golf Club", location: "Derbyshire, United Kingdom" },
-  { rank: 80, name: "Isle of Purbeck Golf Club (Purbeck)", location: "Dorset, United Kingdom" },
-  { rank: 81, name: "Sheringham Golf Club", location: "Norfolk, United Kingdom" },
-  { rank: 82, name: "Cleeve Hill Golf Club", location: "Gloucestershire, United Kingdom" },
-  { rank: 83, name: "North Hants Golf Club", location: "Hampshire, United Kingdom" },
-  { rank: 84, name: "Seascale Golf Club", location: "Cumbria, United Kingdom" },
-  { rank: 85, name: "Prestbury Golf Club", location: "Cheshire, United Kingdom" },
-  { rank: 86, name: "Woodbridge Golf Club", location: "Suffolk, United Kingdom" },
-  { rank: 87, name: "Formby Ladies Golf Club", location: "Merseyside, United Kingdom" },
-  { rank: 88, name: "Crowborough Beacon Golf Club", location: "Sussex, United Kingdom" },
-  { rank: 89, name: "Piltdown Golf Club", location: "Sussex, United Kingdom" },
-  { rank: 90, name: "St Mellion Golf Club", location: "Cornwall, United Kingdom" },
-  { rank: 91, name: "Yelverton Golf Club", location: "Devon, United Kingdom" },
-  { rank: 92, name: "Berkhamsted Golf Club", location: "Hertfordshire, United Kingdom" },
-  { rank: 93, name: "Northamptonshire County Golf Club", location: "Northamptonshire, United Kingdom" },
-  { rank: 94, name: "St Annes Old Links Golf Club", location: "Lancashire, United Kingdom" },
-  { rank: 95, name: "Appleby Golf Club", location: "Cumbria, United Kingdom" },
-  { rank: 96, name: "Dunstanburgh Castle Golf Course", location: "Northumberland, United Kingdom" },
-  { rank: 97, name: "Stoke Park (Colt & Alison)", location: "Buckinghamshire, United Kingdom" },
-  { rank: 98, name: "Coxmoor Golf Club", location: "Nottinghamshire, United Kingdom" },
-  { rank: 99, name: "Thorndon Park Golf Club", location: "Essex, United Kingdom" },
-  { rank: 100, name: "Denham Golf Club", location: "Buckinghamshire, United Kingdom" },
-];
+type ClubPresentation = { name: string; location: string };
+
+/**
+ * Display name and county per club, keyed by `blend.ts`'s `clubKey`. Covers
+ * comfortably more than 100 clubs so that a change to the blend's weighting
+ * promotes a club with a proper name rather than a raw source string.
+ */
+const CLUB_DIRECTORY: Record<string, ClubPresentation> = {
+  "royal st georges": { name: "Royal St George's Golf Club", location: "Kent, United Kingdom" },
+  sunningdale: { name: "Sunningdale Golf Club", location: "Berkshire, United Kingdom" },
+  "swinley forest": { name: "Swinley Forest Golf Club", location: "Berkshire, United Kingdom" },
+  "royal birkdale": { name: "Royal Birkdale Golf Club", location: "Merseyside, United Kingdom" },
+  "royal lytham st annes": { name: "Royal Lytham & St Annes Golf Club", location: "Lancashire, United Kingdom" },
+  "royal cinque ports": { name: "Royal Cinque Ports Golf Club", location: "Kent, United Kingdom" },
+  "st georges hill": { name: "St George's Hill Golf Club (Red & Blue)", location: "Surrey, United Kingdom" },
+  "woodhall spa": { name: "Woodhall Spa Golf Club (Hotchkin)", location: "Lincolnshire, United Kingdom" },
+  ganton: { name: "Ganton Golf Club", location: "Yorkshire, United Kingdom" },
+  "st enodoc": { name: "St Enodoc Golf Club (Church)", location: "Cornwall, United Kingdom" },
+  "royal liverpool": { name: "Royal Liverpool Golf Club", location: "Merseyside, United Kingdom" },
+  "walton heath": { name: "Walton Heath Golf Club", location: "Surrey, United Kingdom" },
+  rye: { name: "Rye Golf Club (Old)", location: "Sussex, United Kingdom" },
+  alwoodley: { name: "Alwoodley Golf Club", location: "Yorkshire, United Kingdom" },
+  "west sussex": { name: "West Sussex Golf Club", location: "Sussex, United Kingdom" },
+  "royal west norfolk": { name: "Royal West Norfolk Golf Club (Brancaster)", location: "Norfolk, United Kingdom" },
+  formby: { name: "Formby Golf Club", location: "Merseyside, United Kingdom" },
+  "silloth solway": { name: "Silloth on Solway Golf Club", location: "Cumbria, United Kingdom" },
+  notts: { name: "Hollinwell (Notts Golf Club)", location: "Nottinghamshire, United Kingdom" },
+  saunton: { name: "Saunton Golf Club", location: "Devon, United Kingdom" },
+  berkshire: { name: "The Berkshire Golf Club", location: "Berkshire, United Kingdom" },
+  woking: { name: "Woking Golf Club", location: "Surrey, United Kingdom" },
+  "hankley common": { name: "Hankley Common Golf Club", location: "Surrey, United Kingdom" },
+  hillside: { name: "Hillside Golf Club", location: "Merseyside, United Kingdom" },
+  "burnham berrow": { name: "Burnham & Berrow Golf Club (Championship)", location: "Somerset, United Kingdom" },
+  wentworth: { name: "Wentworth Club", location: "Surrey, United Kingdom" },
+  hunstanton: { name: "Hunstanton Golf Club", location: "Norfolk, United Kingdom" },
+  princes: { name: "Prince's Golf Club", location: "Kent, United Kingdom" },
+  "west lancashire": { name: "West Lancashire Golf Club", location: "Merseyside, United Kingdom" },
+  worplesdon: { name: "Worplesdon Golf Club", location: "Surrey, United Kingdom" },
+  addington: { name: "The Addington Golf Club", location: "Greater London, United Kingdom" },
+  liphook: { name: "Liphook Golf Club", location: "Hampshire, United Kingdom" },
+  parkstone: { name: "Parkstone Golf Club", location: "Dorset, United Kingdom" },
+  "west hill": { name: "West Hill Golf Club", location: "Surrey, United Kingdom" },
+  broadstone: { name: "Broadstone Golf Club", location: "Dorset, United Kingdom" },
+  jcb: { name: "JCB Golf & Country Club", location: "Staffordshire, United Kingdom" },
+  moortown: { name: "Moortown Golf Club", location: "Yorkshire, United Kingdom" },
+  wallasey: { name: "Wallasey Golf Club", location: "Merseyside, United Kingdom" },
+  hindhead: { name: "Hindhead Golf Club", location: "Surrey, United Kingdom" },
+  "southport ainsdale": { name: "Southport & Ainsdale Golf Club", location: "Merseyside, United Kingdom" },
+  "royal ashdown forest": { name: "Royal Ashdown Forest Golf Club (Old)", location: "Sussex, United Kingdom" },
+  "sherwood forest": { name: "Sherwood Forest Golf Club", location: "Nottinghamshire, United Kingdom" },
+  "new zealand": { name: "New Zealand Golf Club", location: "Surrey, United Kingdom" },
+  aldeburgh: { name: "Aldeburgh Golf Club (Championship)", location: "Suffolk, United Kingdom" },
+  "beau desert": { name: "Beau Desert Golf Club", location: "Staffordshire, United Kingdom" },
+  hayling: { name: "Hayling Golf Club", location: "Hampshire, United Kingdom" },
+  "delamere forest": { name: "Delamere Forest Golf Club", location: "Cheshire, United Kingdom" },
+  woburn: { name: "Woburn Golf Club", location: "Buckinghamshire, United Kingdom" },
+  ferndown: { name: "Ferndown Golf Club (Old)", location: "Dorset, United Kingdom" },
+  ipswich: { name: "Ipswich Golf Club (Purdis Heath)", location: "Suffolk, United Kingdom" },
+  "royal north devon": { name: "Royal North Devon Golf Club", location: "Devon, United Kingdom" },
+  "little aston": { name: "Little Aston Golf Club", location: "Staffordshire, United Kingdom" },
+  queenwood: { name: "Queenwood Golf Club", location: "Surrey, United Kingdom" },
+  huntercombe: { name: "Huntercombe Golf Club", location: "Oxfordshire, United Kingdom" },
+  seacroft: { name: "Seacroft Golf Club", location: "Lincolnshire, United Kingdom" },
+  "seaton carew": { name: "Seaton Carew Golf Club (Micklem)", location: "Durham, United Kingdom" },
+  trevose: { name: "Trevose Golf & Country Club (Championship)", location: "Cornwall, United Kingdom" },
+  goswick: { name: "Goswick Links", location: "Northumberland, United Kingdom" },
+  littlestone: { name: "Littlestone Golf Club (Championship)", location: "Kent, United Kingdom" },
+  stoneham: { name: "Stoneham Golf Club", location: "Hampshire, United Kingdom" },
+  blackmoor: { name: "Blackmoor Golf Club", location: "Hampshire, United Kingdom" },
+  "royal worlington newmarket": { name: "Royal Worlington & Newmarket Golf Club", location: "Suffolk, United Kingdom" },
+  "bearwood lakes": { name: "Bearwood Lakes Golf Club", location: "Berkshire, United Kingdom" },
+  "east devon": { name: "East Devon Golf Club", location: "Devon, United Kingdom" },
+  perranporth: { name: "Perranporth Golf Club", location: "Cornwall, United Kingdom" },
+  tandridge: { name: "Tandridge Golf Club", location: "Surrey, United Kingdom" },
+  blackwell: { name: "Blackwell Golf Club", location: "Worcestershire, United Kingdom" },
+  "coombe hill": { name: "Coombe Hill Golf Club", location: "Greater London, United Kingdom" },
+  grove: { name: "The Grove", location: "Hertfordshire, United Kingdom" },
+  lindrick: { name: "Lindrick Golf Club", location: "Yorkshire, United Kingdom" },
+  "camberley heath": { name: "Camberley Heath Golf Club", location: "Surrey, United Kingdom" },
+  "remedy oak": { name: "Remedy Oak Golf Club", location: "Dorset, United Kingdom" },
+  "hadley wood": { name: "Hadley Wood Golf Club", location: "Greater London, United Kingdom" },
+  kington: { name: "Kington Golf Club", location: "Herefordshire, United Kingdom" },
+  cavendish: { name: "Cavendish Golf Club", location: "Derbyshire, United Kingdom" },
+  "knole park": { name: "Knole Park Golf Club", location: "Kent, United Kingdom" },
+  piltdown: { name: "Piltdown Golf Club", location: "Sussex, United Kingdom" },
+  ashridge: { name: "Ashridge Golf Club", location: "Hertfordshire, United Kingdom" },
+  woodbridge: { name: "Woodbridge Golf Club", location: "Suffolk, United Kingdom" },
+  wisley: { name: "The Wisley Golf Club", location: "Surrey, United Kingdom" },
+  "isle purbeck": { name: "Isle of Purbeck Golf Club (Purbeck)", location: "Dorset, United Kingdom" },
+  "royal wimbledon": { name: "Royal Wimbledon Golf Club", location: "Greater London, United Kingdom" },
+  "cleeve hill": { name: "Cleeve Hill Golf Club", location: "Gloucestershire, United Kingdom" },
+  "sutton coldfield": { name: "Sutton Coldfield Golf Club", location: "Birmingham, United Kingdom" },
+  "north hants": { name: "North Hants Golf Club", location: "Hampshire, United Kingdom" },
+  sheringham: { name: "Sheringham Golf Club", location: "Norfolk, United Kingdom" },
+  "formby ladies": { name: "Formby Ladies Golf Club", location: "Merseyside, United Kingdom" },
+  seascale: { name: "Seascale Golf Club", location: "Cumbria, United Kingdom" },
+  prestbury: { name: "Prestbury Golf Club", location: "Cheshire, United Kingdom" },
+  "crowborough beacon": { name: "Crowborough Beacon Golf Club", location: "Sussex, United Kingdom" },
+  berkhamsted: { name: "Berkhamsted Golf Club", location: "Hertfordshire, United Kingdom" },
+  "northamptonshire county": { name: "Northamptonshire County Golf Club", location: "Northamptonshire, United Kingdom" },
+  "st annes old": { name: "St Annes Old Links Golf Club", location: "Lancashire, United Kingdom" },
+  "st mellion": { name: "St Mellion Golf Club", location: "Cornwall, United Kingdom" },
+  thorpeness: { name: "Thorpeness Golf Club", location: "Suffolk, United Kingdom" },
+  yelverton: { name: "Yelverton Golf Club", location: "Devon, United Kingdom" },
+  "chart hills": { name: "Chart Hills Golf Club", location: "Kent, United Kingdom" },
+  fulford: { name: "Fulford Golf Club", location: "Yorkshire, United Kingdom" },
+  effingham: { name: "Effingham Golf Club", location: "Surrey, United Kingdom" },
+  belfry: { name: "The Belfry (Brabazon)", location: "Warwickshire, United Kingdom" },
+  "stoke park": { name: "Stoke Park (Colt & Alison)", location: "Buckinghamshire, United Kingdom" },
+  coxmoor: { name: "Coxmoor Golf Club", location: "Nottinghamshire, United Kingdom" },
+  "dunstanburgh castle": { name: "Dunstanburgh Castle Golf Course", location: "Northumberland, United Kingdom" },
+  "thorndon park": { name: "Thorndon Park Golf Club", location: "Essex, United Kingdom" },
+  appleby: { name: "Appleby Golf Club", location: "Cumbria, United Kingdom" },
+  denham: { name: "Denham Golf Club", location: "Buckinghamshire, United Kingdom" },
+};
+
+const BLENDED = blendClubs().slice(0, 100);
+
+export const TOP100_ENGLAND: ImportInputRow[] = BLENDED.map((entry) => {
+  const club = CLUB_DIRECTORY[entry.clubKey];
+  return {
+    rank: entry.rank,
+    name: club?.name ?? entry.sourceName,
+    location: club?.location ?? null,
+  };
+});
+
+/**
+ * Which sources put each club where, in the same order as `TOP100_ENGLAND`.
+ * Kept alongside the list so corroboration is inspectable data rather than a
+ * claim in a comment - the previous docstring's figures were wrong precisely
+ * because nothing checked them.
+ */
+export const TOP100_ENGLAND_PROVENANCE = BLENDED.map((entry) => ({
+  rank: entry.rank,
+  name: CLUB_DIRECTORY[entry.clubKey]?.name ?? entry.sourceName,
+  sourceCount: entry.sourceCount,
+  hits: entry.hits.map((hit) => ({ short: hit.short, rank: hit.rank })),
+}));
