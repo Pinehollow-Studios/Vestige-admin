@@ -59,8 +59,8 @@ export type SyncReport = {
 
 const MAX_DETAIL = 120;
 
-// Editorial columns mirrored onto prod courses (identity + geometry
-// are owned by the import and never touched).
+// Editorial columns mirrored onto prod courses (identity is owned by the
+// import and never touched).
 const COURSE_EDITORIAL = [
   "description",
   "par",
@@ -71,6 +71,24 @@ const COURSE_EDITORIAL = [
   "tier",
   "hole_count",
 ] as const;
+
+// Geometry, mirrored separately from the editorial set.
+//
+// Geometry used to be import-owned like identity, but the import is
+// insert-only: it never updates a row it has already created. That left a
+// corrected outline with no route to prod at all. The live case is Sunningdale
+// (legacy_fid 113), whose polygon had swallowed the neighbouring Sunningdale
+// Heath - two distinct clubs sharing one outline, and, because the centre is
+// derived from the first sub-polygon of a MultiPolygon, a map pin dropped on a
+// stray sliver rather than on the course.
+//
+// Kept as its own list rather than folded into COURSE_EDITORIAL so the report
+// can name geometry as its own reason for an update, and so identity
+// (legacy_fid, slug, name) stays import-owned.
+//
+// Note this makes the courses fetch pull every polygon from both projects,
+// which becomes the bulk of this entity's payload - a few MB per side.
+const COURSE_GEOMETRY = ["polygon", "center_lat", "center_lng"] as const;
 
 const CURATED_COLUMNS = [
   "name",
@@ -196,8 +214,8 @@ async function syncCourses(
   clients: SyncClients,
   mode: SyncMode,
 ): Promise<{ report: EntityReport; maps: CourseMaps }> {
-  const report = emptyReport("Courses (editorial)");
-  const cols = `id,slug,legacy_fid,hero_photo_storage_key,${COURSE_EDITORIAL.join(",")}`;
+  const report = emptyReport("Courses (editorial + geometry)");
+  const cols = `id,slug,legacy_fid,hero_photo_storage_key,${COURSE_EDITORIAL.join(",")},${COURSE_GEOMETRY.join(",")}`;
   const [dev, prod] = await Promise.all([
     fetchAll(clients.dev, "courses", cols),
     fetchAll(clients.prod, "courses", cols),
@@ -228,6 +246,7 @@ async function syncCourses(
     devToProd.set(d.id as string, match.id as string);
 
     const editorialDiffers = stable(pick(d, COURSE_EDITORIAL)) !== stable(pick(match, COURSE_EDITORIAL));
+    const geometryDiffers = stable(pick(d, COURSE_GEOMETRY)) !== stable(pick(match, COURSE_GEOMETRY));
     const devHero = (d.hero_photo_storage_key as string | null) ?? null;
     const prodHero = (match.hero_photo_storage_key as string | null) ?? null;
     // First-time copy / clear only - content drift on an existing cover
@@ -235,16 +254,20 @@ async function syncCourses(
     // change rarely; documented limitation.
     const heroAction: "copy" | "clear" | "none" = devHero && !prodHero ? "copy" : !devHero && prodHero ? "clear" : "none";
 
-    if (!editorialDiffers && heroAction === "none") continue;
+    if (!editorialDiffers && !geometryDiffers && heroAction === "none") continue;
 
     const detailBits: string[] = [];
     if (editorialDiffers) detailBits.push("editorial fields");
+    if (geometryDiffers) detailBits.push("geometry");
     if (heroAction === "copy") detailBits.push("+ hero photo");
     if (heroAction === "clear") detailBits.push("− hero photo");
     note(report, "update", d.slug as string, detailBits.join(" "));
 
     if (mode === "apply") {
-      const update: Row = editorialDiffers ? pick(d, COURSE_EDITORIAL) : {};
+      const update: Row = {
+        ...(editorialDiffers ? pick(d, COURSE_EDITORIAL) : {}),
+        ...(geometryDiffers ? pick(d, COURSE_GEOMETRY) : {}),
+      };
       const prodId = match.id as string;
       if (heroAction === "copy") {
         const fromPath = objPath(devHero);

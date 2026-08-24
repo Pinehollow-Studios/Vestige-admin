@@ -663,3 +663,20 @@ canonical write-up lives on disk.
   Contents:read on `Pinehollow-Studios/vestige-tool`, update
   `GITHUB_CONTENT_TOKEN` in Vercel); `source.ts` errors now self-diagnose
   401 vs 403/404. Verified `tsc`/`eslint`. Long-form in `CHANGELOG.md`.
+- **2026-08-24** — `/sync` now mirrors course **geometry**, closing the gap the
+  4 Aug insert-only change opened ("polygon/detail changes to existing courses
+  in vestige-tool no longer propagate"). New `COURSE_GEOMETRY` list
+  (`polygon`, `center_lat`, `center_lng`) in `lib/sync/engine.ts`, diffed and
+  applied alongside `COURSE_EDITORIAL` but kept as its own list so the report
+  names geometry as its own reason and identity (legacy_fid/slug/name) stays
+  import-owned; entity relabelled "Courses (editorial + geometry)". Driven by
+  Sunningdale (legacy_fid 113), whose outline had swallowed the neighbouring
+  Sunningdale Heath — two distinct clubs in one polygon, and a map pin on a
+  stray sliver because `polygonCentroid()` takes the first sub-polygon of a
+  MultiPolygon. Dev is already corrected (written directly via
+  vestige-tool's `tools/supabase/set-polygon.cjs`); prod is untouched and
+  still shows the merged outline. Cost: the courses fetch now pulls every
+  polygon from both projects, a few MB per side. **Not verified — this clone
+  has no `node_modules`, so `tsc`/`eslint`/`build` were not run; review before
+  applying.** Note `/sync` remains blocked by the county-badge slug bug and is
+  still all-or-nothing (no entity filter), so this cannot ship on its own.
