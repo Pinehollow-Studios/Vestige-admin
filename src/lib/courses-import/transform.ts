@@ -17,6 +17,24 @@ import type {
   GeoJsonGeometry,
 } from "./types";
 
+/** Par at or below which a course is a nine-hole loop. Also the `layout`
+ *  nine/eighteen boundary, which is why it is not folded into the tier rule. */
+const NINE_HOLE_PAR_CEILING = 36;
+
+/** Par below which an EIGHTEEN-hole course is still a short course.
+ *
+ *  Without this, `tier` was really just a nine-hole test: anything over par 36
+ *  came out `standard`, so a full 18 holes of mostly par 3s was filed next to
+ *  a championship course. Nine courses sat in that gap - Ropsley (par 40 over
+ *  18 holes and 1,837 yards), Meole Brace, South Petersfield, Mad Swans,
+ *  Uxbridge, Chiddingfold, Charnock Richard, Clevedon and Sunningdale Heath
+ *  (par 58 / 3,705).
+ *
+ *  60 is chosen because it is the lowest par a genuine full-length 18 reaches
+ *  in the dataset, and every course in the 37-59 band is either one of those
+ *  nine or already `short` by virtue of being Pitch & Putt. */
+const SHORT_EIGHTEEN_PAR_CEILING = 60;
+
 /** Deterministic slug - ported verbatim from the iOS `lib/slug.ts` that minted
  *  the EXISTING `counties.slug` / `courses.slug` values. Must match exactly, or
  *  `onConflict` upserts would create duplicate rows instead of updating. */
@@ -78,9 +96,11 @@ export function transformCourse(feature: CourseFeature): CourseRow {
 
 function inferTier(props: CourseFeature["properties"]): CourseRow["tier"] {
   const par = props.par ?? 0;
-  if (par > 0 && par <= 36) return "short";
+  if (par > 0 && par <= NINE_HOLE_PAR_CEILING) return "short";
   if (props.type && /pitch\s*&?\s*putt/i.test(props.type)) return "short";
   if (props.type && /par\s*3/i.test(props.type)) return "par3";
+  // An 18-hole course can still be a short course - see the ceiling's note.
+  if (par > 0 && par < SHORT_EIGHTEEN_PAR_CEILING) return "short";
   return "standard";
 }
 
@@ -89,7 +109,7 @@ function inferLayout(props: CourseFeature["properties"]): {
   layout: CourseRow["layout"];
 } {
   const par = props.par ?? 0;
-  const isNine = par > 0 && par <= 36;
+  const isNine = par > 0 && par <= NINE_HOLE_PAR_CEILING;
   const isPar3 = !!props.type && /par\s*3/i.test(props.type);
   const isPitchPutt = !!props.type && /pitch\s*&?\s*putt/i.test(props.type);
 
