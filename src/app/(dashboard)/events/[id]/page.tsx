@@ -31,7 +31,7 @@ export default async function EventEditorPage(props: { params: RouteParams }) {
     supabase.from("counties").select("id,name").order("name"),
     supabase
       .from("badge_definitions")
-      .select("id,name")
+      .select("id,name,glyph,theme,tint_hex,tier,shape,effect,is_published")
       .eq("is_archived", false)
       .order("name"),
   ]);

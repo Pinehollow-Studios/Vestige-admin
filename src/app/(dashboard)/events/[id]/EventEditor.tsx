@@ -27,6 +27,7 @@ import {
   updateEvent,
   uploadEventCover,
 } from "../actions";
+import { BadgeMedallion } from "@/components/badges/BadgeMedallion";
 import { EventCoursePicker } from "./EventCoursePicker";
 import {
   AWARD_LABELS,
@@ -37,6 +38,7 @@ import {
   type AwardRule,
   type EventKind,
   type EventRow,
+  type PrizeBadge,
 } from "../types";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +76,7 @@ export function EventEditor({
   courses: EventCourseRow[];
   coverURL: string | null;
   counties: { id: string; name: string }[];
-  badges: { id: string; name: string }[];
+  badges: PrizeBadge[];
 }) {
   const status = statusFor(row);
   const { values, setField, state } = useFormAutosave<EventForm>(
@@ -93,6 +95,14 @@ export function EventEditor({
   const windowValid = new Date(row.ends_at) > new Date(row.starts_at);
   const wantsSet = values.kind !== "race";
 
+  // The prize picker offers published badges only; the current
+  // selection stays listed (marked draft) so an existing event never
+  // silently loses its wiring (event-badges rework, 2026-08-26).
+  const prizeOptions = badges.filter(
+    (b) => b.is_published || b.id === values.badge_definition_id,
+  );
+  const selectedBadge = badges.find((b) => b.id === values.badge_definition_id) ?? null;
+
   const checks: ReadinessCheck[] = [
     windowValid
       ? { state: "ok", label: "Window set" }
@@ -107,9 +117,11 @@ export function EventEditor({
       ? { state: "warn", label: "Badge without an award rule", hint: "Pick who receives it or nothing mints." }
       : values.award_rule === "all_qualifiers" && !values.target_count
         ? { state: "warn", label: "Finisher award needs a target", hint: "Set a target count or nobody qualifies." }
-        : values.badge_definition_id
-          ? { state: "ok", label: "Prize wired up" }
-          : { state: "info", label: "No prize (optional)" },
+        : selectedBadge && !selectedBadge.is_published
+          ? { state: "warn", label: "Prize badge is a draft", hint: "Publish it in /badges before Close & award mints it to real users." }
+          : values.badge_definition_id
+            ? { state: "ok", label: "Prize wired up" }
+            : { state: "info", label: "No prize (optional)" },
     status === "live"
       ? { state: "ok", label: "Published — live on iOS" }
       : status === "ended"
@@ -216,9 +228,10 @@ export function EventEditor({
               className={fieldInputClass}
             >
               <option value="">No badge</option>
-              {badges.map((b) => (
+              {prizeOptions.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
+                  {b.is_published ? "" : " (draft)"}
                 </option>
               ))}
             </select>
@@ -238,6 +251,22 @@ export function EventEditor({
             </select>
           </Field>
         </div>
+        {selectedBadge && (
+          <div className="mt-3 flex items-center gap-4 rounded-xl border border-border bg-surface-2 p-4">
+            <BadgeMedallion spec={selectedBadge} size={72} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-ink">{selectedBadge.name}</p>
+              <p className="text-xs capitalize text-ink-3">
+                {selectedBadge.tier} · {selectedBadge.theme}
+              </p>
+              {!selectedBadge.is_published && (
+                <p className="pt-1 text-xs text-alert">
+                  Draft — publish it in /badges before the close, or winners receive a badge the app hides.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </EditorSection>
 
       <CourseSetSection row={row} courses={courses} counties={counties} />
