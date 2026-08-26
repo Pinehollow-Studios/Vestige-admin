@@ -1,3 +1,5 @@
+import type { BadgeEffect, BadgeShape, BadgeTheme, BadgeTier } from "../badges/types";
+
 /**
  * Row + status vocabulary for the Clubhouse events surface
  * (`20260804100000_clubhouse_events.sql`; iOS Club > Clubhouse).
@@ -31,6 +33,25 @@ export type EventRow = {
   created_at: string;
   updated_at: string;
   course_count: number;
+  /** Joined prize spec — present on the index read; null when no prize. */
+  badge?: PrizeBadge | null;
+};
+
+/**
+ * The prize badge as the events surface loads it — everything
+ * `BadgeMedallion` needs to draw the real medallion, plus the publish
+ * flag the prize picker filters on (event-badges rework, 2026-08-26).
+ */
+export type PrizeBadge = {
+  id: string;
+  name: string;
+  glyph: string;
+  theme: BadgeTheme;
+  tint_hex: string | null;
+  tier: BadgeTier;
+  shape: BadgeShape;
+  effect: BadgeEffect;
+  is_published: boolean;
 };
 
 export type EventKind = "race" | "hunt" | "sweep" | "marker";

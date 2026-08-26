@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,10 @@ import {
   backfillBadge,
   deleteBadge,
   grantBadgeToUser,
-  removeBadgeArt,
   revokeBadgeFromUser,
   setBadgeArchived,
   setBadgePublished,
   updateBadge,
-  uploadBadgeArt,
   type BadgePatch,
 } from "../actions";
 import {
@@ -110,7 +108,11 @@ export function BadgeEditor({
       <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
         <PreviewCard spec={spec} name={name} tier={tier} isManual={criteria.type === "manual"} />
         <Lifecycle row={row} pending={pending} dirty={dirty} onSave={save} />
-        <ArtCard row={row} />
+        {/* Custom-art upload SHELVED 2026-08-26 (Tom): nothing renders
+            the PNG on any platform (web preview or iOS), so the card was
+            a dead-end authoring surface. The `custom_image_key` column,
+            storage bucket and server actions stay; revisit post-beta if
+            bespoke art becomes real. */}
         <ManualGrant row={row} />
       </div>
 
@@ -600,58 +602,6 @@ function Lifecycle({
 
       {/* keep onSave referenced for the keyboard-less flow */}
       <button type="button" onClick={onSave} className="sr-only">save</button>
-    </section>
-  );
-}
-
-// ── Custom art ──────────────────────────────────────────────────────
-
-function ArtCard({ row }: { row: BadgeDefinitionRow }) {
-  const [busy, start] = useTransition();
-  const fileRef = useRef<HTMLInputElement | null>(null);
-
-  function onPick(file: File) {
-    start(async () => {
-      const fd = new FormData();
-      fd.append("art", file);
-      const r = await uploadBadgeArt(row.id, fd);
-      if (!r.ok) toast.error(r.message);
-      else toast.success("Artwork uploaded");
-    });
-  }
-  function remove() {
-    start(async () => {
-      const r = await removeBadgeArt(row.id);
-      if (!r.ok) toast.error(r.message);
-      else toast.success("Artwork removed");
-    });
-  }
-
-  return (
-    <section className="space-y-2 rounded-xl glass-panel p-5">
-      <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">Custom artwork</h3>
-      <p className="text-xs text-ink-3">
-        Optional. Overrides the composed medallion with an uploaded PNG (transparent, square). Most badges don&apos;t need this.
-      </p>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/png,image/webp"
-        className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) onPick(file);
-        }}
-      />
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => fileRef.current?.click()}>
-          {row.custom_image_key ? "Replace" : "Upload PNG"}
-        </Button>
-        {row.custom_image_key && (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={remove}>Remove</Button>
-        )}
-      </div>
     </section>
   );
 }

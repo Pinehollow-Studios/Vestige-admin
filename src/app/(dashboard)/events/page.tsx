@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BadgeMedallion } from "@/components/badges/BadgeMedallion";
 import { pageShell } from "@/components/admin/PageShell";
 import { SectionHeader } from "@/components/admin/SectionHeader";
 import { createClient } from "@/lib/supabase/server";
@@ -37,7 +38,7 @@ export default async function EventsPage() {
   const { data: events, error } = await supabase
     .from("clubhouse_events")
     .select(
-      "id,title,subtitle,description,kind,starts_at,ends_at,target_count,cover_storage_key,badge_definition_id,award_rule,published_at,is_archived,finalized_at,created_at,updated_at",
+      "id,title,subtitle,description,kind,starts_at,ends_at,target_count,cover_storage_key,badge_definition_id,award_rule,published_at,is_archived,finalized_at,created_at,updated_at,badge:badge_definitions(id,name,glyph,theme,tint_hex,tier,shape,effect,is_published)",
     );
 
   const counts: Record<string, number> = {};
@@ -49,7 +50,12 @@ export default async function EventsPage() {
     for (const row of countRows ?? []) counts[row.event_id] = (counts[row.event_id] ?? 0) + 1;
   }
 
-  const all: EventRow[] = (events ?? []).map((e) => ({ ...e, course_count: counts[e.id] ?? 0 }));
+  const all: EventRow[] = (events ?? []).map((e) => ({
+    ...e,
+    course_count: counts[e.id] ?? 0,
+    // Supabase types a single-FK join loosely — normalise to one-or-null.
+    badge: Array.isArray(e.badge) ? (e.badge[0] ?? null) : e.badge,
+  }));
 
   const buckets: Record<EventStatus, number> = {
     live: 0,
@@ -133,8 +139,13 @@ function EventCard({ row }: { row: EventRow }) {
         <p className="text-xs text-ink-3">
           {row.course_count > 0 ? `${row.course_count} courses in the set` : "Whole of England"}
           {row.target_count ? ` · target ${row.target_count}` : ""}
-          {row.badge_definition_id ? " · badge attached" : ""}
         </p>
+        {row.badge && (
+          <p className="flex items-center gap-2 pt-0.5 text-xs text-ink-2">
+            <BadgeMedallion spec={row.badge} size={24} />
+            <span className="truncate">{row.badge.name}</span>
+          </p>
+        )}
       </div>
     </Link>
   );

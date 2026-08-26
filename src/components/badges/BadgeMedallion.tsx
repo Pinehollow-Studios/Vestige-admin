@@ -169,6 +169,13 @@ function SigilArt({
               <stop offset="45%" stopColor="rgba(230,237,244,0)" />
             </linearGradient>
           )}
+          {effect === "metallic" && (
+            <linearGradient id={`${id}-sheen`} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.32)" />
+              <stop offset="38%" stopColor="rgba(255,255,255,0.10)" />
+              <stop offset="62%" stopColor="rgba(255,255,255,0)" />
+            </linearGradient>
+          )}
         </defs>
 
         {/* Duotone fill + theme stroke. */}
@@ -189,6 +196,12 @@ function SigilArt({
 
         {/* Obsidian steel rim light — catches top-left, dissolves to nothing. */}
         {isObsidian && shapeEl(shape, { fill: "none", stroke: `url(#${id}-rim)`, strokeWidth: 2.6 })}
+
+        {/* Metallic specular pass (2026-08-26 — the effect was a no-op
+            before this): a diagonal white sheen falling across the
+            silhouette from the top-left, under the glyph overlay.
+            Mirrors `metallicSheen` in iOS `VBadgeMedallion` exactly. */}
+        {effect === "metallic" && shapeEl(shape, { fill: `url(#${id}-sheen)` })}
       </svg>
 
       <GlyphLayer Glyph={Glyph} size={px * 0.34} color={tint} />
