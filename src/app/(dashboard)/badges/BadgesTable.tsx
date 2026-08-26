@@ -10,6 +10,9 @@ import {
   type BadgeStatus,
   type BadgeTier,
   type BadgeCategory,
+  type BadgeTheme,
+  type BadgeShape,
+  type BadgeEffect,
 } from "./types";
 
 export type BadgeTableRow = {
@@ -17,8 +20,11 @@ export type BadgeTableRow = {
   name: string;
   tagline: string | null;
   glyph: string;
+  theme: BadgeTheme;
   tint_hex: string | null;
   tier: BadgeTier;
+  shape: BadgeShape;
+  effect: BadgeEffect;
   category: BadgeCategory;
   is_secret: boolean;
   status: BadgeStatus;
@@ -34,7 +40,7 @@ export function BadgesTable({ rows, sort, dir }: { rows: BadgeTableRow[]; sort: 
       width: "minmax(220px,2.4fr)",
       cell: (r) => (
         <div className="flex min-w-0 items-center gap-2.5">
-          <BadgeMedallion spec={{ glyph: r.glyph, tint_hex: r.tint_hex, tier: r.tier }} size={34} />
+          <BadgeMedallion spec={{ glyph: r.glyph, theme: r.theme, tint_hex: r.tint_hex, tier: r.tier, shape: r.shape, effect: r.effect }} size={34} />
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 truncate font-medium text-ink">
               <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[r.status])} />

@@ -183,7 +183,7 @@ function GroupCard({ category, badges }: { category: BadgeCategory; badges: Badg
           {sample.map((b, i) => (
             <span key={b.id} className={cn(i > 0 && "-ml-2")} style={{ zIndex: sample.length - i }}>
               <BadgeMedallion
-                spec={{ glyph: b.glyph, tint_hex: b.tint_hex, tier: b.tier }}
+                spec={{ glyph: b.glyph, theme: b.theme, tint_hex: b.tint_hex, tier: b.tier, shape: b.shape, effect: b.effect }}
                 size={30}
                 earned={statusFor(b) === "live"}
                 progress={0.45}
@@ -248,8 +248,11 @@ async function TableView({
     name: d.name,
     tagline: d.tagline,
     glyph: d.glyph,
+    theme: d.theme,
     tint_hex: d.tint_hex,
     tier: d.tier,
+    shape: d.shape,
+    effect: d.effect,
     category: d.category,
     is_secret: d.is_secret,
     status: statusFor(d),
