@@ -4,8 +4,8 @@
   New/Improved/Fixed/Removed chip, detail line, and ANY number of linked
   feedback reports (junction `app_version_change_reports`). Editor: Enter-to-add,
   paste-a-list, drag reorder across sections, heading autocomplete. iOS-repo
-  migration `20260827150000` applied dev, **prod pending** — deployed bunker
-  shows an empty changelog until it lands. `tsc`/`eslint`/`build` green.
+  migration `20260827150000` applied dev + prod same day (0.4.x content
+  converted; verified on prod). `tsc`/`eslint`/`build` green.
   Long-form in `CHANGELOG.md` 2026-08-27.
 
 - **2026-08-18** — **Index panels stripped to the numbers.** The guide is now

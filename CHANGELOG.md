@@ -64,10 +64,12 @@ junction through a shared two-level unwrap in `lib/feedback/queue.ts` (the
 page-local duplicate deleted).
 
 **Deploy ordering** — the new bunker reads the new tables with soft failure
-(empty lists, no crash) but the changelog panel will look EMPTY on the
-deployed bunker until `20260827150000` lands on prod. Run prod-deploy before
-or right after the Vercel push. Old 0.4.x prod content migrates at that
-moment.
+(empty lists, no crash), so there was a window where the deployed changelog
+panel would read empty. Closed same day: `20260827150000` applied to prod
+(Tom's call) minutes after the Vercel production deploy went Ready. Verified
+on prod post-apply: 0.4.1 converted to its six authored sections in order with
+the Map report link in the junction and the crash-fix bullet auto-labelled
+Fixed; 0.4.0/0.3.x flat rows grouped per kind; migration ledger dry-run clean.
 
 **Verified** — `tsc` clean, `eslint` clean bar the pre-existing VaultGate
 warning (untouched line), one `next build` green. Not UI-walked (Tom's call:
