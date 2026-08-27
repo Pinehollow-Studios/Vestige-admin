@@ -5,6 +5,42 @@
 
 ---
 
+## 2026-08-27 — Changelog visual rework: release-feed cards, chip-led items, phone-first
+
+Same-day follow-up to the area-first rebuild. Tom's brief: modern + sleek, and
+it must read well on Jack's phone. Four direction calls (all Tom's picks):
+release feed over timeline · chips lead each line · read views redesigned with
+editor polish only · latest open, older collapsed.
+
+**/changelog** — the timeline rail and the two top banners are gone. Each
+version is now a feed card: oversized `font-hero` version number (the current
+release wears the mint `--gradient-accent` as clipped text), draft/current
+pills, date, title, and item/fixed counts in the header row; sections render
+inside. Collapse is native `<details>`/`<summary>` — zero JS, the whole
+≥56px header row is the tap target, chevron rotates via `group-open`. The
+current release and any draft render `open`; history collapses to header rows.
+Counts and the "Edit" text hide on `sm:` breakpoints so a phone row is just
+chevron · version · pill · pencil.
+
+**Entry rendering** (`ChangeLinesView`) — section headings sit on a hairline
+rule that runs to the card edge; every item leads with its label chip in a
+fixed 64px column so text ragged-aligns cleanly on a phone (the column only
+exists in sections that use labels at all). Chips move from outlined pills to
+tinted fills (`CHANGE_LABEL_CHIP` in types.ts — single source shared with the
+editor). Report chips lose their border for a soft brand fill; detail lines
+sit under the item inside the same text column.
+
+**View mode** (`VersionView`) — matches the feed card: hero version number
+(3xl/4xl), header and body split by a hairline, mobile padding p-4 → sm:p-6.
+
+**Editor polish only** — label chip buttons adopt the shared tinted chip (64px
+column, matching read view), hanging indents follow (100→92px), and the
+per-item icon buttons grow from p-1 to p-1.5 hit areas. Layout untouched.
+
+**Verified** — `tsc` clean, `eslint` clean on the touched trees, one
+`next build` green. Not UI-walked (auth-gated; Tom tests on the deployed
+bunker — his standing call from the same-day rebuild).
+
 ## 2026-08-27 — Changelog rebuilt area-first: sections, per-item labels, multi-report links
 
 Tom's brief: 0.4.1 (headers per page/area with bullets beneath) is the format

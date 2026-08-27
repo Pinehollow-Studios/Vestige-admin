@@ -38,6 +38,21 @@ export const CHANGE_LABEL_TONE: Record<ChangeLabel, ChipTone> = {
   removed: "alert",
 };
 
+/**
+ * The label chip itself — tinted fill, no border, fixed small-caps type. One
+ * definition shared by the read views and the editor so an item looks the same
+ * everywhere it appears.
+ */
+export const CHANGE_LABEL_CHIP: Record<ChangeLabel, string> = {
+  new: "bg-brand/15 text-brand",
+  improved: "bg-ink-3/12 text-ink-2",
+  fixed: "bg-amber/15 text-amber",
+  removed: "bg-alert/15 text-alert",
+};
+
+export const CHANGE_LABEL_CHIP_BASE =
+  "inline-flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em]";
+
 // ── Legacy kind (write-through only) ────────────────────────────────────
 // `kind` stays not-null in the DB for the still-deployed old bunker during the
 // two-phase window. New writes derive it from the label; nothing renders it.

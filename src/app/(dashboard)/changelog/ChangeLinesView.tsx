@@ -5,32 +5,21 @@ import {
   type AppVersionChange,
   type AppVersionSection,
   type ChangeReportLinks,
-  type ChipTone,
   type LinkedFeedback,
+  CHANGE_LABEL_CHIP,
+  CHANGE_LABEL_CHIP_BASE,
   CHANGE_LABEL_TEXT,
-  CHANGE_LABEL_TONE,
   groupIntoSections,
 } from "./types";
 
-function chipClasses(tone: ChipTone): string {
-  switch (tone) {
-    case "brand":
-      return "border-brand/35 text-brand";
-    case "amber":
-      return "border-amber/40 text-amber";
-    case "alert":
-      return "border-alert/40 text-alert";
-    case "neutral":
-      return "border-rule/70 text-ink-3";
-  }
-}
-
 /**
  * Read-only rendering of a version's release notes: area sections ("Map",
- * "Pro", "Fixes") in order, items beneath with their optional label chip,
- * detail line, and linked-report chips. Shared by the full changelog read page
- * and the per-version View mode. Legacy section-less rows render in a trailing
- * "General" group so nothing disappears during the two-phase window.
+ * "Pro", "Fixes") in order, each item led by its colour-coded label chip, with
+ * the optional detail line beneath and report chips trailing. Shared by the
+ * /changelog feed and the per-version View mode. Built mobile-first — chips
+ * hold a fixed column so item text ragged-aligns cleanly on a phone. Legacy
+ * section-less rows render in a trailing "General" group so nothing disappears
+ * during the two-phase window.
  */
 export function ChangeLinesView({
   sections,
@@ -51,29 +40,39 @@ export function ChangeLinesView({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {groups.map((group) => (
-        <div key={group.section?.id ?? "general"} className="space-y-1.5">
-          <p className="font-heading text-sm font-semibold text-ink">
-            {group.section?.heading ?? "General"}
-          </p>
-          <ul className="space-y-1.5 border-l border-rule/50 pl-3.5">
+        <section key={group.section?.id ?? "general"} className="space-y-2">
+          <div className="flex items-center gap-3">
+            <h3 className="shrink-0 font-heading text-[13px] font-semibold tracking-[0.01em] text-ink">
+              {group.section?.heading ?? "General"}
+            </h3>
+            <span aria-hidden className="h-px flex-1 bg-rule/50" />
+          </div>
+          <ul className="space-y-2">
             {group.items.map((item) => {
               const reportIds = links[item.id] ?? [];
+              // The chip column only exists when the section uses labels at
+              // all, so an unlabelled section reads full-width on a phone.
+              const hasChipColumn = group.items.some((i) => i.label);
               return (
-                <li key={item.id} className="space-y-0.5 text-sm leading-snug text-ink">
-                  <div className="flex items-start gap-2">
-                    {item.label && (
-                      <span
-                        className={cn(
-                          "mt-px inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
-                          chipClasses(CHANGE_LABEL_TONE[item.label]),
-                        )}
-                      >
-                        {CHANGE_LABEL_TEXT[item.label]}
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1">
+                <li key={item.id} className="flex gap-2.5">
+                  {hasChipColumn && (
+                    <span
+                      className={cn(
+                        CHANGE_LABEL_CHIP_BASE,
+                        "mt-[3px] w-[64px]",
+                        item.label
+                          ? CHANGE_LABEL_CHIP[item.label]
+                          : "bg-transparent",
+                      )}
+                      aria-hidden={!item.label}
+                    >
+                      {item.label ? CHANGE_LABEL_TEXT[item.label] : ""}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="text-sm leading-snug text-ink">
                       {item.summary}
                       {reportIds.map((reportId) => {
                         const report = linkedFeedback?.[reportId];
@@ -82,30 +81,25 @@ export function ChangeLinesView({
                             key={reportId}
                             href={`/feedback/${reportId}`}
                             title={report?.body ?? undefined}
-                            className="ml-2 inline-flex items-center gap-1 rounded-full border border-brand/30 px-1.5 py-0.5 align-middle text-[10px] font-medium text-brand transition-colors hover:bg-brand/10"
+                            className="ml-2 inline-flex items-center gap-1 rounded-full bg-brand/10 px-1.5 py-0.5 align-middle text-[10px] font-medium text-brand transition-colors hover:bg-brand/20"
                           >
                             <Tag aria-hidden className="size-2.5" />
                             {report?.kind ?? "report"}
                           </Link>
                         );
                       })}
-                    </span>
-                  </div>
-                  {item.detail && (
-                    <p
-                      className={cn(
-                        "text-[12px] leading-snug text-ink-3",
-                        item.label && "ml-[68px]",
-                      )}
-                    >
-                      {item.detail}
                     </p>
-                  )}
+                    {item.detail && (
+                      <p className="text-[12px] leading-snug text-ink-3">
+                        {item.detail}
+                      </p>
+                    )}
+                  </div>
                 </li>
               );
             })}
           </ul>
-        </div>
+        </section>
       ))}
     </div>
   );

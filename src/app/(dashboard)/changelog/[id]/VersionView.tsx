@@ -11,7 +11,8 @@ import {
 } from "../types";
 
 /** Read-only presentation of a single version - the default mode of the detail
- *  page. Edit affordances live behind the View/Edit toggle. */
+ *  page, styled to match the /changelog feed cards. Edit affordances live
+ *  behind the View/Edit toggle. */
 export function VersionView({
   version,
   sections,
@@ -26,10 +27,12 @@ export function VersionView({
   linkedFeedback: Record<string, LinkedFeedback>;
 }) {
   return (
-    <article className="space-y-4 rounded-2xl glass-panel p-6">
-      <header className="space-y-2 border-b border-rule/50 pb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="font-hero text-2xl leading-none text-ink">v{version.version}</h1>
+    <article className="overflow-hidden rounded-2xl glass-panel">
+      <header className="space-y-1.5 p-4 sm:p-6">
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <h1 className="font-hero text-3xl leading-none tracking-tight text-ink sm:text-4xl">
+            {version.version}
+          </h1>
           <span
             className={cn(
               "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
@@ -48,12 +51,14 @@ export function VersionView({
         {version.summary && <p className="text-sm text-ink-2">{version.summary}</p>}
       </header>
 
-      <ChangeLinesView
-        sections={sections}
-        changes={changes}
-        links={links}
-        linkedFeedback={linkedFeedback}
-      />
+      <div className="border-t border-rule/40 p-4 sm:p-6">
+        <ChangeLinesView
+          sections={sections}
+          changes={changes}
+          links={links}
+          linkedFeedback={linkedFeedback}
+        />
+      </div>
     </article>
   );
 }

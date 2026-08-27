@@ -39,28 +39,15 @@ import {
   type AppVersionSection,
   type ChangeLabel,
   type ChangeReportLinks,
+  CHANGE_LABEL_CHIP,
+  CHANGE_LABEL_CHIP_BASE,
   CHANGE_LABEL_TEXT,
-  CHANGE_LABEL_TONE,
   CHANGE_LABELS,
-  type ChipTone,
   type LinkedFeedback,
   groupIntoSections,
 } from "../types";
 import { FeedbackLinkPicker } from "./FeedbackLinkPicker";
 import { ReleaseDialog } from "./ReleaseDialog";
-
-function toneClasses(tone: ChipTone): string {
-  switch (tone) {
-    case "brand":
-      return "border-brand/35 text-brand";
-    case "amber":
-      return "border-amber/40 text-amber";
-    case "alert":
-      return "border-alert/40 text-alert";
-    case "neutral":
-      return "border-rule/70 text-ink-3";
-  }
-}
 
 /** Chip cycle: no label → new → improved → fixed → removed → no label. */
 function nextLabel(current: ChangeLabel | null): ChangeLabel | null {
@@ -768,10 +755,11 @@ function ItemRow({
           disabled={pending}
           title="Click to change the label"
           className={cn(
-            "w-[72px] shrink-0 rounded-full border px-1.5 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wider transition-colors disabled:opacity-50",
+            CHANGE_LABEL_CHIP_BASE,
+            "w-[64px] py-1 transition-colors disabled:opacity-50",
             item.label
-              ? toneClasses(CHANGE_LABEL_TONE[item.label])
-              : "border-dashed border-rule/60 text-ink-3/60 hover:text-ink-3",
+              ? CHANGE_LABEL_CHIP[item.label]
+              : "border border-dashed border-rule/60 text-ink-3/60 hover:text-ink-3",
           )}
         >
           {item.label ? CHANGE_LABEL_TEXT[item.label] : "label"}
@@ -794,7 +782,7 @@ function ItemRow({
           onClick={() => setDetailOpen((v) => !v)}
           disabled={pending}
           className={cn(
-            "shrink-0 rounded p-1 transition-colors disabled:opacity-50",
+            "shrink-0 rounded-md p-1.5 transition-colors disabled:opacity-50",
             detailOpen || item.detail
               ? "text-brand"
               : "text-ink-3/50 hover:text-ink-3",
@@ -809,7 +797,7 @@ function ItemRow({
           onClick={() => setPickerOpen((v) => !v)}
           disabled={pending}
           className={cn(
-            "inline-flex shrink-0 items-center gap-0.5 rounded p-1 text-[10px] transition-colors disabled:opacity-50",
+            "inline-flex shrink-0 items-center gap-0.5 rounded-md p-1.5 text-[10px] transition-colors disabled:opacity-50",
             reportIds.length > 0 ? "text-brand" : "text-ink-3/50 hover:text-ink-3",
           )}
           aria-label="Link feedback reports"
@@ -824,7 +812,7 @@ function ItemRow({
           type="button"
           onClick={remove}
           disabled={pending}
-          className="shrink-0 rounded p-1 text-ink-3/0 transition-colors hover:!text-alert group-hover/item:text-ink-3/60 disabled:opacity-50"
+          className="shrink-0 rounded-md p-1.5 text-ink-3/0 transition-colors hover:!text-alert group-hover/item:text-ink-3/60 disabled:opacity-50"
           aria-label="Delete item"
         >
           <Trash2 className="size-3" />
@@ -832,7 +820,7 @@ function ItemRow({
       </div>
 
       {detailOpen && (
-        <div className="ml-[100px]">
+        <div className="ml-[92px]">
           <Input
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
@@ -848,7 +836,7 @@ function ItemRow({
       )}
 
       {reportIds.length > 0 && (
-        <div className="ml-[100px] flex flex-wrap gap-1">
+        <div className="ml-[92px] flex flex-wrap gap-1">
           {reportIds.map((reportId) => {
             const report = linkedFeedback[reportId];
             return (
@@ -884,7 +872,7 @@ function ItemRow({
       )}
 
       {pickerOpen && (
-        <div className="ml-[100px]">
+        <div className="ml-[92px]">
           <FeedbackLinkPicker onPick={pick} onCancel={() => setPickerOpen(false)} />
         </div>
       )}
@@ -945,10 +933,11 @@ const AddItemRow = forwardRef<
         disabled={pending}
         title="Label for new items - click to change"
         className={cn(
-          "w-[72px] shrink-0 rounded-full border px-1.5 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wider transition-colors disabled:opacity-50",
+          CHANGE_LABEL_CHIP_BASE,
+          "w-[64px] py-1 transition-colors disabled:opacity-50",
           label
-            ? toneClasses(CHANGE_LABEL_TONE[label])
-            : "border-dashed border-rule/60 text-ink-3/60 hover:text-ink-3",
+            ? CHANGE_LABEL_CHIP[label]
+            : "border border-dashed border-rule/60 text-ink-3/60 hover:text-ink-3",
         )}
       >
         {label ? CHANGE_LABEL_TEXT[label] : "label"}

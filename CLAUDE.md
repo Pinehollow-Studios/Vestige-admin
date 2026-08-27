@@ -1,4 +1,13 @@
 
+- **2026-08-27** — **Changelog visual rework.** Timeline rail + banners out;
+  each version is a feed card — oversized hero version number (current wears
+  the mint gradient), native `<details>` collapse (latest + drafts open,
+  history collapsed, zero JS), chip-led items in a fixed 64px column on a
+  hairline-ruled section heading, tinted chips shared editor↔read via
+  `CHANGE_LABEL_CHIP`. Phone-first: 56px tap rows, counts/labels hide below
+  `sm:`. `tsc`/`eslint`/`build` green. Long-form in `CHANGELOG.md` 2026-08-27
+  (visual rework).
+
 - **2026-08-27** — **Changelog rebuilt area-first.** A version is now ordered
   free-text sections ("Map", "Pro", "Fixes") of items, each with an optional
   New/Improved/Fixed/Removed chip, detail line, and ANY number of linked
