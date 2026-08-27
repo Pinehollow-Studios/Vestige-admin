@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { FEEDBACK_ACTIVE_WORK_STAGES } from "@/lib/feedback/types";
-import { type ChangeKind, parseVersion } from "./types";
+import { type ChangeLabel, labelToKind, parseVersion } from "./types";
 
 export type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -175,27 +175,21 @@ export async function deleteVersion(id: string): Promise<ActionResult> {
   redirect("/changelog");
 }
 
-// ── Change lines ──────────────────────────────────────────────────────────
+// ── Sections ──────────────────────────────────────────────────────────────
 
-/**
- * Append a change line to a version (sorts after the existing lines). An
- * optional `feedbackReportId` tags the new line to a report in the same insert,
- * so a line can be born already linked (no separate link step).
- */
-export async function addChange(
+/** Append a section to a version (sorts after the existing sections). */
+export async function addSection(
   versionId: string,
-  kind: ChangeKind,
-  summary: string,
-  feedbackReportId?: string | null,
+  heading: string,
 ): Promise<ActionResult<string>> {
-  const text = summary.trim();
-  if (!text) return { ok: false, message: "Write the change first." };
+  const text = heading.trim();
+  if (!text) return { ok: false, message: "Give the section a heading first." };
 
   const admin = await requireAdmin();
   const supabase = await createClient();
 
   const { data: last } = await supabase
-    .from("app_version_changes")
+    .from("app_version_sections")
     .select("sort_index")
     .eq("version_id", versionId)
     .order("sort_index", { ascending: false })
@@ -204,13 +198,11 @@ export async function addChange(
   const nextSort = (last?.sort_index ?? -1) + 1;
 
   const { data, error } = await supabase
-    .from("app_version_changes")
+    .from("app_version_sections")
     .insert({
       version_id: versionId,
-      kind,
-      summary: text,
+      heading: text,
       sort_index: nextSort,
-      feedback_report_id: feedbackReportId ?? null,
       created_by_admin_id: admin.id,
     })
     .select("id")
@@ -218,29 +210,138 @@ export async function addChange(
 
   if (error) return { ok: false, message: error.message };
   revalidateVersion(versionId);
-  if (feedbackReportId) {
-    revalidatePath(`/feedback/${feedbackReportId}`);
-    revalidatePath("/feedback");
-  }
   return { ok: true, data: data.id };
 }
 
-export type ChangePatch = { kind?: ChangeKind; summary?: string };
+export async function renameSection(
+  versionId: string,
+  sectionId: string,
+  heading: string,
+): Promise<ActionResult> {
+  const text = heading.trim();
+  if (!text) return { ok: false, message: "A section heading can't be empty." };
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("app_version_sections")
+    .update({ heading: text })
+    .eq("id", sectionId);
+  if (error) return { ok: false, message: error.message };
+  revalidateVersion(versionId);
+  return { ok: true };
+}
 
-export async function updateChange(
+/** Delete a section and (via FK cascade) every item under it. */
+export async function deleteSection(
+  versionId: string,
+  sectionId: string,
+): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("app_version_sections")
+    .delete()
+    .eq("id", sectionId);
+  if (error) return { ok: false, message: error.message };
+  revalidateVersion(versionId);
+  return { ok: true };
+}
+
+/** Persist a new section order (full ordered id list → rewrite sort_index). */
+export async function reorderSections(
+  versionId: string,
+  orderedIds: string[],
+): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const results = await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase
+        .from("app_version_sections")
+        .update({ sort_index: index })
+        .eq("id", id)
+        .eq("version_id", versionId),
+    ),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return { ok: false, message: failed.error.message };
+  revalidateVersion(versionId);
+  return { ok: true };
+}
+
+// ── Items ─────────────────────────────────────────────────────────────────
+
+/**
+ * Append one or more items to a section in a single call — `texts` is usually
+ * one line, but a multi-line paste sends every line at once (paste-a-list).
+ * All get the same label; `kind` is derived from it for the legacy reader.
+ * Returns the new ids in order.
+ */
+export async function addItems(
+  versionId: string,
+  sectionId: string,
+  texts: string[],
+  label: ChangeLabel | null,
+): Promise<ActionResult<string[]>> {
+  const lines = texts.map((t) => t.trim()).filter((t) => t.length > 0);
+  if (lines.length === 0) return { ok: false, message: "Write the change first." };
+
+  const admin = await requireAdmin();
+  const supabase = await createClient();
+
+  const { data: last } = await supabase
+    .from("app_version_changes")
+    .select("sort_index")
+    .eq("section_id", sectionId)
+    .order("sort_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSort = (last?.sort_index ?? -1) + 1;
+
+  const { data, error } = await supabase
+    .from("app_version_changes")
+    .insert(
+      lines.map((summary, i) => ({
+        version_id: versionId,
+        section_id: sectionId,
+        kind: labelToKind(label),
+        label,
+        summary,
+        sort_index: nextSort + i,
+        created_by_admin_id: admin.id,
+      })),
+    )
+    .select("id");
+
+  if (error) return { ok: false, message: error.message };
+  revalidateVersion(versionId);
+  return { ok: true, data: (data ?? []).map((r) => r.id as string) };
+}
+
+export type ItemPatch = {
+  summary?: string;
+  label?: ChangeLabel | null;
+  detail?: string | null;
+};
+
+export async function updateItem(
   versionId: string,
   changeId: string,
-  patch: ChangePatch,
+  patch: ItemPatch,
 ): Promise<ActionResult> {
   await requireAdmin();
   const supabase = await createClient();
   const update: Record<string, unknown> = {};
-  if (patch.kind !== undefined) update.kind = patch.kind;
   if (patch.summary !== undefined) {
     const text = patch.summary.trim();
-    if (!text) return { ok: false, message: "A change line can't be empty." };
+    if (!text) return { ok: false, message: "An item can't be empty." };
     update.summary = text;
   }
+  if (patch.label !== undefined) {
+    update.label = patch.label;
+    update.kind = labelToKind(patch.label);
+  }
+  if (patch.detail !== undefined) update.detail = patch.detail?.trim() || null;
   if (Object.keys(update).length === 0) return { ok: true };
 
   const { error } = await supabase
@@ -252,7 +353,7 @@ export async function updateChange(
   return { ok: true };
 }
 
-export async function deleteChange(
+export async function deleteItem(
   versionId: string,
   changeId: string,
 ): Promise<ActionResult> {
@@ -268,22 +369,23 @@ export async function deleteChange(
 }
 
 /**
- * Persist a new line order for a version. The editor sends the full ordered id
- * list after a move; we rewrite `sort_index` to match. Simpler + more robust
- * than swap-with-neighbour, and the line count per version is small.
+ * Persist a section's item order. The full ordered id list is CLAIMED into the
+ * section (section_id set on every id), so a cross-section drag is just: call
+ * this for the target section including the moved id, then for the source
+ * section with its remainder.
  */
-export async function reorderChanges(
+export async function reorderItems(
   versionId: string,
+  sectionId: string,
   orderedIds: string[],
 ): Promise<ActionResult> {
   await requireAdmin();
   const supabase = await createClient();
-
   const results = await Promise.all(
     orderedIds.map((id, index) =>
       supabase
         .from("app_version_changes")
-        .update({ sort_index: index })
+        .update({ section_id: sectionId, sort_index: index })
         .eq("id", id)
         .eq("version_id", versionId),
     ),
@@ -294,10 +396,9 @@ export async function reorderChanges(
   return { ok: true };
 }
 
-// ── Feedback link (the loop) ────────────────────────────────────────────
+// ── Feedback links (the loop — many reports per item) ───────────────────
 
-/** Tag a change line to a feedback report (link-only; no work_stage change). */
-export async function linkFeedback(
+export async function linkReport(
   versionId: string,
   changeId: string,
   reportId: string,
@@ -305,9 +406,11 @@ export async function linkFeedback(
   await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase
-    .from("app_version_changes")
-    .update({ feedback_report_id: reportId })
-    .eq("id", changeId);
+    .from("app_version_change_reports")
+    .upsert(
+      { change_id: changeId, feedback_report_id: reportId },
+      { onConflict: "change_id,feedback_report_id", ignoreDuplicates: true },
+    );
   if (error) return { ok: false, message: error.message };
   revalidateVersion(versionId);
   revalidatePath(`/feedback/${reportId}`);
@@ -315,30 +418,22 @@ export async function linkFeedback(
   return { ok: true };
 }
 
-export async function unlinkFeedback(
+export async function unlinkReport(
   versionId: string,
   changeId: string,
+  reportId: string,
 ): Promise<ActionResult> {
   await requireAdmin();
   const supabase = await createClient();
-  // Capture the report we're unlinking so its thread page can revalidate.
-  const { data: existing } = await supabase
-    .from("app_version_changes")
-    .select("feedback_report_id")
-    .eq("id", changeId)
-    .maybeSingle();
-
   const { error } = await supabase
-    .from("app_version_changes")
-    .update({ feedback_report_id: null })
-    .eq("id", changeId);
+    .from("app_version_change_reports")
+    .delete()
+    .eq("change_id", changeId)
+    .eq("feedback_report_id", reportId);
   if (error) return { ok: false, message: error.message };
   revalidateVersion(versionId);
-  const reportId = existing?.feedback_report_id as string | null | undefined;
-  if (reportId) {
-    revalidatePath(`/feedback/${reportId}`);
-    revalidatePath("/feedback");
-  }
+  revalidatePath(`/feedback/${reportId}`);
+  revalidatePath("/feedback");
   return { ok: true };
 }
 
@@ -371,15 +466,14 @@ export async function listOpenFeedback(
   });
   if (error) return { ok: false, message: error.message };
 
-  // Hide reports already tagged to a changelog line (no double-shipping).
+  // Hide reports already linked to a changelog item (no double-shipping).
   const { data: linkedRows } = await supabase
-    .from("app_version_changes")
-    .select("feedback_report_id")
-    .not("feedback_report_id", "is", null);
+    .from("app_version_change_reports")
+    .select("feedback_report_id");
   const linked = new Set(
-    ((linkedRows as Array<{ feedback_report_id: string | null }> | null) ?? [])
-      .map((r) => r.feedback_report_id)
-      .filter(Boolean) as string[],
+    ((linkedRows as Array<{ feedback_report_id: string }> | null) ?? []).map(
+      (r) => r.feedback_report_id,
+    ),
   );
 
   const rows = (data as Array<Record<string, unknown>> | null) ?? [];
@@ -402,7 +496,7 @@ export async function listOpenFeedback(
 export type ReleaseReportRow = {
   reportId: string;
   changeId: string;
-  changeKind: ChangeKind;
+  changeLabel: ChangeLabel | null;
   changeSummary: string;
   reportKind: string;
   reportBody: string;
@@ -412,10 +506,10 @@ export type ReleaseReportRow = {
 };
 
 /**
- * The reports that releasing `versionId` would close: every change line in the
- * version tagged to a feedback report that isn't already resolved. One row per
- * report (the first linked line wins) so a reporter is never listed twice. Drives
- * the release-confirmation dialog.
+ * The reports that releasing `versionId` would close: every item in the version
+ * linked to a feedback report that isn't already resolved. One row per report
+ * (the first linked item wins) so a reporter is never listed twice. Drives the
+ * release-confirmation dialog.
  */
 export async function listReportsForRelease(
   versionId: string,
@@ -423,21 +517,48 @@ export async function listReportsForRelease(
   await requireAdmin();
   const supabase = await createClient();
 
-  const { data: changeData, error } = await supabase
-    .from("app_version_changes")
-    .select("id, kind, summary, feedback_report_id")
-    .eq("version_id", versionId)
-    .not("feedback_report_id", "is", null)
-    .order("sort_index", { ascending: true });
+  const { data: linkData, error } = await supabase
+    .from("app_version_change_reports")
+    .select(
+      "feedback_report_id, app_version_changes!inner ( id, version_id, label, summary, sort_index )",
+    )
+    .eq("app_version_changes.version_id", versionId);
   if (error) return { ok: false, message: error.message };
 
-  const changes =
-    (changeData as Array<{
-      id: string;
-      kind: ChangeKind;
-      summary: string;
+  // Normalise the embedded to-one (PostgREST may hand back object or array).
+  const changes = (
+    (linkData as Array<{
       feedback_report_id: string;
-    }> | null) ?? [];
+      app_version_changes: unknown;
+    }> | null) ?? []
+  )
+    .map((row) => {
+      const c = Array.isArray(row.app_version_changes)
+        ? row.app_version_changes[0]
+        : row.app_version_changes;
+      const item = c as {
+        id?: string;
+        label?: ChangeLabel | null;
+        summary?: string;
+        sort_index?: number;
+      } | null;
+      if (!item?.id) return null;
+      return {
+        id: item.id,
+        label: item.label ?? null,
+        summary: item.summary ?? "",
+        sort_index: item.sort_index ?? 0,
+        feedback_report_id: row.feedback_report_id,
+      };
+    })
+    .filter(Boolean) as Array<{
+    id: string;
+    label: ChangeLabel | null;
+    summary: string;
+    sort_index: number;
+    feedback_report_id: string;
+  }>;
+  changes.sort((a, b) => a.sort_index - b.sort_index);
   if (changes.length === 0) return { ok: true, data: [] };
 
   const reportIds = Array.from(new Set(changes.map((c) => c.feedback_report_id)));
@@ -466,7 +587,7 @@ export async function listReportsForRelease(
     out.push({
       reportId: rep.id,
       changeId: c.id,
-      changeKind: c.kind,
+      changeLabel: c.label,
       changeSummary: c.summary,
       reportKind: rep.kind,
       reportBody: rep.body,
@@ -554,9 +675,10 @@ function summaryFromBody(body: string): string {
 
 /**
  * Ship a feedback report into a version from the *feedback* side: append a new
- * change line to `versionId`, tagged to `reportId` and prefilled from the report
- * body (defaulting the kind to "fixed"). Closes the changelog↔feedback loop from
- * the thread page in a single click - the mirror of addChange + linkFeedback.
+ * "Fixed" item to the version's "Fixes" section (created at the end if the
+ * version doesn't have one yet), prefilled from the report body and linked via
+ * the junction. Closes the changelog↔feedback loop from the thread page in a
+ * single click - the mirror of addItems + linkReport.
  */
 export async function shipReportInVersion(
   versionId: string,
@@ -572,24 +694,66 @@ export async function shipReportInVersion(
     .maybeSingle();
   const summary = summaryFromBody((report?.body as string | null) ?? "");
 
+  // Find-or-create the version's "Fixes" section.
+  const { data: existing } = await supabase
+    .from("app_version_sections")
+    .select("id")
+    .eq("version_id", versionId)
+    .ilike("heading", "fixes")
+    .order("sort_index", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  let sectionId = existing?.id as string | undefined;
+  if (!sectionId) {
+    const { data: lastSection } = await supabase
+      .from("app_version_sections")
+      .select("sort_index")
+      .eq("version_id", versionId)
+      .order("sort_index", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const { data: created, error: sectionError } = await supabase
+      .from("app_version_sections")
+      .insert({
+        version_id: versionId,
+        heading: "Fixes",
+        sort_index: (lastSection?.sort_index ?? -1) + 1,
+        created_by_admin_id: admin.id,
+      })
+      .select("id")
+      .single();
+    if (sectionError) return { ok: false, message: sectionError.message };
+    sectionId = created.id;
+  }
+
   const { data: last } = await supabase
     .from("app_version_changes")
     .select("sort_index")
-    .eq("version_id", versionId)
+    .eq("section_id", sectionId)
     .order("sort_index", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const nextSort = (last?.sort_index ?? -1) + 1;
 
-  const { error } = await supabase.from("app_version_changes").insert({
-    version_id: versionId,
-    kind: "fixed",
-    summary,
-    sort_index: nextSort,
-    feedback_report_id: reportId,
-    created_by_admin_id: admin.id,
-  });
+  const { data: item, error } = await supabase
+    .from("app_version_changes")
+    .insert({
+      version_id: versionId,
+      section_id: sectionId,
+      kind: "fixed",
+      label: "fixed",
+      summary,
+      sort_index: (last?.sort_index ?? -1) + 1,
+      created_by_admin_id: admin.id,
+    })
+    .select("id")
+    .single();
   if (error) return { ok: false, message: error.message };
+
+  const { error: linkError } = await supabase
+    .from("app_version_change_reports")
+    .insert({ change_id: item.id, feedback_report_id: reportId });
+  if (linkError) return { ok: false, message: linkError.message };
 
   revalidateVersion(versionId);
   revalidatePath(`/feedback/${reportId}`);

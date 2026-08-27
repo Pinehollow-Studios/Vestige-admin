@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
   const [{ data, error }, shippedRes] = await Promise.all([
     guard.supabase.rpc("admin_feedback_thread", { p_report_id: id }).single<ThreadResponse>(),
     guard.supabase
-      .from("app_version_changes")
-      .select("version_id, app_versions ( id, version, status )")
+      .from("app_version_change_reports")
+      .select("feedback_report_id, app_version_changes ( app_versions ( id, version, status ) )")
       .eq("feedback_report_id", id),
   ]);
 

@@ -1,23 +1,28 @@
 // Types + vocabulary for the version changelog surface. Mirrors the shape of
-// the `app_versions` / `app_version_changes` tables (Vestige-ios migration
-// 20260609100000_app_version_changelog.sql). Internal admin surface only.
+// the `app_versions` / `app_version_sections` / `app_version_changes` /
+// `app_version_change_reports` tables (Vestige-ios migrations
+// 20260609100000_app_version_changelog.sql + 20260827150000_changelog_sections.sql).
+// Internal admin surface only.
+//
+// Model (area-first, the way 0.4.1 was written): a version is an ordered list
+// of free-text SECTIONS ("Map", "Pro", "Fixes"); each section holds ordered
+// ITEMS carrying an optional New/Improved/Fixed/Removed label chip, an optional
+// smaller detail line, and any number of linked feedback reports (junction).
 
-// ── Change-line kinds (the "Keep a Changelog" categories) ───────────────
+// ── Per-item labels ─────────────────────────────────────────────────────
 
-export type ChangeKind = "added" | "changed" | "improved" | "fixed" | "removed";
+export type ChangeLabel = "new" | "improved" | "fixed" | "removed";
 
-/** Display + grouping order. Versions render their lines grouped in this order. */
-export const CHANGE_KINDS: readonly ChangeKind[] = [
-  "added",
-  "changed",
+/** Chip cycle order in the editor (a fifth click clears the label). */
+export const CHANGE_LABELS: readonly ChangeLabel[] = [
+  "new",
   "improved",
   "fixed",
   "removed",
 ];
 
-export const CHANGE_KIND_LABELS: Record<ChangeKind, string> = {
-  added: "Added",
-  changed: "Changed",
+export const CHANGE_LABEL_TEXT: Record<ChangeLabel, string> = {
+  new: "New",
   improved: "Improved",
   fixed: "Fixed",
   removed: "Removed",
@@ -26,13 +31,31 @@ export const CHANGE_KIND_LABELS: Record<ChangeKind, string> = {
 export type ChipTone = "brand" | "amber" | "alert" | "neutral";
 
 /** Calm single-tone keying, matching the feedback queue's chip palette. */
-export const CHANGE_KIND_TONE: Record<ChangeKind, ChipTone> = {
-  added: "brand",
-  changed: "neutral",
-  improved: "brand",
+export const CHANGE_LABEL_TONE: Record<ChangeLabel, ChipTone> = {
+  new: "brand",
+  improved: "neutral",
   fixed: "amber",
   removed: "alert",
 };
+
+// ── Legacy kind (write-through only) ────────────────────────────────────
+// `kind` stays not-null in the DB for the still-deployed old bunker during the
+// two-phase window. New writes derive it from the label; nothing renders it.
+
+export type ChangeKind = "added" | "changed" | "improved" | "fixed" | "removed";
+
+export function labelToKind(label: ChangeLabel | null): ChangeKind {
+  switch (label) {
+    case "new":
+      return "added";
+    case "fixed":
+      return "fixed";
+    case "removed":
+      return "removed";
+    default:
+      return "improved";
+  }
+}
 
 // ── Version lifecycle ───────────────────────────────────────────────────
 
@@ -71,16 +94,30 @@ export type AppVersion = {
   updated_at: string;
 };
 
-export type AppVersionChange = {
+export type AppVersionSection = {
   id: string;
   version_id: string;
-  kind: ChangeKind;
-  summary: string;
-  feedback_report_id: string | null;
+  heading: string;
   sort_index: number;
   created_at: string;
   updated_at: string;
 };
+
+export type AppVersionChange = {
+  id: string;
+  version_id: string;
+  section_id: string | null;
+  kind: ChangeKind;
+  summary: string;
+  label: ChangeLabel | null;
+  detail: string | null;
+  sort_index: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** changeId → linked feedback report ids (from app_version_change_reports). */
+export type ChangeReportLinks = Record<string, string[]>;
 
 /** Minimal feedback-report summary, hydrated to label a linked change line. */
 export type LinkedFeedback = {
@@ -120,53 +157,45 @@ export function compareVersionsDesc(a: AppVersion, b: AppVersion): number {
   return b.major - a.major || b.minor - a.minor || b.patch - a.patch;
 }
 
-// ── Grouped change lines (umbrella heading + sub-items) ──────────────────
-//
-// A change line can be a flat one-liner OR an umbrella heading with a bullet
-// list beneath it (e.g. "Activity feed bug fixes" → "Fixed comments on rounds",
-// "Fixed likes not working"). To avoid a schema change in this repo (migrations
-// live in Vestige-ios), the sub-items are encoded inside the existing `summary`
-// column as newline-separated lines: line 1 is the heading, every following
-// line is a bullet. A summary with no newline is exactly a flat line - fully
-// backward compatible with every existing row.
+// ── Grouping ────────────────────────────────────────────────────────────
 
-export type ParsedChangeSummary = { heading: string; items: string[] };
-
-/** Strip a single leading bullet marker ("- ", "* ", "• ") from a line. */
-function stripBullet(line: string): string {
-  return line.replace(/^\s*[-*•]\s+/, "").trim();
-}
+export type SectionGroup = {
+  /** Null for the synthetic catch-all holding legacy section-less rows. */
+  section: AppVersionSection | null;
+  items: AppVersionChange[];
+};
 
 /**
- * Split a stored summary into its heading + optional bullet items. Forgiving on
- * read (any line after the first becomes an item, dash or not); canonical on
- * write (see {@link serializeChangeSummary}).
+ * Arrange a version's sections + items for rendering: sections in sort order,
+ * each with its items in sort order. Any row without a section (written by the
+ * old bunker during the two-phase window) lands in a trailing "General" group
+ * so nothing ever silently disappears.
  */
-export function parseChangeSummary(summary: string): ParsedChangeSummary {
-  const lines = summary.split("\n");
-  const heading = stripBullet(lines[0] ?? "");
-  const items = lines
-    .slice(1)
-    .map((l) => stripBullet(l))
-    .filter((l) => l.length > 0);
-  return { heading, items };
-}
-
-/** True when a summary carries a sub-list (heading + ≥1 item). */
-export function hasChangeItems(summary: string): boolean {
-  return parseChangeSummary(summary).items.length > 0;
-}
-
-/**
- * Re-encode a heading + items back into the storage convention. Items are
- * trimmed + emptied-dropped; a list with no items collapses to just the
- * heading, so toggling a line back to flat stores a clean one-liner.
- */
-export function serializeChangeSummary(heading: string, items: string[]): string {
-  const cleanHeading = heading.trim();
-  const cleanItems = items.map((i) => i.trim()).filter((i) => i.length > 0);
-  if (cleanItems.length === 0) return cleanHeading;
-  return [cleanHeading, ...cleanItems.map((i) => `- ${i}`)].join("\n");
+export function groupIntoSections(
+  sections: AppVersionSection[],
+  changes: AppVersionChange[],
+): SectionGroup[] {
+  const bySection = new Map<string, AppVersionChange[]>();
+  const orphans: AppVersionChange[] = [];
+  for (const c of changes) {
+    if (c.section_id) {
+      const list = bySection.get(c.section_id) ?? [];
+      list.push(c);
+      bySection.set(c.section_id, list);
+    } else {
+      orphans.push(c);
+    }
+  }
+  const groups: SectionGroup[] = [...sections]
+    .sort((a, b) => a.sort_index - b.sort_index)
+    .map((section) => ({
+      section,
+      items: (bySection.get(section.id) ?? []).sort(
+        (a, b) => a.sort_index - b.sort_index,
+      ),
+    }));
+  if (orphans.length > 0) groups.push({ section: null, items: orphans });
+  return groups;
 }
 
 /** The current shipped version = highest released. Null when none released. */

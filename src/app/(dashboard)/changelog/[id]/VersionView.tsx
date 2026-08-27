@@ -3,6 +3,8 @@ import { ChangeLinesView } from "../ChangeLinesView";
 import {
   type AppVersion,
   type AppVersionChange,
+  type AppVersionSection,
+  type ChangeReportLinks,
   type LinkedFeedback,
   VERSION_STATUS_LABELS,
   versionStatusBadgeClasses,
@@ -12,11 +14,15 @@ import {
  *  page. Edit affordances live behind the View/Edit toggle. */
 export function VersionView({
   version,
+  sections,
   changes,
+  links,
   linkedFeedback,
 }: {
   version: AppVersion;
+  sections: AppVersionSection[];
   changes: AppVersionChange[];
+  links: ChangeReportLinks;
   linkedFeedback: Record<string, LinkedFeedback>;
 }) {
   return (
@@ -42,7 +48,12 @@ export function VersionView({
         {version.summary && <p className="text-sm text-ink-2">{version.summary}</p>}
       </header>
 
-      <ChangeLinesView changes={changes} linkedFeedback={linkedFeedback} />
+      <ChangeLinesView
+        sections={sections}
+        changes={changes}
+        links={links}
+        linkedFeedback={linkedFeedback}
+      />
     </article>
   );
 }

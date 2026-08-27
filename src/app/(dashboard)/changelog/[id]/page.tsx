@@ -10,6 +10,8 @@ import { VersionView } from "./VersionView";
 import {
   type AppVersion,
   type AppVersionChange,
+  type AppVersionSection,
+  type ChangeReportLinks,
   type LinkedFeedback,
 } from "../types";
 
@@ -45,19 +47,40 @@ export default async function VersionDetailPage({
   }
   if (!version) notFound();
 
-  const { data: changeRows } = await supabase
-    .from("app_version_changes")
-    .select("*")
-    .eq("version_id", id)
-    .order("sort_index", { ascending: true })
-    .order("created_at", { ascending: true });
-  const changes = (changeRows as AppVersionChange[] | null) ?? [];
+  const [sectionsRes, changesRes] = await Promise.all([
+    supabase
+      .from("app_version_sections")
+      .select("*")
+      .eq("version_id", id)
+      .order("sort_index", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("app_version_changes")
+      .select("*")
+      .eq("version_id", id)
+      .order("sort_index", { ascending: true })
+      .order("created_at", { ascending: true }),
+  ]);
+  const sections = (sectionsRes.data as AppVersionSection[] | null) ?? [];
+  const changes = (changesRes.data as AppVersionChange[] | null) ?? [];
 
-  // Hydrate the linked feedback reports in one batch (admin RLS permits direct
-  // select on feedback_reports - same as the overview page).
-  const linkedIds = Array.from(
-    new Set(changes.map((c) => c.feedback_report_id).filter(Boolean) as string[]),
-  );
+  // Report links for this version's items (junction), then hydrate the linked
+  // feedback reports in one batch (admin RLS permits direct select on
+  // feedback_reports - same as the overview page).
+  const links: ChangeReportLinks = {};
+  if (changes.length > 0) {
+    const { data: linkRows } = await supabase
+      .from("app_version_change_reports")
+      .select("change_id, feedback_report_id")
+      .in("change_id", changes.map((c) => c.id));
+    for (const row of (linkRows as Array<{
+      change_id: string;
+      feedback_report_id: string;
+    }> | null) ?? []) {
+      (links[row.change_id] ??= []).push(row.feedback_report_id);
+    }
+  }
+  const linkedIds = Array.from(new Set(Object.values(links).flat()));
   const linkedFeedback: Record<string, LinkedFeedback> = {};
   if (linkedIds.length > 0) {
     const { data: reports } = await supabase
@@ -69,6 +92,19 @@ export default async function VersionDetailPage({
     }
   }
 
+  // Heading autocomplete for the section input: every distinct heading used
+  // across all versions, so "Map" / "Pro" / "Fixes" converge on one spelling.
+  const { data: headingRows } = await supabase
+    .from("app_version_sections")
+    .select("heading");
+  const headingSuggestions = Array.from(
+    new Set(
+      ((headingRows as Array<{ heading: string }> | null) ?? []).map((r) =>
+        r.heading.trim(),
+      ),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
   return (
     <div className={pageShell("content")}>
       <div className="flex items-center justify-between gap-3">
@@ -78,14 +114,19 @@ export default async function VersionDetailPage({
       {mode === "edit" ? (
         <VersionEditor
           version={version as AppVersion}
+          initialSections={sections}
           initialChanges={changes}
+          initialLinks={links}
           initialLinkedFeedback={linkedFeedback}
+          headingSuggestions={headingSuggestions}
           isSuperAdmin={admin.role === "super_admin"}
         />
       ) : (
         <VersionView
           version={version as AppVersion}
+          sections={sections}
           changes={changes}
+          links={links}
           linkedFeedback={linkedFeedback}
         />
       )}

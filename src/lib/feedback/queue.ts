@@ -114,8 +114,10 @@ export async function fetchFeedbackQueue(
   if (rows.length > 0) {
     const ids = rows.map((r) => r.report_id);
     const { data: shippedRows } = await supabase
-      .from("app_version_changes")
-      .select("feedback_report_id, app_versions ( version, major, minor, patch )")
+      .from("app_version_change_reports")
+      .select(
+        "feedback_report_id, app_version_changes ( app_versions ( version, major, minor, patch ) )",
+      )
       .in("feedback_report_id", ids);
     shippedByReport = buildShippedMap(shippedRows);
   }
@@ -128,17 +130,35 @@ export async function fetchFeedbackQueue(
   };
 }
 
-/** Reduce app_version_changes rows into report_id → best (highest) version. */
+/**
+ * Unwrap the app_versions object from an app_version_change_reports row -
+ * `row.app_version_changes.app_versions`, with PostgREST's object-or-array
+ * embedding normalised defensively at both levels.
+ */
+function versionFromLinkRow(row: unknown): Record<string, unknown> | null {
+  if (!row || typeof row !== "object") return null;
+  const changeRaw = (row as { app_version_changes?: unknown }).app_version_changes;
+  const change = Array.isArray(changeRaw) ? changeRaw[0] : changeRaw;
+  if (!change || typeof change !== "object") return null;
+  const avRaw = (change as { app_versions?: unknown }).app_versions;
+  const av = Array.isArray(avRaw) ? avRaw[0] : avRaw;
+  return av && typeof av === "object" ? (av as Record<string, unknown>) : null;
+}
+
+/** Reduce app_version_change_reports rows into report_id → best (highest) version. */
 export function buildShippedMap(rows: unknown): Record<string, string> {
   const best = new Map<string, { version: string; rank: number }>();
   if (!Array.isArray(rows)) return {};
-  for (const row of rows as Array<{ feedback_report_id?: string; app_versions?: unknown }>) {
+  for (const row of rows as Array<{ feedback_report_id?: string }>) {
     const reportId = row.feedback_report_id;
     if (!reportId) continue;
-    const av = Array.isArray(row.app_versions) ? row.app_versions[0] : row.app_versions;
-    if (!av || typeof av !== "object") continue;
-    const v = av as { version?: string; major?: number; minor?: number; patch?: number };
-    if (!v.version) continue;
+    const v = versionFromLinkRow(row) as {
+      version?: string;
+      major?: number;
+      minor?: number;
+      patch?: number;
+    } | null;
+    if (!v?.version) continue;
     const rank = (v.major ?? 0) * 1_000_000 + (v.minor ?? 0) * 1_000 + (v.patch ?? 0);
     const existing = best.get(reportId);
     if (!existing || rank > existing.rank) best.set(reportId, { version: v.version, rank });
@@ -154,13 +174,14 @@ export type ShippedVersion = { id: string; version: string; status: string };
 export function dedupeShippedVersions(rows: unknown): ShippedVersion[] {
   if (!Array.isArray(rows)) return [];
   const out = new Map<string, ShippedVersion>();
-  for (const row of rows as Array<{ app_versions?: unknown }>) {
-    const av = Array.isArray(row.app_versions) ? row.app_versions[0] : row.app_versions;
-    if (av && typeof av === "object") {
-      const v = av as { id?: string; version?: string; status?: string };
-      if (v.id && v.version) {
-        out.set(v.id, { id: v.id, version: v.version, status: v.status ?? "released" });
-      }
+  for (const row of rows) {
+    const v = versionFromLinkRow(row) as {
+      id?: string;
+      version?: string;
+      status?: string;
+    } | null;
+    if (v?.id && v.version) {
+      out.set(v.id, { id: v.id, version: v.version, status: v.status ?? "released" });
     }
   }
   return Array.from(out.values());

@@ -11,6 +11,8 @@ import { ChangeLinesView } from "./ChangeLinesView";
 import {
   type AppVersion,
   type AppVersionChange,
+  type AppVersionSection,
+  type ChangeReportLinks,
   type LinkedFeedback,
   compareVersionsDesc,
   currentVersion,
@@ -35,7 +37,7 @@ export default async function ChangelogPage() {
   await requireAdmin();
   const supabase = await createClient();
 
-  const [versionsRes, changesRes] = await Promise.all([
+  const [versionsRes, sectionsRes, changesRes, linksRes] = await Promise.all([
     supabase
       .from("app_versions")
       .select("*")
@@ -43,10 +45,16 @@ export default async function ChangelogPage() {
       .order("minor", { ascending: false })
       .order("patch", { ascending: false }),
     supabase
-      .from("app_version_changes")
-      .select("id, version_id, kind, summary, feedback_report_id, sort_index, created_at, updated_at")
+      .from("app_version_sections")
+      .select("*")
       .order("sort_index", { ascending: true })
       .order("created_at", { ascending: true }),
+    supabase
+      .from("app_version_changes")
+      .select("*")
+      .order("sort_index", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase.from("app_version_change_reports").select("change_id, feedback_report_id"),
   ]);
 
   const notConfigured =
@@ -55,9 +63,16 @@ export default async function ChangelogPage() {
   const versions = ((versionsRes.data as AppVersion[] | null) ?? [])
     .slice()
     .sort(compareVersionsDesc);
+  const sections = (sectionsRes.data as AppVersionSection[] | null) ?? [];
   const changes = (changesRes.data as AppVersionChange[] | null) ?? [];
 
-  // Group change lines by version (already globally sorted by sort_index).
+  // Group sections + items by version (already globally sorted by sort_index).
+  const sectionsByVersion = new Map<string, AppVersionSection[]>();
+  for (const s of sections) {
+    const list = sectionsByVersion.get(s.version_id) ?? [];
+    list.push(s);
+    sectionsByVersion.set(s.version_id, list);
+  }
   const changesByVersion = new Map<string, AppVersionChange[]>();
   for (const c of changes) {
     const list = changesByVersion.get(c.version_id) ?? [];
@@ -65,10 +80,15 @@ export default async function ChangelogPage() {
     changesByVersion.set(c.version_id, list);
   }
 
-  // Hydrate the linked feedback reports in one batch for the "report" chips.
-  const linkedIds = Array.from(
-    new Set(changes.map((c) => c.feedback_report_id).filter(Boolean) as string[]),
-  );
+  // Report links (junction) + hydrate the reports for the "report" chips.
+  const links: ChangeReportLinks = {};
+  for (const row of (linksRes.data as Array<{
+    change_id: string;
+    feedback_report_id: string;
+  }> | null) ?? []) {
+    (links[row.change_id] ??= []).push(row.feedback_report_id);
+  }
+  const linkedIds = Array.from(new Set(Object.values(links).flat()));
   const linkedFeedback: Record<string, LinkedFeedback> = {};
   if (linkedIds.length > 0) {
     const { data: reports } = await supabase
@@ -120,7 +140,9 @@ export default async function ChangelogPage() {
             <VersionNode
               key={version.id}
               version={version}
+              sections={sectionsByVersion.get(version.id) ?? []}
               changes={changesByVersion.get(version.id) ?? []}
+              links={links}
               linkedFeedback={linkedFeedback}
               isCurrent={current?.id === version.id}
             />
@@ -190,16 +212,20 @@ function ActiveDraftBanner({ version }: { version: AppVersion }) {
 
 function VersionNode({
   version,
+  sections,
   changes,
+  links,
   linkedFeedback,
   isCurrent,
 }: {
   version: AppVersion;
+  sections: AppVersionSection[];
   changes: AppVersionChange[];
+  links: ChangeReportLinks;
   linkedFeedback: Record<string, LinkedFeedback>;
   isCurrent: boolean;
 }) {
-  const fixedCount = changes.filter((c) => c.kind === "fixed").length;
+  const fixedCount = changes.filter((c) => c.label === "fixed").length;
   const nodeTone =
     version.status === "released" ? "border-brand bg-brand" : "border-amber bg-amber";
 
@@ -264,7 +290,12 @@ function VersionNode({
           </Link>
         </header>
 
-        <ChangeLinesView changes={changes} linkedFeedback={linkedFeedback} />
+        <ChangeLinesView
+          sections={sections}
+          changes={changes}
+          links={links}
+          linkedFeedback={linkedFeedback}
+        />
       </section>
     </li>
   );

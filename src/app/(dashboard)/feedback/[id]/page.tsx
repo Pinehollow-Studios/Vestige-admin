@@ -21,6 +21,7 @@ import { avatarURL } from "@/lib/storage";
 import { getCrashForFeedback } from "@/lib/crashes/queries";
 import { feedbackScreenshotSignedURLs } from "@/lib/feedback/signedUrl";
 import { listAdminOwners } from "@/lib/feedback/owners";
+import { dedupeShippedVersions } from "@/lib/feedback/queue";
 import { Screenshots } from "./Screenshots";
 import { ReplyForm } from "./ReplyForm";
 import { SidePanelControls } from "./SidePanelControls";
@@ -59,26 +60,6 @@ type ThreadResponse = {
 };
 
 type ShippedVersion = { id: string; version: string; status: string };
-
-/**
- * Collapse the app_version_changes rows tagged to a report into a deduped list
- * of versions it shipped in. PostgREST returns the embedded parent as an object
- * (to-one) but we normalise array-or-object defensively.
- */
-function dedupeShippedVersions(rows: unknown): ShippedVersion[] {
-  if (!Array.isArray(rows)) return [];
-  const out = new Map<string, ShippedVersion>();
-  for (const row of rows as Array<{ app_versions?: unknown }>) {
-    const av = Array.isArray(row.app_versions) ? row.app_versions[0] : row.app_versions;
-    if (av && typeof av === "object") {
-      const v = av as { id?: string; version?: string; status?: string };
-      if (v.id && v.version) {
-        out.set(v.id, { id: v.id, version: v.version, status: v.status ?? "released" });
-      }
-    }
-  }
-  return Array.from(out.values());
-}
 
 // --------------------------------------------------------------
 // Calm chip helpers (presentation-only, local to the feedback UI)
@@ -167,11 +148,11 @@ export default async function FeedbackThreadPage({
       .single<ThreadResponse>(),
     listAdminOwners(),
     // Versions this report shipped in (the changelog↔feedback loop). Reads
-    // app_version_changes tagged to this report; a missing table (pre-migration)
-    // returns { data: null } so the chip simply doesn't render.
+    // the item↔report junction; a missing table (pre-migration) returns
+    // { data: null } so the chip simply doesn't render.
     supabase
-      .from("app_version_changes")
-      .select("version_id, app_versions ( id, version, status )")
+      .from("app_version_change_reports")
+      .select("feedback_report_id, app_version_changes ( app_versions ( id, version, status ) )")
       .eq("feedback_report_id", id),
     // Versions in development - the "Ship in version" targets. Missing table
     // (pre-migration) returns null data → the control renders its empty state.

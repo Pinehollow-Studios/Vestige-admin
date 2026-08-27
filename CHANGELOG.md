@@ -5,6 +5,74 @@
 
 ---
 
+## 2026-08-27 — Changelog rebuilt area-first: sections, per-item labels, multi-report links
+
+Tom's brief: 0.4.1 (headers per page/area with bullets beneath) is the format
+going forward, but the old model fought it — the kind groups (Added/Fixed…)
+had stopped carrying meaning, sub-items were newline-encoded inside one text
+column, and a whole header could link exactly one feedback report. Research
+pass over Linear/Canny/Figma/Slack/GitHub confirmed the instinct: consumer
+products group by area, not kind; feedback↔release links are join tables.
+Tom picked all four recommendations: headers only · New/Improved/Fixed
+(/Removed) per-item chips · many reports per item · every list power.
+
+**Schema** (`Vestige-ios` migration `20260827150000_changelog_sections.sql`,
+applied to dev, ledger repaired; **prod pending**): new `app_version_sections`
+(free-text heading, ordered, admin-only RLS) + `app_version_changes` grows
+`section_id`/`label`/`detail` (each row = one item) + new junction
+`app_version_change_reports` (many reports per item, admin-only RLS).
+Expand/contract: additive two-phase — `kind` stays not-null (derived from
+label on write: new→added, none→improved), legacy `feedback_report_id` frozen
+in place, so the deployed bunker keeps working between prod-migration and
+bunker-deploy. In-migration data migration splits umbrella rows into a section
+plus one row per bullet (original row becomes the first item so its id and
+report link survive), groups flat rows into per-kind sections (New /
+Improvements / Fixes / Removed — merging into a same-heading section if one
+exists), maps labels (bullet text starting "Fixed" overrides to `fixed` even
+under an improved umbrella — catches 0.4.1's Map crash-fix), backfills the
+junction from the legacy column, renormalises section sort. Probed on dev with
+a 0.4.1-shaped fixture (v9.9.9, left on dev as test data — delete from the UI
+whenever).
+
+**Editor** (`VersionEditor` rewrite) — a version is now ordered free-text
+sections with items beneath. Per item: label chip (click cycles
+none→New→Improved→Fixed→Removed), inline text, optional smaller detail line
+(AlignLeft toggle), any number of linked reports (Link2 opens the existing
+picker; chips with per-report unlink; section header rolls up a distinct-report
+count). Entry is keyboard-first: the add-row keeps focus (type → Enter → type),
+seeds its label from the section's last item, and a multi-line paste becomes
+one item per line (leading bullets stripped). Native HTML5 drag: sections
+reorder by their header; items reorder within and across sections (drop on a
+row inserts before it, drop on the card body appends —
+`reorderItems` claims `section_id` server-side so a cross-drag is two ordered
+lists). Section input autocompletes from every heading ever used (datalist).
+Legacy section-less rows render read-only under "General" rather than
+disappearing.
+
+**Read views** — `ChangeLinesView` renders sections as bold headings with a
+left rule, chips per item, detail lines, report chips; shared by /changelog
+timeline and the version View mode. The timeline's "N fixed" counter now
+counts `label='fixed'`.
+
+**Feedback loop** — junction is the truth everywhere: link picker hides
+already-linked reports via the junction; `listReportsForRelease` walks it (one
+row per report, first linked item wins) so the release dialog and bulk-resolve
+are unchanged in behaviour; `shipReportInVersion` now lands the report as a
+Fixed item in the version's "Fixes" section (find-or-create at the end);
+thread route + queue `shippedByReport`/`dedupeShippedVersions` read the
+junction through a shared two-level unwrap in `lib/feedback/queue.ts` (the
+page-local duplicate deleted).
+
+**Deploy ordering** — the new bunker reads the new tables with soft failure
+(empty lists, no crash) but the changelog panel will look EMPTY on the
+deployed bunker until `20260827150000` lands on prod. Run prod-deploy before
+or right after the Vercel push. Old 0.4.x prod content migrates at that
+moment.
+
+**Verified** — `tsc` clean, `eslint` clean bar the pre-existing VaultGate
+warning (untouched line), one `next build` green. Not UI-walked (Tom's call:
+ship for his own testing); dev server stopped after boot-check to Sign in.
+
 ## 2026-08-18 — Stripping the Index panels back to the numbers
 
 Follow-up to the same-day page simplification. When the guide was first built
