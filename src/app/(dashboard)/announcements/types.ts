@@ -131,6 +131,14 @@ export type AnnouncementRow = {
   min_app_version: string | null;
   max_app_version: string | null;
   target: AnnouncementTarget;
+  /**
+   * Opt-out of the account-age gate (migration `20260827120000`): off means
+   * only accounts that existed when this was published can ever receive it;
+   * on allows future signups too (evergreen / welcome content, typically
+   * paired with a `joined_after` filter). Optional because the column is
+   * absent until that migration reaches the connected project.
+   */
+  deliver_to_new_accounts?: boolean;
   published_at: string | null;
   unpublished_at: string | null;
   is_archived: boolean;

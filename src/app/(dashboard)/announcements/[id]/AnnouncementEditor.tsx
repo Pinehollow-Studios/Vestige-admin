@@ -94,6 +94,11 @@ export function AnnouncementEditor({
   const [minVersion, setMinVersion] = useState(row.min_app_version ?? "");
   const [maxVersion, setMaxVersion] = useState(row.max_app_version ?? "");
   const [target, setTarget] = useState<AnnouncementTarget>(row.target ?? {});
+  // Coalesced: until migration 20260827120000 reaches the connected project,
+  // the column is absent and the row carries no value.
+  const [deliverToNewAccounts, setDeliverToNewAccounts] = useState(
+    row.deliver_to_new_accounts ?? false,
+  );
 
   const [pending, startTransition] = useTransition();
 
@@ -115,6 +120,12 @@ export function AnnouncementEditor({
     min_app_version: minVersion || null,
     max_app_version: maxVersion || null,
     target: audienceKind === "filtered" || audienceKind === "segment" ? target : {},
+    // Sent only when actually changed, so saves keep working against a
+    // project that doesn't have the column yet (prod until 20260827120000
+    // lands there) - an untouched checkbox never reaches the UPDATE.
+    ...(deliverToNewAccounts !== (row.deliver_to_new_accounts ?? false)
+      ? { deliver_to_new_accounts: deliverToNewAccounts }
+      : {}),
   };
 
   function save() {
@@ -234,6 +245,8 @@ export function AnnouncementEditor({
             setTarget={setTarget}
             counties={counties}
             initialTargetUsers={initialTargetUsers}
+            deliverToNewAccounts={deliverToNewAccounts}
+            setDeliverToNewAccounts={setDeliverToNewAccounts}
           />
         </Card>
 
@@ -404,6 +417,8 @@ function TargetingBuilder({
   setTarget,
   counties,
   initialTargetUsers,
+  deliverToNewAccounts,
+  setDeliverToNewAccounts,
 }: {
   row: AnnouncementRow;
   audienceKind: AnnouncementAudienceKind;
@@ -416,6 +431,8 @@ function TargetingBuilder({
   setTarget: (t: AnnouncementTarget) => void;
   counties: CountyOption[];
   initialTargetUsers: UserPickRow[];
+  deliverToNewAccounts: boolean;
+  setDeliverToNewAccounts: (v: boolean) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -452,6 +469,28 @@ function TargetingBuilder({
             <Input value={maxVersion} onChange={(e) => setMaxVersion(e.target.value)} placeholder="0.2.0" />
           </Field>
         </div>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-rule/70 bg-paper-sunken/30 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-3">
+          New accounts
+        </p>
+        <label className="flex items-start gap-2 text-sm text-ink-2">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={deliverToNewAccounts}
+            onChange={(e) => setDeliverToNewAccounts(e.target.checked)}
+          />
+          <span>
+            Deliver to accounts created after publication
+            <span className="mt-0.5 block text-xs text-muted-foreground/80">
+              Off: only accounts that existed when this went live can ever receive it, so an
+              old announcement never greets a brand-new user. Turn on for evergreen content
+              aimed at future signups - a welcome card paired with a Joined-after filter.
+            </span>
+          </span>
+        </label>
       </div>
     </div>
   );
