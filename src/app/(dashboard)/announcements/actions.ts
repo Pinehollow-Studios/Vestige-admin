@@ -80,6 +80,7 @@ export type AnnouncementPatch = {
   min_app_version?: string | null;
   max_app_version?: string | null;
   target?: AnnouncementTarget;
+  deliver_to_new_accounts?: boolean;
 };
 
 /**
@@ -125,6 +126,9 @@ export async function updateAnnouncement(
     update.max_app_version = patch.max_app_version?.trim() || null;
   }
   if (patch.target !== undefined) update.target = patch.target;
+  if (patch.deliver_to_new_accounts !== undefined) {
+    update.deliver_to_new_accounts = patch.deliver_to_new_accounts;
+  }
 
   if (Object.keys(update).length === 0) return { ok: true };
   update.last_edited_by_admin_id = admin.id;
