@@ -39,6 +39,6 @@ export async function setAppVersionConfig(
   });
   if (error) return { ok: false, message: error.message };
 
-  revalidatePath("/app-version");
+  revalidatePath("/flags");
   return { ok: true };
 }

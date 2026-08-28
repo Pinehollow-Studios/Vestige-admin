@@ -1,4 +1,13 @@
 
+- **2026-08-28** — **Flags control room rebuild.** /flags is one searchable
+  list (Features/Copy/Tuning by value type), positive-only toggles (the
+  enabled-vs-value riddle is UI-dead), blast-radius confirms + optional note,
+  per-flag history with revert (`feature_flag_history`, iOS `20260828160000`),
+  Archive/Restore actually works, reach counter honest, segment audience
+  fixed, version gate folded in as a fenced panel (/app-version redirects,
+  nav entry gone). Six new kill switches seeded (0.4.2 client gates).
+  Long-form in `CHANGELOG.md` 2026-08-28 (control room).
+
 - **2026-08-28** — **Notification copy-pass mirror sync.** `templates-meta.ts`
   re-synced to the shipped copy (blank defaults now deliberately mark fields
   where richer built-ins win — comment quotes, reactor roll-ups, society

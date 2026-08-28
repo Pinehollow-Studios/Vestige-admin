@@ -5,6 +5,56 @@
 
 ---
 
+## 2026-08-28 — Flags control room: one honest list, history, and the version gate folded in
+
+Full rebuild of /flags (Tom: "super confusing and hard to use" — the audit
+agreed, finding six outright bugs). Competitor research (LaunchDarkly, Unleash,
+PostHog, Firebase Remote Config) set the shape: at two-person scale, skip
+targeting/rollout ceremony and invest in descriptions, who/when, confirms that
+state blast radius, and history with revert.
+
+**The new IA** — one flat, searchable page in three honest groups derived from
+the value type (Features / Copy / Tuning — the `flagCategory` taxonomy that
+shipped in types.ts but was never imported), an area chip per row from a
+corrected prefix map (the old heuristic missed scout_/apple_/clubhouse/pro
+keys, so the old 12-box area grid was one giant "Other"), and a collapsed
+Archived section that finally makes **Restore reachable** (archiving used to be
+an undocumented one-way door — every archived flag vanished from the UI
+forever). The version gate sits at the bottom of the same page as a fenced
+amber panel — it's a different weapon class to a flag, and the /app-version
+route now redirects here (nav entry removed).
+
+**One positive toggle per row.** ON = users see it. For features the switch
+drives `value` (with `enabled` pinned true — the enabled-vs-value riddle is
+gone from the UI); for copy/tuning it reads "Override / Built-in". Rows derive
+all state from server props — the old board cached toggle state locally and
+drifted after every save.
+
+**Every live change confirms** with the blast radius spelled out, the
+propagation truth ("live phones pick this up on next foreground, checked at
+most once a minute"), and an optional one-line reason. The old board had this
+exactly backwards — boolean flips confirmed, live copy edits and the one-way
+Archive fired instantly.
+
+**History with revert** — `feature_flag_history` (iOS migration
+`20260828160000`) renders on every row ("Turned off · 2h ago by Tom ·
+'incident'") and in a per-flag list with one-click Revert (applied through the
+normal upsert, so the revert is itself a logged change — Firebase-style linear
+history). The admin RPCs now take `p_actor`/`p_note` (service-role calls have
+no auth.uid(), which is why every `updated_by` to date was null) and the
+"saved segment" audience finally saves (the RPC guard predated the segment
+machinery — picking it has errored since 2026-07-12).
+
+**Also fixed** — the reach counter refuses to run against unsaved audience
+edits (it used to silently report the old config); the version-gate page's
+hints, written and typed but never rendered, now render; recommended-below-
+floor is rejected; six new app kill switches (boards, clubhouse, feed, curated
+lists, course photos, Pro page) appear pre-seeded with Jack-grade
+descriptions, gated in the 0.4.2 client (iOS CHANGELOG same day).
+
+Verified `tsc` + `eslint` + one `next build`. Not UI-walked (auth-gated;
+Tom's standing call).
+
 ## 2026-08-28 — Notification copy-pass mirrors: templates-meta sync + missing kind
 
 Bunker side of the full auto-sent copy pass (long-form rationale in

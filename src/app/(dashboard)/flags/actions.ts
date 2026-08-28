@@ -7,10 +7,12 @@ import type { BroadcastAudienceKind, BroadcastTarget, FlagValueType } from "./ty
 
 export type ActionResult<T = void> = { ok: true; data?: T } | { ok: false; message: string };
 
-/** Service-role client (is_admin() short-circuits for it), behind requireAdmin. */
+/** Service-role client (is_admin() short-circuits for it), behind requireAdmin.
+ *  Returns the acting admin too — the RPCs record them as `updated_by` /
+ *  history `changed_by` (service-role calls have no auth.uid()). */
 async function adminClient() {
-  await requireAdmin();
-  return createServiceClient();
+  const admin = await requireAdmin();
+  return { supabase: await createServiceClient(), adminId: admin.id };
 }
 
 export type UpsertFlagInput = {
@@ -29,8 +31,9 @@ export type UpsertFlagInput = {
 const KEY_RE = /^[a-z][a-z0-9_]*$/;
 
 /** Create or update a flag. Server-side validation (in the RPC) is the real
- *  gate; this catches the obvious cases early with friendlier copy. */
-export async function upsertFlag(input: UpsertFlagInput): Promise<ActionResult> {
+ *  gate; this catches the obvious cases early with friendlier copy. `note` is
+ *  the optional change reason, recorded in feature_flag_history. */
+export async function upsertFlag(input: UpsertFlagInput, note?: string): Promise<ActionResult> {
   if (!KEY_RE.test(input.key)) {
     return { ok: false, message: "Key must be lower_snake_case, e.g. societies_enabled" };
   }
@@ -47,9 +50,9 @@ export async function upsertFlag(input: UpsertFlagInput): Promise<ActionResult> 
     return { ok: false, message: "Text flags need a text value" };
   }
 
-  let supabase;
+  let supabase, adminId;
   try {
-    supabase = await adminClient();
+    ({ supabase, adminId } = await adminClient());
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
   }
@@ -65,6 +68,8 @@ export async function upsertFlag(input: UpsertFlagInput): Promise<ActionResult> 
     p_target: input.target,
     p_min_app_version: input.min_app_version?.trim() || null,
     p_max_app_version: input.max_app_version?.trim() || null,
+    p_actor: adminId,
+    p_note: note?.trim() || null,
   });
   if (error) return { ok: false, message: error.message };
 
@@ -73,32 +78,36 @@ export async function upsertFlag(input: UpsertFlagInput): Promise<ActionResult> 
 }
 
 /** The one-click master on/off. */
-export async function setFlagEnabled(key: string, enabled: boolean): Promise<ActionResult> {
-  let supabase;
+export async function setFlagEnabled(key: string, enabled: boolean, note?: string): Promise<ActionResult> {
+  let supabase, adminId;
   try {
-    supabase = await adminClient();
+    ({ supabase, adminId } = await adminClient());
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
   }
   const { error } = await supabase.rpc("admin_set_feature_flag_enabled", {
     p_key: key,
     p_enabled: enabled,
+    p_actor: adminId,
+    p_note: note?.trim() || null,
   });
   if (error) return { ok: false, message: error.message };
   revalidatePath("/flags");
   return { ok: true };
 }
 
-export async function setFlagArchived(key: string, archived: boolean): Promise<ActionResult> {
-  let supabase;
+export async function setFlagArchived(key: string, archived: boolean, note?: string): Promise<ActionResult> {
+  let supabase, adminId;
   try {
-    supabase = await adminClient();
+    ({ supabase, adminId } = await adminClient());
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
   }
   const { error } = await supabase.rpc("admin_set_feature_flag_archived", {
     p_key: key,
     p_archived: archived,
+    p_actor: adminId,
+    p_note: note?.trim() || null,
   });
   if (error) return { ok: false, message: error.message };
   revalidatePath("/flags");
@@ -108,7 +117,7 @@ export async function setFlagArchived(key: string, archived: boolean): Promise<A
 export async function deleteFlag(key: string): Promise<ActionResult> {
   let supabase;
   try {
-    supabase = await adminClient();
+    ({ supabase } = await adminClient());
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
   }
@@ -122,7 +131,7 @@ export async function deleteFlag(key: string): Promise<ActionResult> {
 export async function setFlagTargets(key: string, userIds: string[]): Promise<ActionResult> {
   let supabase;
   try {
-    supabase = await adminClient();
+    ({ supabase } = await adminClient());
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
   }
@@ -138,11 +147,56 @@ export async function setFlagTargets(key: string, userIds: string[]): Promise<Ac
 export async function fetchFlagReach(key: string): Promise<ActionResult<number>> {
   let supabase;
   try {
-    supabase = await adminClient();
+    ({ supabase } = await adminClient());
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
   }
   const { data, error } = await supabase.rpc("admin_feature_flag_reach", { p_key: key });
   if (error) return { ok: false, message: error.message };
   return { ok: true, data: (data as number) ?? 0 };
+}
+
+/**
+ * One-click revert: re-apply a history snapshot through the normal upsert (so
+ * the revert itself is logged as a fresh change — Firebase-style linear
+ * history, never a rewrite).
+ */
+export async function revertFlag(
+  key: string,
+  snapshot: {
+    description: string;
+    value_type: FlagValueType;
+    value: unknown;
+    enabled: boolean;
+    rollout_percentage: number;
+    audience_kind: BroadcastAudienceKind;
+    target: BroadcastTarget;
+    min_app_version: string | null;
+    max_app_version: string | null;
+    archived: boolean;
+  },
+  changedAt: string,
+): Promise<ActionResult> {
+  const res = await upsertFlag(
+    {
+      key,
+      description: snapshot.description,
+      value_type: snapshot.value_type,
+      value: snapshot.value,
+      enabled: snapshot.enabled,
+      rollout_percentage: snapshot.rollout_percentage,
+      audience_kind: snapshot.audience_kind,
+      target: snapshot.target,
+      min_app_version: snapshot.min_app_version,
+      max_app_version: snapshot.max_app_version,
+    },
+    `Reverted to the ${new Date(changedAt).toLocaleString("en-GB")} state`,
+  );
+  if (!res.ok) return res;
+  if (snapshot.archived) {
+    // The upsert path never archives; restore that bit separately if the
+    // snapshot carried it.
+    return setFlagArchived(key, true, "Revert included archived state");
+  }
+  return res;
 }

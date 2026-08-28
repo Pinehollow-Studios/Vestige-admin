@@ -30,6 +30,9 @@ export function AppVersionForm({ initial }: { initial: Initial }) {
     min !== initial.min || recommended !== initial.recommended || updateUrl !== initial.updateUrl;
   // Raising the hard floor is the dangerous case - it walls older apps out.
   const raisesFloor = cmpVersion(min, initial.min) > 0;
+  // A nudge below the floor is a contradiction - the wall wins before the
+  // banner could ever show.
+  const nudgeBelowFloor = recommended.trim() !== "" && cmpVersion(recommended, min) < 0;
 
   function doSave() {
     startTransition(async () => {
@@ -41,6 +44,10 @@ export function AppVersionForm({ initial }: { initial: Initial }) {
   }
 
   function attemptSave() {
+    if (nudgeBelowFloor) {
+      toast.error("Recommended version can't be below the minimum - the wall would win first.");
+      return;
+    }
     if (raisesFloor) setConfirmOpen(true);
     else doSave();
   }
@@ -98,6 +105,7 @@ export function AppVersionForm({ initial }: { initial: Initial }) {
 
 function Field({
   label,
+  hint,
   value,
   onChange,
   placeholder,
@@ -118,6 +126,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-lg border border-rule/70 bg-paper-sunken/60 px-3 py-2 text-sm text-ink outline-none focus:border-brand/50"
       />
+      {hint && <span className="block text-xs leading-snug text-ink-3">{hint}</span>}
     </label>
   );
 }

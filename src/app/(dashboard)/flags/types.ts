@@ -93,41 +93,29 @@ export const CATEGORY_BLURB: Record<FlagCategory, string> = {
   Settings: "Tune numbers without a release.",
 };
 
-/** The part of the app a flag belongs to, derived from its key prefix — used to
- *  sub-group each category so a long list breaks into scannable chunks. */
+/** The part of the app a flag belongs to, shown as a small chip on each row.
+ *  Prefix map covers every live key (2026-08-28 audit — the old list missed
+ *  scout_/apple_/clubhouse/pro keys, which all fell into "Other"). */
 export function areaFor(key: string): string {
   const has = (...p: string[]) => p.some((x) => key.startsWith(x));
   if (has("home_")) return "Home";
-  if (has("feed_", "public_feed", "badge_feed")) return "Activity feed";
-  if (has("boards_")) return "Leaderboards";
+  if (has("scout_")) return "Scout";
+  if (has("feed_", "public_feed", "badge_feed")) return "Feed";
+  if (has("boards_")) return "Boards";
+  if (has("clubhouse")) return "Clubhouse";
   if (has("compose_")) return "Log a round";
   if (has("friend")) return "Friends";
   if (has("badge")) return "Badges";
   if (has("push", "notification", "realtime", "announcements")) return "Notifications";
   if (has("societ")) return "Societies";
-  if (has("community", "curated", "user_list")) return "Lists";
-  if (has("beta")) return "Onboarding";
-  if (has("auth")) return "Sign-in";
+  if (has("community", "curated", "user_list", "lists_")) return "Lists";
+  if (has("course_photo")) return "Course photos";
+  if (has("pro_")) return "Pro";
+  if (has("beta", "auth")) return "Sign-in";
+  if (has("apple_")) return "Account";
   if (has("search")) return "Search";
-  return "Other";
+  return "General";
 }
-
-/** Rough top-to-bottom app order for the area sub-headers. */
-export const AREA_ORDER = [
-  "Home",
-  "Activity feed",
-  "Friends",
-  "Leaderboards",
-  "Lists",
-  "Log a round",
-  "Badges",
-  "Notifications",
-  "Societies",
-  "Onboarding",
-  "Sign-in",
-  "Search",
-  "Other",
-];
 
 /** "Feature" / "Setting" chip label. */
 export function kindLabel(type: FlagValueType): string {
@@ -215,3 +203,68 @@ export function defaultValueFor(type: FlagValueType): unknown {
       return {};
   }
 }
+
+// ── Change history (feature_flag_history, migration 20260828160000) ─────
+
+export type FlagHistoryAction = "create" | "update" | "archive" | "restore" | "delete";
+
+/** The snapshot shape written by the `_flag_snapshot` trigger helper. */
+export type FlagSnapshot = {
+  description: string;
+  value_type: FlagValueType;
+  value: unknown;
+  enabled: boolean;
+  rollout_percentage: number;
+  audience_kind: BroadcastAudienceKind;
+  target: BroadcastTarget;
+  min_app_version: string | null;
+  max_app_version: string | null;
+  archived: boolean;
+};
+
+export type FlagHistoryRow = {
+  id: number;
+  flag_key: string;
+  changed_at: string;
+  changed_by: string | null;
+  action: FlagHistoryAction;
+  old_row: FlagSnapshot | null;
+  new_row: FlagSnapshot | null;
+  note: string | null;
+};
+
+/** One-line summary of what a history entry changed, for the history list. */
+export function describeChange(entry: FlagHistoryRow): string {
+  const { old_row: prev, new_row: next, action } = entry;
+  if (action === "create") return "Created";
+  if (action === "delete") return "Deleted";
+  if (action === "archive") return "Archived";
+  if (action === "restore") return "Restored";
+  if (!prev || !next) return "Changed";
+  const bits: string[] = [];
+  if (prev.enabled !== next.enabled || JSON.stringify(prev.value) !== JSON.stringify(next.value)) {
+    if (next.value_type === "boolean") {
+      bits.push(isOn({ value_type: next.value_type, enabled: next.enabled, value: next.value }) ? "Turned on" : "Turned off");
+    } else if (prev.enabled !== next.enabled) {
+      bits.push(next.enabled ? "Override turned on" : "Override turned off");
+    } else {
+      bits.push(`Value → ${valueSummary({ value_type: next.value_type, value: next.value })}`);
+    }
+  }
+  if (prev.description !== next.description) bits.push("Description edited");
+  if (
+    prev.rollout_percentage !== next.rollout_percentage ||
+    prev.audience_kind !== next.audience_kind ||
+    JSON.stringify(prev.target) !== JSON.stringify(next.target)
+  ) {
+    bits.push("Audience changed");
+  }
+  if (prev.min_app_version !== next.min_app_version || prev.max_app_version !== next.max_app_version) {
+    bits.push("Version window changed");
+  }
+  return bits.length > 0 ? bits.join(" · ") : "Changed";
+}
+
+/** The propagation truth, stated wherever a change goes live. */
+export const PROPAGATION_NOTE =
+  "Live phones pick this up the next time the app comes to the foreground (checked at most once a minute). Offline phones keep the old behaviour until they reconnect.";
