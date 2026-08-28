@@ -24,15 +24,20 @@ shipped: 40pt glyph tile (accent@14%, radius 12), headline with the inline
 "now" age suffix, quoted sublines in the Manrope editorial italic, an 8px
 mint unread dot with glow, and the 52pt-inset list hairline beneath.
 
-**Curated list preview** — the roll was still the pre-0.4.1 design (raised
-cards, big mint numerals, fabricated "filler" notes). Rebuilt to
-`CuratedCourseRow`: played rows as mint-washed cards with the mint→lime
-gradient border, unplayed rows flat with hairlines between them, "NO." rank
-clusters, PLAYED datelines with the tick, View pills (gradient when played),
-editor notes only when written — the app's filler-quote era is over, so
-`FILLER_NOTES` is deleted. Masthead gains the Save capsule in the floating
-chrome, the READ MORE fold, and the segmented All/Played/To-play filter.
-First row renders in its played state so both looks are visible.
+**Curated list preview** — rebuilt twice: the first pass worked from a
+second-hand spec and got the roll anatomy wrong (Tom's catch). Second pass
+read the SwiftUI source directly (CuratedListDetailView / CuratedListHero /
+CuratedListRoll / ListMapCard): rows are a LEFT-STACKED editorial column
+("NO. n" eyebrow over the 19pt display-face name over the PLAYED · COUNTY
+dateline) with the View pill centred right and the note full-width beneath;
+played rows lift onto the mint-washed gradient-edged card that BLEEDS past
+the flat rows' margins; the previously-missing "ON THE MAP" plate
+(hairline-flanked break, sea-gradient map with glowing played marks, Expand
+pill) sits between the progress row and the roll; filter tabs appear only at
+≥8 courses, exactly like the app; `FILLER_NOTES` deleted (the app's
+filler-quote era is over). Masthead carries the Save capsule, READ MORE
+fold, and the real gradient progress ring. First row renders played so both
+row states are visible.
 
 **Events finally has app-true previews**: a new `ClubhouseEventCardPreview`
 (the 300×128 What's-on card — no poster image, corner glow, diagonal hatch,
