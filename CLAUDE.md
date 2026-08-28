@@ -1,4 +1,14 @@
 
+- **2026-08-28** — **Beta-1 prod wipe EXECUTED.** All 5 app accounts + every
+  trace of use + operational history + 235 storage files gone; content, admin
+  fabric, waitlist/email spine kept (guard-verified). Kit in
+  `scripts/beta1-wipe/` (one-shots — never replay); backups in
+  `~/Documents/VESTIGE/backups/beta1-wipe-2026-08-28/`. Founding Pro armed,
+  window CLOSED until Tom/Jack/review accounts exist. Ghost review account
+  `johnappleseed` live (hidden, lifetime Pro; discovery ghosting = iOS
+  migration `20260828170000`, dev+prod). **`--linked` = DEV, prod via psql
+  pooler only.** Long-form in `CHANGELOG.md` 2026-08-28 (beta-1 wipe).
+
 - **2026-08-28** — **Analytics report rebuild.** One plain-English page:
   testers strip (retires past 25 weekly actives), weekly pulse cards, funnel
   + discovery + doing-now with hover descriptions; dictionary regenerated so

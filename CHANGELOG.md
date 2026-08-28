@@ -5,7 +5,70 @@
 
 ---
 
-## 2026-08-28 — Analytics rebuilt as one plain-English report
+## 2026-08-28 — Beta-1 prod wipe executed + wipe kit, ghost review account, founding-Pro armed
+
+**The wipe.** Prod was fully reset for beta 1, on Tom's GO after a staged plan.
+All five app accounts (Tom's, Jack's, both partners', and the old App Review
+login) and every trace of use went: profiles, rounds, markers, badges, personal
+lists, societies, friendships, reactions, comments, notifications, device
+tokens, pro grants, demographics, leaderboard snapshots — plus the
+non-cascading operational history (762 app_events, 98 push_events, 5
+announcements + receipts, 2 admin broadcasts, 18 feedback reports with their
+22 messages / 14 screenshots / 14 changelog links, 1 crash report, 4 MetricKit
+payloads, safeguarding flags + audit log) and 235 storage objects
+(photos-original/rendered, avatars, feedback-screenshots, 2 user list-covers).
+Kept, guard-verified untouched: all app content (1,795 courses/clubs, curated
+lists + covers, badge definitions, clubhouse events + covers, society modes,
+scout bundles), the changelog family (21 versions / 174 items — the 14 report
+links died with the reports by design), flags + history, notification/email
+templates, all configs, dataset imports, and the whole marketing spine
+(43 waitlist subscribers, both waitlist campaigns, 3 email campaigns, 295
+email_events — Tom chose to keep send history). Kept auth: `tom@` +
+`jack@pinehollow.studio` (Bunker logins) and `agent@vestige.golf` (tooling).
+
+**The kit** lives in `scripts/beta1-wipe/` — `01-snapshot.mjs` (per-table JSON
+snapshot + storage index via prod service role), `02-wipe.sql` (single
+transaction, self-aborting guards: content-table drift check, auth-count
+check, per-table zero sweep), `03-storage-cleanup.mjs` (dry-run by default,
+`--apply` deletes + re-lists to verify; keeps `curated/*` + `events/*` in
+list-covers). One-shots, never to be replayed; README documents order and the
+psql channel. Pre-wipe safety net in
+`~/Documents/VESTIGE/backups/beta1-wipe-2026-08-28/`: full `pg_dump`
+(public + auth, 3.1 MB) + JSON snapshot + auth-users export.
+
+**The near-miss that shaped the kit:** `supabase db query --linked` in
+vestige-ios points at DEV, not prod — the entire first analysis pass ran
+against the wrong database and was caught only because the service-role
+snapshot (guard-pinned to the prod ref) returned different counts. Everything
+prod-side now goes through psql to the eu-west-1 session pooler
+(`postgres.ujbnupjrbroskzwaeulj`, password file) with an identity probe first.
+Memory + MEMORY.md corrected.
+
+**Beta config flips (same day):** `pro_config.founding_pro_enabled` → true
+(6-month founding Pro auto-grant armed; fires on the signup founding flip),
+then `founding_member_window.is_open` → false so the three pre-beta accounts
+(Tom, Jack, App Review) sign up without founding status — reopen after those
+three exist. Tom + Jack get their 6 months as manual grants.
+
+**Ghost review account:** `review@pinehollow.studio` / `johnappleseed` /
+"John Appleseed" (uuid `7f2e2321…`), created via auth admin API + SQL-seeded
+profile, `is_admin_hidden_from_public_leaderboards=true` from birth, no
+founding artefacts (window closed), permanent Pro (`comp` grant, no expiry,
+`pro_status` verified lifetime). Invisible on boards, event rolls, feed
+(no friends) — and on search/suggestions via the iOS-repo migration
+`20260828170000` (all four discovery RPCs now exclude admin-hidden users;
+also closed a latent leak of *suspended* users via exact-handle lookup and
+friend suggestions). Applied dev + prod same day. Credentials → ASC.
+
+**Also diagnosed:** nightly prod-backup Actions have failed since 7 Aug — the
+org exhausted its 2,000 free minutes (the old PR gate's macos-15 xcodebuild
+job at 10× billing; gate deleted 19 Aug). Not a payment issue; resets Sept 1
+and the ubuntu-only residue (~100 min/month) can't re-trigger it. Standing
+caution: dispatching `release.yml` (macos-15) a few times a month would.
+
+**Not committed to:** analytics exclusion of the review account's events
+(accepted blip, admin-visible only); rounds/badge seeding for the reviewer
+(Tom's later); reopening the founding window (waits on the three accounts).
 
 Tom's brief: the page "frequently references events with codenames" and must
 be simple enough for Jack. Research (Amplitude/Mixpanel/PostHog governance,
