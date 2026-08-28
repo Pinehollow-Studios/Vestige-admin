@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SectionLabel, AreaChart, BarList, EmptyHint } from "@/components/admin/analytics/viz";
-import { eventLabel } from "@/lib/analytics/config";
+import { eventLabel , valueLabel } from "@/lib/analytics/config";
 import {
   loadEventNames,
   loadEventSeries,
@@ -139,7 +139,7 @@ export function EventExplorer() {
           <BarList
             items={byDim.map((d) => ({
               key: d.dimension,
-              label: d.dimension,
+              label: valueLabel(d.dimension),
               value: d.events,
               trailing: `${d.users.toLocaleString()} ${d.users === 1 ? "person" : "people"}`,
             }))}

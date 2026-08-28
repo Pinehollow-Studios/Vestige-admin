@@ -5,6 +5,54 @@
 
 ---
 
+## 2026-08-28 — Analytics rebuilt as one plain-English report
+
+Tom's brief: the page "frequently references events with codenames" and must
+be simple enough for Jack. Research (Amplitude/Mixpanel/PostHog governance,
+June.so's reports-not-queries, Plausible's ceiling on simplicity) set the
+rules: raw event names never render, one hero number per card with a delta,
+plain-English titles, no query builder on the landing page.
+
+**The dictionary** (`lib/analytics/config.ts`, fully regenerated against the
+repaired iOS vocabulary): every emittable event now carries a Jack-grade label
+("Added a course to a list", never "Bucketed") plus a one-line description
+that surfaces on hover; property keys and closed dimension values have their
+own language maps; unknown wire names de-snake through a fallback instead of
+rendering verbatim. The ghost events (course_bucketed/unbucketed) are gone —
+they'd been actively breaking the "Browse → save to a list" funnel preset.
+
+**Overview is the report now**: a "This week's testers" strip leads while the
+beta is small — each active person's week as a sentence ("Logged a round ·
+Viewed a course ×14 · today"), capped at 25 weekly actives after which it
+retires itself (Beta 1 lands ~20 users next week; at that scale who-did-what
+IS the report). Under it: a three-card pulse (people this week / rounds this
+week — weekly, replacing the old lifetime-total-with-weekly-delta mashup /
+new accounts), the daily chart, "From signing up to first round", "Where
+plays come from", "What people are doing" with hover descriptions, and the
+email strip with honest captions (Opens = total opens, one person can open
+twice). "Sellable cohort" jargon deleted.
+
+**Navigation collapsed** from seven tabs to Overview · Deep dive · B2B
+preview; the four explorers (Explore/Funnels/Paths/Retention) plus the live
+feed live as sub-tabs under Deep dive — Tom's tools, off Jack's path.
+
+**Fixes along the way**: the live feed's monospace `key=value` wire pairs
+became sentences ("found via: Map browse"); the B2B page now reads the
+k-anonymity floor from `analytics_config` instead of hardcoding 5 (the SQL
+was tunable while the privacy copy asserted a constant — a lie waiting to
+happen on a legal-gated page); the six silently-dropped onboarding steps are
+back in the funnel order; Explore breakdowns label their values; the dead
+130-line HeroSwitcher is deleted; sparklines stop announcing every series as
+"Daily active users" to screen readers; paths' unrounded float fixed.
+
+Data side: iOS repo migration `20260828180000` adds the `app_events
+(created_at, user_id)` index (applied dev + prod) — every analytics view
+scans that column with no leading index. The instrumentation repairs
+(auth_completed actually landing, list events wired, demographics swap) are
+the iOS CHANGELOG's sibling entry.
+
+Verified `tsc` + `eslint` + one `next build`.
+
 ## 2026-08-28 — Preview fidelity pass: every iOS mirror matched to the shipping app
 
 Tom's brief: the previews had drifted from the app. Two audits ran first — an

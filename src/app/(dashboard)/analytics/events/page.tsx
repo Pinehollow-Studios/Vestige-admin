@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SectionHeader } from "@/components/admin/SectionHeader";
-import { AnalyticsNav } from "@/components/admin/analytics/AnalyticsNav";
+import { AnalyticsNav, DeepDiveNav } from "@/components/admin/analytics/AnalyticsNav";
 import { EventFeed } from "@/components/admin/analytics/EventFeed";
 import { Reveal } from "@/components/admin/Motion";
 import { SectionLabel, MetricCard, AreaChart, BarList, EmptyHint } from "@/components/admin/analytics/viz";
@@ -140,7 +140,7 @@ export default async function EventExplorerPage({ searchParams }: { searchParams
           emptyLabel={
             event
               ? "No events of this type in the window."
-              : "No events yet. They appear once the instrumented app runs (Debug → dev, or a shipped build → prod)."
+              : "No events yet — they appear as soon as someone uses the app."
           }
         />
       </section>
@@ -167,6 +167,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="mx-auto max-w-5xl space-y-6">
       <SectionHeader eyebrow="Operations" title="Events" />
       <AnalyticsNav active="/analytics/events" />
+      <DeepDiveNav active="/analytics/events" />
       {children}
     </div>
   );

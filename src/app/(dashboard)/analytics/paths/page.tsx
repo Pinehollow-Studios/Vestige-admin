@@ -1,5 +1,5 @@
 import { SectionHeader } from "@/components/admin/SectionHeader";
-import { AnalyticsNav } from "@/components/admin/analytics/AnalyticsNav";
+import { AnalyticsNav, DeepDiveNav } from "@/components/admin/analytics/AnalyticsNav";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { PathsExplorer } from "./PathsExplorer";
 
@@ -12,6 +12,7 @@ export default async function PathsPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <SectionHeader eyebrow="Operations" title="Analytics" />
       <AnalyticsNav active="/analytics/paths" />
+      <DeepDiveNav active="/analytics/paths" />
       <PathsExplorer />
     </div>
   );

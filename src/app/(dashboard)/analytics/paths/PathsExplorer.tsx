@@ -89,7 +89,7 @@ export function PathsExplorer() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatTile label="Sessions" value={stats.sessions.toLocaleString()} />
           <StatTile label="People" value={stats.users.toLocaleString()} />
-          <StatTile label="Events / session" value={stats.avg_events === null ? "—" : String(stats.avg_events)} />
+          <StatTile label="Events / session" value={stats.avg_events === null ? "—" : stats.avg_events.toFixed(1)} />
           <StatTile label="Median length" value={stats.median_duration_minutes === null ? "—" : `${stats.median_duration_minutes}m`} />
         </div>
       )}

@@ -370,3 +370,83 @@ export async function getMessageOverview(supabase: SupabaseClient): Promise<Mess
   ]);
   return { delivered, opened, clicked, bounced, complained, suppressed };
 }
+
+// ── 2026-08-28 rebuild additions ─────────────────────────────────────────
+
+/**
+ * The live k-anonymity floor from `analytics_config` (the SQL b2b views read
+ * the same row, so the privacy copy can never drift from enforcement again —
+ * the old hardcoded constant became a lie the moment the row was tuned).
+ * Falls back to 5, the seeded default.
+ */
+export async function getMinCohortN(supabase: SupabaseClient): Promise<number> {
+  const { data, error } = await supabase
+    .from("analytics_config")
+    .select("min_cohort_n")
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("analytics.getMinCohortN", error.message);
+    return 5;
+  }
+  return (data?.min_cohort_n as number | undefined) ?? 5;
+}
+
+export type TesterWeekRow = {
+  user_id: string;
+  display_name: string;
+  /** event_name → count over the window. */
+  actions: Record<string, number>;
+  last_seen: string;
+};
+
+/**
+ * The beta-scale "who did what this week" strip: per-user event counts over
+ * the last 7 days, joined to display names. Capped — beyond `cap` users the
+ * strip retires and the aggregate cards carry the page (Tom, 2026-08-28:
+ * Beta 1 lands ~20 users; the strip is exactly right at that scale).
+ */
+export async function getTesterWeek(
+  supabase: SupabaseClient,
+  cap = 25,
+): Promise<TesterWeekRow[] | null> {
+  const { data, error } = await supabase
+    .from("app_events")
+    .select("user_id, event_name, created_at")
+    .gte("created_at", isoDaysAgo(7))
+    .order("created_at", { ascending: false })
+    .limit(4000);
+  if (error) {
+    console.error("analytics.getTesterWeek", error.message);
+    return null;
+  }
+  const rows = (data as { user_id: string | null; event_name: string; created_at: string }[]) ?? [];
+  const byUser = new Map<string, { actions: Record<string, number>; last: string }>();
+  for (const r of rows) {
+    if (!r.user_id) continue;
+    const u = byUser.get(r.user_id) ?? { actions: {}, last: r.created_at };
+    u.actions[r.event_name] = (u.actions[r.event_name] ?? 0) + 1;
+    if (r.created_at > u.last) u.last = r.created_at;
+    byUser.set(r.user_id, u);
+  }
+  if (byUser.size === 0 || byUser.size > cap) return byUser.size === 0 ? [] : null;
+
+  const ids = Array.from(byUser.keys());
+  const { data: users } = await supabase
+    .from("users")
+    .select("id, display_name, username")
+    .in("id", ids);
+  const names = new Map(
+    ((users as { id: string; display_name: string | null; username: string | null }[] | null) ?? []).map(
+      (u) => [u.id, u.display_name || (u.username ? `@${u.username}` : "Someone")],
+    ),
+  );
+  return ids
+    .map((id) => ({
+      user_id: id,
+      display_name: names.get(id) ?? "Someone",
+      actions: byUser.get(id)!.actions,
+      last_seen: byUser.get(id)!.last,
+    }))
+    .sort((a, b) => (a.last_seen < b.last_seen ? 1 : -1));
+}

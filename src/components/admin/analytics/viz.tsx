@@ -64,7 +64,7 @@ export function BarList({
   emptyLabel = "Nothing yet.",
   tone = "brand",
 }: {
-  items: { key: string; label: string; value: number; trailing?: string }[];
+  items: { key: string; label: string; value: number; trailing?: string; title?: string }[];
   emptyLabel?: string;
   tone?: "brand" | "amber" | "info";
 }) {
@@ -75,7 +75,7 @@ export function BarList({
     <div className="space-y-2">
       {items.map((it) => (
         <div key={it.key} className="flex items-center gap-3">
-          <span className="w-24 shrink-0 truncate text-xs text-ink-2 sm:w-40" title={it.label}>
+          <span className="w-24 shrink-0 truncate text-xs text-ink-2 sm:w-40" title={it.title ?? it.label}>
             {it.label}
           </span>
           <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-paper-sunken">
@@ -102,9 +102,13 @@ export function BarList({
 export function Sparkline({
   data,
   className,
+  ariaLabel,
 }: {
   data: { day: string; count: number }[];
   className?: string;
+  /** Series name for screen readers (was hardcoded "Daily active users"
+   *  on every instance — including the rounds + signups sparklines). */
+  ariaLabel?: string;
 }) {
   const w = 100;
   const h = 34;
@@ -122,7 +126,7 @@ export function Sparkline({
       className={cn("w-full", className)}
       style={{ height: 48 }}
       role="img"
-      aria-label="Daily active users"
+      aria-label={ariaLabel ?? "Trend"}
     >
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">

@@ -12,7 +12,7 @@ import {
   EmptyHint,
 } from "@/components/admin/analytics/viz";
 import { tryCreateServiceClient } from "@/lib/supabase/admin";
-import { MIN_COHORT_N } from "@/lib/analytics/config";
+
 import { CatchmentMap } from "@/components/admin/analytics/CatchmentMap";
 import {
   getB2BVolume,
@@ -22,6 +22,7 @@ import {
   getB2BVisitorProfile,
   getCountyShapes,
   type B2BVisitorProfileRow,
+  getMinCohortN,
 } from "@/lib/analytics/queries";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ const BAND_LABEL: Record<string, string> = {
   no_handicap: "No handicap",
   // player type
   member: "Member",
-  society: "Society",
+  society: "Society (legacy)",
   visitor: "Visitor",
   // shared
   prefer_not: "Prefer not to say",
@@ -67,6 +68,7 @@ export default async function B2BPreviewPage() {
   const supabase = await tryCreateServiceClient();
   if (!supabase) return <Shell>{notConfigured}</Shell>;
 
+  const minCohortN = await getMinCohortN(supabase);
   const [volume, catchment, intent, conversion, profile, countyShapes] = await Promise.all([
     getB2BVolume(supabase),
     getB2BCatchment(supabase),
@@ -113,7 +115,7 @@ export default async function B2BPreviewPage() {
         </span>
         <p className="text-[12px] leading-relaxed text-ink-2">
           <span className="font-semibold text-ink">Internal preview - not a club export.</span> Every figure is
-          aggregated, excludes opted-out users, and suppresses any cell under {MIN_COHORT_N} users - so this is exactly
+          aggregated, excludes opted-out users, and suppresses any cell under {minCohortN} users - so this is exactly
           what a club would see. External delivery is Phase 4, legal-gated.
         </p>
       </div>
@@ -151,7 +153,7 @@ export default async function B2BPreviewPage() {
             </div>
           </div>
           <div className="mt-4">
-            <ThresholdNote n={MIN_COHORT_N} />
+            <ThresholdNote n={minCohortN} />
           </div>
         </section>
       </Reveal>
@@ -163,7 +165,7 @@ export default async function B2BPreviewPage() {
             <SectionLabel>Volume by club</SectionLabel>
             <p className="text-[11px] text-ink-3">Plays per club, with distinct players alongside.</p>
             <BarList items={volumeItems} tone="brand" emptyLabel="No club passes the cohort threshold yet." />
-            <ThresholdNote n={MIN_COHORT_N} />
+            <ThresholdNote n={minCohortN} />
           </section>
         </Reveal>
 
@@ -172,7 +174,7 @@ export default async function B2BPreviewPage() {
             <SectionLabel>Intent · want-to-play by club</SectionLabel>
             <p className="text-[11px] text-ink-3">Distinct users with the club on a list - the demand signal.</p>
             <BarList items={intentItems} tone="amber" emptyLabel="No club passes the cohort threshold yet." />
-            <ThresholdNote n={MIN_COHORT_N} />
+            <ThresholdNote n={minCohortN} />
           </section>
         </Reveal>
       </div>
@@ -191,7 +193,7 @@ export default async function B2BPreviewPage() {
               <BarList items={catchmentItems} tone="info" emptyLabel="No county passes the cohort threshold yet." />
             </div>
           </div>
-          <ThresholdNote n={MIN_COHORT_N} />
+          <ThresholdNote n={minCohortN} />
         </section>
       </Reveal>
 
@@ -200,7 +202,7 @@ export default async function B2BPreviewPage() {
         <section className="space-y-4 rounded-2xl glass-panel p-5">
           <SectionLabel>Visitor profile</SectionLabel>
           <p className="text-[11px] text-ink-3">
-            Aggregated demographic mix of contributing players. Bands under {MIN_COHORT_N} users are suppressed.
+            Aggregated demographic mix of contributing players. Bands under {minCohortN} users are suppressed.
           </p>
           {profile.length === 0 ? (
             <EmptyHint>No demographic band passes the cohort threshold yet.</EmptyHint>
@@ -224,7 +226,7 @@ export default async function B2BPreviewPage() {
               })}
             </div>
           )}
-          <ThresholdNote n={MIN_COHORT_N} />
+          <ThresholdNote n={minCohortN} />
         </section>
       </Reveal>
     </Shell>

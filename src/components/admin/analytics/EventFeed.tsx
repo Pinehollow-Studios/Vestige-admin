@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { eventLabel, eventGroup, GROUP_LABEL, type EventGroup } from "@/lib/analytics/config";
+import { eventLabel, eventGroup, GROUP_LABEL, propertyLabel, valueLabel, type EventGroup } from "@/lib/analytics/config";
 import type { AppEventRow } from "@/lib/analytics/queries";
 import { EmptyHint } from "./viz";
 
@@ -8,6 +8,8 @@ const GROUP_TONE: Record<EventGroup, string> = {
   discovery: "border-brand/35 text-brand",
   play: "border-brand/35 text-brand",
   social: "border-amber/40 text-amber",
+  pro: "border-amber/40 text-amber",
+  scout: "border-brand/35 text-brand",
   lifecycle: "border-rule/70 text-ink-3",
   other: "border-rule/70 text-ink-3",
 };
@@ -23,27 +25,32 @@ function relTime(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-/** Compact preview of the most useful property keys for a row. */
+/** Compact plain-English context line — never raw wire pairs (2026-08-28:
+ *  the old key=value monospace strip was the page's worst codename leak).
+ *  Key set matches what the app actually emits today. */
 function propsPreview(props: Record<string, unknown> | null): string {
   if (!props) return "";
   const order = [
     "discovery_source",
     "source",
+    "surface",
     "step",
     "method",
-    "course_tier",
-    "is_home_club",
-    "was_bucketed",
+    "action",
+    "entry_mode",
+    "share_state",
     "holes_played",
+    "partner_count",
+    "count",
     "opted_out",
-    "privacy_tier",
   ];
   const parts: string[] = [];
   for (const k of order) {
     const v = props[k];
     if (v === undefined || v === null || typeof v === "object") continue;
-    parts.push(`${k}=${String(v)}`);
-    if (parts.length >= 4) break;
+    const value = typeof v === "string" ? valueLabel(v) : String(v);
+    parts.push(`${propertyLabel(k)}: ${value}`);
+    if (parts.length >= 3) break;
   }
   return parts.join(" · ");
 }
@@ -68,7 +75,7 @@ export function EventFeed({ rows, emptyLabel = "No events yet." }: { rows: AppEv
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm text-ink">{eventLabel(r.event_name)}</p>
-              {preview && <p className="mt-0.5 truncate font-mono text-[11px] text-ink-3">{preview}</p>}
+              {preview && <p className="mt-0.5 truncate text-[11px] text-ink-3">{preview}</p>}
             </div>
             <div className="shrink-0 text-right">
               <p className="text-[11px] tabular-nums text-ink-3">{relTime(r.created_at)}</p>

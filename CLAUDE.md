@@ -1,4 +1,12 @@
 
+- **2026-08-28** — **Analytics report rebuild.** One plain-English page:
+  testers strip (retires past 25 weekly actives), weekly pulse cards, funnel
+  + discovery + doing-now with hover descriptions; dictionary regenerated so
+  raw event names never render (feed reads as sentences); nav collapsed to
+  Overview · Deep dive · B2B; B2B k-floor read live from `analytics_config`;
+  HeroSwitcher deleted. iOS sibling slice fixed the instrumentation. Long-form
+  in `CHANGELOG.md` 2026-08-28 (analytics report).
+
 - **2026-08-28** — **Preview fidelity pass.** All iOS mirrors matched to the
   shipping app: app icon is the two-tone globe (was a wrong gradient flag),
   inbox row mirrors on-canvas `NotificationRow`, curated roll rebuilt to the

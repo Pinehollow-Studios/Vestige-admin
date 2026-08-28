@@ -1,5 +1,5 @@
 import { SectionHeader } from "@/components/admin/SectionHeader";
-import { AnalyticsNav } from "@/components/admin/analytics/AnalyticsNav";
+import { AnalyticsNav, DeepDiveNav } from "@/components/admin/analytics/AnalyticsNav";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { RetentionExplorer } from "./RetentionExplorer";
 
@@ -12,6 +12,7 @@ export default async function RetentionPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <SectionHeader eyebrow="Operations" title="Analytics" />
       <AnalyticsNav active="/analytics/retention" />
+      <DeepDiveNav active="/analytics/retention" />
       <RetentionExplorer />
     </div>
   );
