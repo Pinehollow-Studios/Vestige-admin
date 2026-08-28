@@ -5,6 +5,33 @@
 
 ---
 
+## 2026-08-28 — Notification copy-pass mirrors: templates-meta sync + missing kind
+
+Bunker side of the full auto-sent copy pass (long-form rationale in
+`Vestige-ios` CHANGELOG 2026-08-28). What changed here:
+
+**`notifications/templates-meta.ts`** — re-synced to the new shipped copy and
+its conventions documented in the header: a BLANK default is now deliberate on
+the fields where the built-in copy is richer than any flat template (comment
+pushes quote the comment, reactions roll up "Sarah and 2 others", society
+results name the winner) — saving a value into one of those fields flattens
+the richness, and the header now says so. Blank push titles on the five
+feedback/outreach/account kinds mirror the shipped empty-title convention
+(iOS shows the app name; the old "Vestige" titles double-printed it). New
+copy mirrored: "New in {county}" grammar, "You earned {badge}" (the token now
+resolves the badge's display name server-side), "The team sent you a message",
+"We're on it" + note as the feedback-in-progress structure, informative
+account-status wording, all "tap to …" instruction copy gone, typographic
+apostrophes/dashes. **`comment_mentioned` was missing from the meta entirely**
+— Jack could never see or edit the mention notification's copy; added
+(Social, with `{name}`/`{comment}` tokens). `scout_weekly` stays deliberately
+excluded while the weekly digest is unscheduled.
+
+No other bunker surface needed changes: crash-alert severity copy, email
+starters, and the automatic-emails editor were audited in the same pass and
+already read correctly (the email templates live in the DB and were updated
+by the iOS-repo migration). Verified `tsc` + `eslint` + one `next build`.
+
 ## 2026-08-27 — Changelog visual rework: release-feed cards, chip-led items, phone-first
 
 Same-day follow-up to the area-first rebuild. Tom's brief: modern + sleek, and

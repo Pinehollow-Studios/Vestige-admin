@@ -1,4 +1,12 @@
 
+- **2026-08-28** — **Notification copy-pass mirror sync.** `templates-meta.ts`
+  re-synced to the shipped copy (blank defaults now deliberately mark fields
+  where richer built-ins win — comment quotes, reactor roll-ups, society
+  winners — and blank push titles on the five team-voice kinds); missing
+  `comment_mentioned` kind added so it's finally editable. DB copy itself
+  changed via iOS migration `20260828100000` (dev+prod). Long-form in both
+  repos' CHANGELOGs 2026-08-28.
+
 - **2026-08-27** — **Changelog visual rework.** Timeline rail + banners out;
   each version is a feed card — oversized hero version number (current wears
   the mint gradient), native `<details>` collapse (latest + drafts open,

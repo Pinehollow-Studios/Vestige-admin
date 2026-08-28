@@ -7,7 +7,16 @@
  * built-in DEFAULT copy (shown as a placeholder / reference). Mirrors the iOS
  * `NotificationPresentation` + `send-apns` built-in strings - when a field is
  * left blank, the client falls back to that built-in, so this is reference
- * text, not the source of truth. `admin_broadcast` is excluded (free-form).
+ * text, not the source of truth. `admin_broadcast` is excluded (free-form);
+ * `scout_weekly` is excluded while the weekly digest is unscheduled.
+ *
+ * Copy pass 2026-08-28: a BLANK default is deliberate on several fields - the
+ * built-in copy is richer than any flat template (comment pushes quote the
+ * comment, reactions roll up "Sarah and 2 others", society results name the
+ * winner). Saving a value into one of those fields flattens that richness -
+ * leave them blank unless that's what you want. Blank push titles on the
+ * feedback/outreach/account kinds are also deliberate: iOS shows the app name
+ * above every push, so those lock screens read app name + body only.
  */
 
 export type TemplateToken = { token: string; sample: string; desc: string };
@@ -47,14 +56,14 @@ export const TEMPLATE_KINDS: TemplateKindMeta[] = [
     label: "Reaction on your round",
     category: "Social",
     tokens: [NAME, { token: "reactors", sample: "Sarah and 2 others", desc: "The reactor(s), pluralised" }],
-    defaults: { pushTitle: "Your round", pushBody: "{reactors} reacted to your round", inboxTitle: "*{name}* reacted to your round", inboxBody: "" },
+    defaults: { pushTitle: "Your round", pushBody: "{reactors} reacted to your round", inboxTitle: "", inboxBody: "" },
   },
   {
     kind: "round_commented",
     label: "Comment on your round",
     category: "Social",
     tokens: [NAME, { token: "comment", sample: "Lovely course!", desc: "The comment text" }],
-    defaults: { pushTitle: "Your round", pushBody: "{name} commented on your round", inboxTitle: "*{name}* commented on your round", inboxBody: "{comment}" },
+    defaults: { pushTitle: "Your round", pushBody: "", inboxTitle: "*{name}* commented on your round", inboxBody: "{comment}" },
   },
   {
     kind: "badge_commented",
@@ -65,14 +74,21 @@ export const TEMPLATE_KINDS: TemplateKindMeta[] = [
       { token: "comment", sample: "Well earned!", desc: "The comment text" },
       { token: "badge", sample: "Centurion", desc: "The badge name" },
     ],
-    defaults: { pushTitle: "Your badge", pushBody: "{name} commented on your badge", inboxTitle: "*{name}* commented on your badge", inboxBody: "{comment}" },
+    defaults: { pushTitle: "Your badge", pushBody: "", inboxTitle: "*{name}* commented on your badge", inboxBody: "{comment}" },
+  },
+  {
+    kind: "comment_mentioned",
+    label: "Mentioned in a comment",
+    category: "Social",
+    tokens: [NAME, { token: "comment", sample: "Great round @sarah!", desc: "The comment text" }],
+    defaults: { pushTitle: "Mentioned you", pushBody: "", inboxTitle: "*{name}* mentioned you", inboxBody: "{comment}" },
   },
   {
     kind: "partner_tagged",
     label: "Tagged in a round",
     category: "Social",
     tokens: [NAME],
-    defaults: { pushTitle: "Tagged in a round", pushBody: "{name} tagged you in a round", inboxTitle: "*{name}* tagged you in a round", inboxBody: "Tap to see the round" },
+    defaults: { pushTitle: "Tagged in a round", pushBody: "{name} tagged you in a round", inboxTitle: "*{name}* tagged you in a round", inboxBody: "" },
   },
   {
     kind: "partner_claimed_your_round",
@@ -86,7 +102,7 @@ export const TEMPLATE_KINDS: TemplateKindMeta[] = [
     label: "Badge earned",
     category: "Collection",
     tokens: [{ token: "badge", sample: "Surrey complete", desc: "The badge name" }],
-    defaults: { pushTitle: "Badge earned", pushBody: "You earned a badge - tap to see it", inboxTitle: "You earned a badge", inboxBody: "" },
+    defaults: { pushTitle: "Badge earned", pushBody: "You earned {badge}", inboxTitle: "You earned a badge", inboxBody: "" },
   },
   {
     kind: "your_list_verified",
@@ -114,7 +130,7 @@ export const TEMPLATE_KINDS: TemplateKindMeta[] = [
     label: "Course photo rejected",
     category: "Collection",
     tokens: [{ token: "course", sample: "Sunningdale", desc: "The course name" }],
-    defaults: { pushTitle: "Photo not used", pushBody: "Your photo of {course} couldn't be used", inboxTitle: "Your photo of {course} couldn't be used", inboxBody: "" },
+    defaults: { pushTitle: "Photo not used", pushBody: "Your photo of {course} couldn’t be used", inboxTitle: "Your photo of {course} couldn’t be used", inboxBody: "" },
   },
   {
     kind: "county_courses_added",
@@ -126,42 +142,42 @@ export const TEMPLATE_KINDS: TemplateKindMeta[] = [
       { token: "played", sample: "34", desc: "How many they've played" },
       { token: "total", sample: "36", desc: "Total courses in the county" },
     ],
-    defaults: { pushTitle: "New course added", pushBody: "{courses} added to {county}", inboxTitle: "{courses} added to {county}", inboxBody: "You're now at {played} of {total}" },
+    defaults: { pushTitle: "New in {county}", pushBody: "{courses} added — you’re now at {played} of {total}", inboxTitle: "{courses} added to {county}", inboxBody: "You’re now at {played} of {total}" },
   },
   {
     kind: "feedback_in_progress",
     label: "Feedback - working on it",
     category: "Feedback",
     tokens: [{ token: "message", sample: "We're looking into it", desc: "Your note to the user (shown as the message)" }],
-    defaults: { pushTitle: "Vestige", pushBody: "{message}", inboxTitle: "{message}", inboxBody: "" },
+    defaults: { pushTitle: "", pushBody: "{message}", inboxTitle: "We’re on it", inboxBody: "{message}" },
   },
   {
     kind: "feedback_message_posted",
     label: "Feedback - admin replied",
     category: "Feedback",
     tokens: [],
-    defaults: { pushTitle: "Vestige", pushBody: "The team replied to your feedback", inboxTitle: "The team replied to your feedback", inboxBody: "" },
+    defaults: { pushTitle: "", pushBody: "The team replied to your feedback", inboxTitle: "The team replied to your feedback", inboxBody: "" },
   },
   {
     kind: "feedback_resolved",
     label: "Feedback - resolved",
     category: "Feedback",
     tokens: [],
-    defaults: { pushTitle: "Vestige", pushBody: "Something you flagged was fixed", inboxTitle: "Something you flagged was fixed", inboxBody: "" },
+    defaults: { pushTitle: "", pushBody: "Something you flagged was fixed", inboxTitle: "Something you flagged was fixed", inboxBody: "" },
   },
   {
     kind: "admin_outreach_received",
     label: "Admin outreach",
     category: "Safeguarding",
     tokens: [],
-    defaults: { pushTitle: "Vestige", pushBody: "A message from Vestige - tap to read", inboxTitle: "A message from Vestige", inboxBody: "" },
+    defaults: { pushTitle: "", pushBody: "The team sent you a message", inboxTitle: "A message from the team", inboxBody: "" },
   },
   {
     kind: "account_status_changed",
     label: "Account status changed",
     category: "Safeguarding",
     tokens: [{ token: "status", sample: "restricted", desc: "The new account status" }],
-    defaults: { pushTitle: "Vestige", pushBody: "Your account status changed - tap for details", inboxTitle: "Your account status changed", inboxBody: "Check your feedback inbox for the details" },
+    defaults: { pushTitle: "", pushBody: "Your account was updated — details are in your feedback inbox", inboxTitle: "Your account was updated", inboxBody: "The details are in your feedback inbox" },
   },
   {
     kind: "society_invite_received",
@@ -175,7 +191,7 @@ export const TEMPLATE_KINDS: TemplateKindMeta[] = [
     label: "Society challenge (Singles)",
     category: "Societies",
     tokens: [NAME, { token: "society", sample: "The Saturday Four", desc: "The society name" }],
-    defaults: { pushTitle: "Head to head", pushBody: "{name} challenged you - tap to accept", inboxTitle: "*{name}* challenged you head-to-head", inboxBody: "Tap to accept or decline" },
+    defaults: { pushTitle: "Head to head", pushBody: "{name} challenged you head-to-head", inboxTitle: "*{name}* challenged you head-to-head", inboxBody: "" },
   },
   {
     kind: "society_format_finished",
@@ -185,7 +201,7 @@ export const TEMPLATE_KINDS: TemplateKindMeta[] = [
       { token: "title", sample: "Surrey Sprint", desc: "The Format's name" },
       { token: "winner", sample: "Sarah", desc: "The winner's name (if any)" },
     ],
-    defaults: { pushTitle: "Format finished", pushBody: "{title} has finished", inboxTitle: "{title} has finished", inboxBody: "" },
+    defaults: { pushTitle: "Format finished", pushBody: "", inboxTitle: "", inboxBody: "" },
   },
 ];
 
