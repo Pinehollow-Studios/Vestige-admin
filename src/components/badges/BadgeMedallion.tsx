@@ -114,7 +114,7 @@ export function BadgeMedallion({
         display: "flex", alignItems: "center", justifyContent: "center",
       }}
     >
-      <div style={{ filter: "saturate(0.10) brightness(0.74)" }}>
+      <div style={{ filter: "saturate(0.10) brightness(0.94)", opacity: 0.85 }}>
         <SigilArt id={id} shape={shape} tier={tier} tint={tint} effect="none" Glyph={Glyph} px={inner} />
       </div>
     </div>
@@ -349,7 +349,7 @@ function LockChip({ size }: { size: number }) {
       style={{
         position: "absolute", bottom: -2, left: "50%", transform: "translateX(-50%)",
         width: ls, height: ls, borderRadius: "50%",
-        background: "rgba(13,22,32,0.92)", border: "1px solid rgba(255,255,255,0.18)",
+        background: "#070A10", border: "1px solid rgba(255,255,255,0.12)",
         display: "flex", alignItems: "center", justifyContent: "center",
         boxShadow: "0 4px 10px rgba(0,0,0,0.5)",
       }}

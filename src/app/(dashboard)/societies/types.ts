@@ -58,12 +58,15 @@ export const CHASE_TARGETS: { value: string; label: string }[] = [
 // Crest tokens - must match iOS `SocietyCrestView.tint(for:)`.
 // ---------------------------------------------------------------------
 
+// Resolved from Theme tokens (2026-08-28 fidelity pass): amber = bucket,
+// claret = alert, sea = sea2 — SocietyCrestView.tint(for:) maps to those,
+// not bespoke hexes. Dark-appearance values (the app's default).
 export const CREST_COLORS: { token: string; label: string; hex: string }[] = [
   { token: "mint", label: "Mint", hex: "#5BE4C3" },
   { token: "lime", label: "Lime", hex: "#8FE85B" },
-  { token: "amber", label: "Amber", hex: "#E5A13A" },
-  { token: "claret", label: "Claret", hex: "#B23A55" },
-  { token: "sea", label: "Sea", hex: "#3E7CA6" },
+  { token: "amber", label: "Amber", hex: "#F4A85C" },
+  { token: "claret", label: "Claret", hex: "#E2664E" },
+  { token: "sea", label: "Sea", hex: "#1B2D42" },
 ];
 
 export const DEFAULT_CREST = { glyph: "flag.fill", color: "mint" };

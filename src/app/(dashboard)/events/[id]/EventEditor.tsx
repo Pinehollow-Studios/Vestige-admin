@@ -27,7 +27,7 @@ import {
   updateEvent,
   uploadEventCover,
 } from "../actions";
-import { BadgeMedallion } from "@/components/badges/BadgeMedallion";
+import { ClubhouseEventCardPreview, PrizeCardPreview } from "./EventPreviews";
 import { EventCoursePicker } from "./EventCoursePicker";
 import {
   AWARD_LABELS,
@@ -38,6 +38,7 @@ import {
   type AwardRule,
   type EventKind,
   type EventRow,
+  type EventStatus,
   type PrizeBadge,
 } from "../types";
 import { cn } from "@/lib/utils";
@@ -252,21 +253,29 @@ export function EventEditor({
           </Field>
         </div>
         {selectedBadge && (
-          <div className="mt-3 flex items-center gap-4 rounded-xl border border-border bg-surface-2 p-4">
-            <BadgeMedallion spec={selectedBadge} size={72} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink">{selectedBadge.name}</p>
-              <p className="text-xs capitalize text-ink-3">
-                {selectedBadge.tier} · {selectedBadge.theme}
+          <div className="mt-3 space-y-2">
+            {/* The event detail page's prize card, as the app draws it. */}
+            <PrizeCardPreview badge={selectedBadge} awardRule={values.award_rule ?? null} />
+            {!selectedBadge.is_published && (
+              <p className="text-xs text-alert">
+                Draft — publish it in /badges before the close, or winners receive a badge the app hides.
               </p>
-              {!selectedBadge.is_published && (
-                <p className="pt-1 text-xs text-alert">
-                  Draft — publish it in /badges before the close, or winners receive a badge the app hides.
-                </p>
-              )}
-            </div>
+            )}
           </div>
         )}
+      </EditorSection>
+
+      <EditorSection
+        title="Clubhouse card"
+        hint="How this event appears on the What's-on shelf — 300×128, no poster image (the app dropped that)."
+      >
+        <ClubhouseEventCardPreview
+          title={values.title}
+          windowLine={eventWindowLine(row)}
+          status={status}
+          daysLabel={eventDaysLabel(row, status)}
+          progress={status === "ended" ? 1 : status === "live" ? 0.4 : 0}
+        />
       </EditorSection>
 
       <CourseSetSection row={row} courses={courses} counties={counties} />
@@ -611,4 +620,26 @@ function toLocalInput(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ── Clubhouse-card preview derivations ──────────────────────────────────
+
+/** "1–30 June" style window line, matching the pre-board card state. */
+function eventWindowLine(row: EventRow): string {
+  const starts = new Date(row.starts_at);
+  const ends = new Date(row.ends_at);
+  const month = (d: Date) => d.toLocaleDateString("en-GB", { month: "long" });
+  if (starts.getMonth() === ends.getMonth() && starts.getFullYear() === ends.getFullYear()) {
+    return `${starts.getDate()}\u2013${ends.getDate()} ${month(ends)}`;
+  }
+  return `${starts.getDate()} ${month(starts)} \u2013 ${ends.getDate()} ${month(ends)}`;
+}
+
+/** Days to the relevant boundary — start when scheduled, end when live. */
+function eventDaysLabel(row: EventRow, status: EventStatus): string {
+  const now = Date.now();
+  const boundary =
+    status === "live" ? new Date(row.ends_at).getTime() : new Date(row.starts_at).getTime();
+  const days = Math.max(0, Math.ceil((boundary - now) / 86_400_000));
+  return `${days}d`;
 }

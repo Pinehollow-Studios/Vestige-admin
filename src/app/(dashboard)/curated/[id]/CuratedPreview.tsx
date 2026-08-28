@@ -1,29 +1,22 @@
 "use client";
 
-import { ChevronLeft, Hexagon, Share, Star } from "lucide-react";
+import { Bookmark, Check, ChevronDown, ChevronLeft, ChevronRight, Hexagon, Share, Star } from "lucide-react";
 import type { CuratedCourseRow } from "../types";
 
 /**
  * App-accurate preview of the iOS curated-list detail screen, mirroring
- * `CuratedListDetailView` as it ships today (2026-08): a full-bleed cover that
- * melts out via an alpha mask (no text on the photo), floating glass back/share
- * chrome, a centred masthead on paper (VESTIGE seal pill → Manrope title →
- * CURATED RANKING/LIST kicker), a centred editorial intro (bio, else summary),
- * a progress ring row, then raised cards per course — name + big mint rank
- * numeral, a divider, the quoted italic editor note (deterministic filler when
- * empty, exactly like the app), county + a TO PLAY status pill. Rendered from
- * live editor values at ~0.6 scale inside a {@link PreviewFrame}.
+ * `CuratedListDetailView` + `CuratedListRoll` as rebuilt in 0.4.1: a
+ * full-bleed cover that melts out via an alpha mask (no text on the photo),
+ * floating chrome (back · Save capsule · share), a centred masthead
+ * (VESTIGE seal pill → Manrope title → CURATED RANKING/LIST kicker), the
+ * centred editorial intro with its READ MORE fold, the progress-ring row,
+ * a segmented All / Played / To play filter, then the roll — played rows as
+ * mint-washed gradient-bordered cards, unplayed rows flat with hairlines,
+ * each with the "NO." rank cluster, PLAYED dateline and View pill. Editor
+ * notes render at full length only when written (the filler-quote era is
+ * over — ListCourseRow.swift). ~0.6 scale inside a {@link PreviewFrame};
+ * the first row is drawn in its played state so both looks are visible.
  */
-
-/** The app's filler notes, verbatim (indexed by position % 6). */
-const FILLER_NOTES = [
-  "A standing test of nerve and judgement from the first tee to the last.",
-  "Heath and pine frame every shot - strategy over strength, always.",
-  "Firm, fast and honest; the ground game is the whole game here.",
-  "Subtle greens and stout par-4s onboarding the patient, punish the loose.",
-  "An out-and-back routing that turns with the wind and never lets up.",
-  "Generous from the tee, brutal around the greens - placement is everything.",
-];
 
 export function CuratedPreviewContent({
   name,
@@ -66,14 +59,20 @@ export function CuratedPreviewContent({
         }}
       />
 
-      {/* Floating glass chrome (back / share) */}
+      {/* Floating chrome: back · (Save capsule · share) */}
       <div className="absolute inset-x-3 top-2 z-10 flex items-center justify-between">
         <ChromeButton>
           <ChevronLeft aria-hidden className="size-3.5" />
         </ChromeButton>
-        <ChromeButton>
-          <Share aria-hidden className="size-3" />
-        </ChromeButton>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex h-6 items-center gap-1 rounded-full border border-white/12 bg-[rgba(14,24,38,0.72)] px-2 text-[8.5px] font-semibold text-ink backdrop-blur-sm">
+            <Bookmark aria-hidden className="size-2.5" />
+            Save
+          </span>
+          <ChromeButton>
+            <Share aria-hidden className="size-3" />
+          </ChromeButton>
+        </div>
       </div>
 
       {/* Cover banner — full-bleed, melts out via an alpha mask; no text on the photo */}
@@ -115,11 +114,19 @@ export function CuratedPreviewContent({
           </p>
         </div>
 
-        {/* Editorial intro — bio, else summary, centred */}
+        {/* Editorial intro — standfirst + READ MORE fold, centred */}
         {intro && (
-          <p className="whitespace-pre-wrap text-center text-[11px] leading-relaxed text-ink-2">
-            {intro}
-          </p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="line-clamp-4 whitespace-pre-wrap text-center text-[9px] leading-relaxed text-ink-2">
+              {intro}
+            </p>
+            {(bio.trim().length > 180 || (bio.trim() && summary.trim())) && (
+              <span className="inline-flex items-center gap-1 text-[6px] font-bold uppercase tracking-[0.84px] text-brand">
+                Read more
+                <ChevronDown aria-hidden className="size-2" />
+              </span>
+            )}
+          </div>
         )}
 
         {/* Progress row — ring + "N of M played" + region · tags */}
@@ -137,7 +144,20 @@ export function CuratedPreviewContent({
           </div>
         </div>
 
-        {/* Course cards */}
+        {/* Segmented filter — All · Played · To play (VSegmentedPicker) */}
+        {courses.length > 0 && (
+          <div className="mx-auto flex w-fit items-center gap-0.5 rounded-[8px] border border-white/12 bg-[rgba(20,46,70,0.5)] p-[2px]">
+            <span className="rounded-[6px] border border-white/[0.18] bg-paper-raised px-2 py-[3px] text-[7px] font-semibold text-ink">
+              All
+            </span>
+            <span className="px-2 py-[3px] text-[7px] font-medium text-ink-2">Played 1</span>
+            <span className="px-2 py-[3px] text-[7px] font-medium text-ink-2">
+              To play {Math.max(courses.length - 1, 0)}
+            </span>
+          </div>
+        )}
+
+        {/* The roll — CuratedCourseRow */}
         {courses.length === 0 ? (
           <div className="flex flex-col items-center gap-3 pt-2 text-center">
             <span className="grid size-14 place-items-center rounded-[12px] border border-white/12 bg-white/[0.04]">
@@ -150,37 +170,77 @@ export function CuratedPreviewContent({
           </div>
         ) : (
           <>
-            <ul className="space-y-2.5">
+            <ul className="space-y-1">
               {shown.map((c, i) => {
                 const position = c.position ?? i + 1;
-                const note = c.editor_note?.trim() || FILLER_NOTES[position % 6];
+                const note = c.editor_note?.trim();
+                // First row renders in its played state so both looks show.
+                const played = i === 0;
+                const nextUnplayed = !played && i < shown.length - 1;
                 return (
-                  <li
-                    key={c.course_id}
-                    className="space-y-2 rounded-[14px] border border-white/10 bg-paper-raised p-3 shadow-[0_4px_8px_rgba(0,0,0,0.35)]"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="line-clamp-2 font-display text-[14px] font-medium leading-tight text-ink">
-                        {c.course_name}
-                      </p>
-                      {isOrdered && (
-                        <span className="shrink-0 font-display text-[26px] font-medium leading-none tabular-nums text-brand">
-                          {position}
+                  <li key={c.course_id}>
+                    <div
+                      className={played ? "rounded-[11px] px-2.5 py-2.5" : "py-2.5"}
+                      style={
+                        played
+                          ? {
+                              border: "1px solid transparent",
+                              background:
+                                "linear-gradient(rgba(91,228,195,0.084), rgba(91,228,195,0.084)) padding-box," +
+                                "linear-gradient(to bottom right, #5BE4C3, #8FE85B) border-box",
+                            }
+                          : undefined
+                      }
+                    >
+                      <div className="flex items-center gap-2">
+                        {isOrdered && (
+                          <span
+                            className={`flex shrink-0 items-baseline gap-[2px] ${played ? "text-brand" : "text-ink-3"}`}
+                          >
+                            <span className="text-[6px] font-bold tracking-[0.84px]">NO.</span>
+                            <span className="font-display text-[10px] font-medium tabular-nums">
+                              {position}
+                            </span>
+                          </span>
+                        )}
+                        <p className="min-w-0 flex-1 font-display text-[11.5px] font-medium leading-tight text-ink">
+                          {c.course_name}
+                        </p>
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-[2px] rounded-full px-[7px] py-1 text-[7px] font-semibold ${
+                            played
+                              ? "text-[#06231C]"
+                              : "border border-white/10 bg-[rgba(14,24,38,0.72)] text-ink"
+                          }`}
+                          style={
+                            played
+                              ? { background: "linear-gradient(to bottom right, #5BE4C3, #8FE85B)" }
+                              : undefined
+                          }
+                        >
+                          View
+                          <ChevronRight aria-hidden className="size-2" />
                         </span>
+                      </div>
+                      <div className="mt-[3px] flex items-center gap-1 text-[6px] font-bold uppercase tracking-[0.72px]">
+                        {played && (
+                          <>
+                            <Check aria-hidden className="size-[7px] text-brand" strokeWidth={3.5} />
+                            <span className="text-brand">Played</span>
+                            <span className="text-ink-3">·</span>
+                          </>
+                        )}
+                        <span className="line-clamp-1 text-ink-3">
+                          {c.county_name?.toUpperCase() ?? ""}
+                        </span>
+                      </div>
+                      {note && (
+                        <p className="pt-1 font-display text-[9.5px] italic leading-snug text-ink-2">
+                          &ldquo;{note}&rdquo;
+                        </p>
                       )}
                     </div>
-                    <div className="h-px w-full bg-white/10" />
-                    <p className="px-1 py-0.5 text-center font-display text-[11px] italic leading-snug text-ink-2">
-                      &ldquo;{note}&rdquo;
-                    </p>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="line-clamp-1 text-[7.5px] font-bold uppercase tracking-[0.16em] text-ink-3">
-                        {c.county_name?.toUpperCase() ?? ""}
-                      </p>
-                      <span className="inline-flex shrink-0 items-center rounded-full border border-white/10 px-2 py-[3px] text-[7.5px] font-bold uppercase tracking-[0.08em] text-ink-3">
-                        To play
-                      </span>
-                    </div>
+                    {nextUnplayed && <div className="mt-1 h-px bg-white/10" />}
                   </li>
                 );
               })}
@@ -190,6 +250,9 @@ export function CuratedPreviewContent({
                 +{courses.length - shown.length} more
               </p>
             )}
+            <p className="text-center text-[7px] text-ink-3/70">
+              First row shown in its played state.
+            </p>
           </>
         )}
       </div>

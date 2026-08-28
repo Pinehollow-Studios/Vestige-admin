@@ -8,6 +8,14 @@ import type { CSSProperties, ReactNode } from "react";
  * viewed on a Mac, so this is the real Apple typeface), and the notification
  * platter is a true frosted material (`backdrop-filter` blur over the
  * wallpaper). Colours are literal iOS values, not dashboard tokens.
+ *
+ * 2026-08-28 fidelity pass against the shipping app:
+ *   • The app icon is the flat two-tone GLOBE (#070A10 tile · #1B2D42 sphere ·
+ *     #7DE0B0 land) — the old mint-gradient golf-flag squircle never shipped.
+ *   • The inbox row mirrors `NotificationRow` as it renders today: rows sit
+ *     directly on the canvas (no card), a 40pt glyph tile (accent @14%,
+ *     radius 12), the age inline after the headline ("now" at 12px), a quoted
+ *     subline in the editorial italic, and an 8px mint unread dot with glow.
  */
 
 const SF: CSSProperties = {
@@ -37,7 +45,12 @@ function boldSegments(s: string): ReactNode[] {
   return out;
 }
 
-/** The Vestige app icon - mint→lime squircle + dark golf flag (matches the real icon). */
+/**
+ * The Vestige app icon — the flat two-tone globe, decoded from the shipping
+ * icon-1024.png: #070A10 tile, #1B2D42 sphere (~88% of the tile), #7DE0B0
+ * landmasses. No gradient, no bevel, no flag. The land shapes are a close
+ * hand-trace of the icon's Britain-forward hemisphere.
+ */
 export function VestigeAppIcon({ size = 40 }: { size?: number }) {
   return (
     <div
@@ -45,17 +58,27 @@ export function VestigeAppIcon({ size = 40 }: { size?: number }) {
         width: size,
         height: size,
         borderRadius: Math.round(size * 0.2237),
-        background: "linear-gradient(145deg, #5BE4C3 0%, #8FE85B 100%)",
-        boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.45), 0 1px 2px rgba(0,0,0,0.2)",
+        background: "#070A10",
+        boxShadow: "inset 0 0 0 0.5px rgba(255,255,255,0.10), 0 1px 2px rgba(0,0,0,0.2)",
         flexShrink: 0,
       }}
       className="flex items-center justify-center"
       aria-hidden
     >
-      <svg width={size * 0.58} height={size * 0.58} viewBox="0 0 100 100" fill="none">
-        <rect x="45" y="16" width="5.5" height="68" rx="2.75" fill="#06231C" />
-        <path d="M50.5 18 L83 30 L50.5 42 Z" fill="#06231C" />
-        <ellipse cx="50" cy="87" rx="23" ry="5" fill="#06231C" opacity="0.3" />
+      <svg width={size * 0.88} height={size * 0.88} viewBox="0 0 100 100" fill="none">
+        <circle cx="50" cy="50" r="44" fill="#1B2D42" />
+        {/* Britain + Ireland, simplified */}
+        <path
+          d="M52 18 C56 16 60 19 59 24 L63 30 C66 35 64 40 60 43 L61 50 C62 56 58 61 53 62 L49 58 C46 54 47 49 49 45 L46 38 C44 32 46 25 50 22 Z"
+          fill="#7DE0B0"
+        />
+        <path d="M39 44 C43 42 46 45 45 49 C44 53 40 55 37 52 C35 49 36 45 39 44 Z" fill="#7DE0B0" />
+        {/* Continental edge, lower right */}
+        <path
+          d="M66 56 C72 54 78 58 78 64 C78 70 72 75 66 73 C61 71 60 65 62 61 Z"
+          fill="#7DE0B0"
+          opacity="0.9"
+        />
       </svg>
     </div>
   );
@@ -105,7 +128,14 @@ export function IOSNotification({ title, body, time = "now" }: { title: string; 
   );
 }
 
-/** The in-app inbox row (Vestige dark "Atlas" surface) - for the inbox copy. */
+/**
+ * The in-app inbox row, mirroring `NotificationRow` (NotificationInboxRows.swift)
+ * as it ships today: on-canvas (no card chrome), 40pt glyph tile at accent@14%
+ * radius 12, headline at 14px with the inline age suffix, quoted sublines in
+ * the Manrope editorial italic, 8px unread dot with a mint glow. Rendered on a
+ * slice of the app's #070A10 canvas with the 52pt-inset hairline beneath, so
+ * the row reads in its real context.
+ */
 export function VestigeInboxRow({
   title,
   body,
@@ -117,27 +147,50 @@ export function VestigeInboxRow({
   icon?: ReactNode;
   unread?: boolean;
 }) {
+  const cleanBody = stripStars(body);
+  const isQuote = cleanBody.startsWith("“") || cleanBody.startsWith('"');
   return (
-    <div
-      className="flex items-start gap-3 rounded-2xl px-3.5 py-3"
-      style={{ ...SF, background: "rgba(20,34,53,0.92)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)" }}
-    >
-      <div
-        className="flex size-9 shrink-0 items-center justify-center rounded-xl text-[#06231C]"
-        style={{ background: "linear-gradient(145deg,#5BE4C3,#8FE85B)" }}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p style={{ fontSize: 14, color: "#F2EFE6", lineHeight: 1.35 }}>{title.trim() ? boldSegments(title) : "Vestige"}</p>
-        {stripStars(body) && (
-          <p style={{ fontSize: 12.5, color: "rgba(242,239,230,0.55)", lineHeight: 1.35 }}>{stripStars(body)}</p>
+    <div className="overflow-hidden rounded-2xl px-3 pt-1" style={{ background: "#070A10" }}>
+      <div className="flex items-center gap-3 py-[11px]" style={SF}>
+        <div
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl"
+          style={{ background: "rgba(91,228,195,0.14)", color: "#5BE4C3" }}
+        >
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p style={{ fontSize: 14, color: "#F2EFE6", lineHeight: 1.35 }} className="line-clamp-2">
+            {title.trim() ? boldSegments(title) : "Vestige"}
+            <span style={{ fontSize: 12, fontWeight: 500, color: "#66717E" }}>{"  now"}</span>
+          </p>
+          {cleanBody && (
+            <p
+              style={
+                isQuote
+                  ? {
+                      fontFamily: "Manrope, system-ui, sans-serif",
+                      fontStyle: "italic",
+                      fontSize: 13,
+                      color: "#9DA9B6",
+                      lineHeight: 1.35,
+                    }
+                  : { fontSize: 12, fontWeight: 500, color: "#9DA9B6", lineHeight: 1.35 }
+              }
+              className={isQuote ? "mt-0.5 line-clamp-2" : "mt-0.5 line-clamp-1"}
+            >
+              {cleanBody}
+            </p>
+          )}
+        </div>
+        {unread && (
+          <span
+            className="size-2 shrink-0 rounded-full"
+            style={{ background: "#5BE4C3", boxShadow: "0 0 8px rgba(91,228,195,0.6)" }}
+          />
         )}
-        <p style={{ fontSize: 10, letterSpacing: 0.4, color: "rgba(242,239,230,0.35)" }} className="mt-0.5 uppercase">
-          now
-        </p>
       </div>
-      {unread && <span className="mt-1 size-2 shrink-0 rounded-full" style={{ background: "#5BE4C3" }} />}
+      {/* The list divider - 52pt leading inset (40 tile + 12 gap), like the app. */}
+      <div style={{ height: 1, background: "rgba(255,255,255,0.10)", marginLeft: 52 }} />
     </div>
   );
 }

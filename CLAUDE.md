@@ -1,4 +1,12 @@
 
+- **2026-08-28** — **Preview fidelity pass.** All iOS mirrors matched to the
+  shipping app: app icon is the two-tone globe (was a wrong gradient flag),
+  inbox row mirrors on-canvas `NotificationRow`, curated roll rebuilt to the
+  0.4.1 `CuratedCourseRow` (filler notes deleted — that era is over), NEW
+  app-true event card + prize card previews, announcement card to the true
+  glass-sheet spec, medallion lock states + crest colours corrected.
+  Long-form in `CHANGELOG.md` 2026-08-28 (preview fidelity).
+
 - **2026-08-28** — **Flags control room rebuild.** /flags is one searchable
   list (Features/Copy/Tuning by value type), positive-only toggles (the
   enabled-vs-value riddle is UI-dead), blast-radius confirms + optional note,

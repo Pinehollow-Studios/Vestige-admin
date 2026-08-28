@@ -5,6 +5,55 @@
 
 ---
 
+## 2026-08-28 — Preview fidelity pass: every iOS mirror matched to the shipping app
+
+Tom's brief: the previews had drifted from the app. Two audits ran first — an
+inventory of all nine bunker preview surfaces, and a token-level visual spec
+extracted from the iOS code (colours, fonts, radii, paddings) — then each
+preview was diffed and corrected.
+
+**The app icon was flat-out wrong.** Every notification preview drew a
+mint-gradient squircle with a golf flag; the shipping icon is a flat two-tone
+globe (#070A10 tile · #1B2D42 sphere · #7DE0B0 land, decoded from
+icon-1024.png). `VestigeAppIcon` redrawn; the inbox row's inline duplicate
+tile replaced with the correct glyph-tile treatment.
+
+**Notification inbox row** — the app dropped the card style long ago: rows
+sit directly on the canvas. The preview now mirrors `NotificationRow` as
+shipped: 40pt glyph tile (accent@14%, radius 12), headline with the inline
+"now" age suffix, quoted sublines in the Manrope editorial italic, an 8px
+mint unread dot with glow, and the 52pt-inset list hairline beneath.
+
+**Curated list preview** — the roll was still the pre-0.4.1 design (raised
+cards, big mint numerals, fabricated "filler" notes). Rebuilt to
+`CuratedCourseRow`: played rows as mint-washed cards with the mint→lime
+gradient border, unplayed rows flat with hairlines between them, "NO." rank
+clusters, PLAYED datelines with the tick, View pills (gradient when played),
+editor notes only when written — the app's filler-quote era is over, so
+`FILLER_NOTES` is deleted. Masthead gains the Save capsule in the floating
+chrome, the READ MORE fold, and the segmented All/Played/To-play filter.
+First row renders in its played state so both looks are visible.
+
+**Events finally has app-true previews**: a new `ClubhouseEventCardPreview`
+(the 300×128 What's-on card — no poster image, corner glow, diagonal hatch,
+status dot + word, Manrope 22 title, gradient progress ring with the days
+label) and the prize row restyled to `ClubhouseEventPrizeCard` ("THE PRIZE"
+eyebrow, earned medallion — a prize is never locked, award-rule line,
+chevron).
+
+**Announcement card** re-scaled to the true `VGlassSheet` spec at 0.72
+(radius 17, Manrope 23 title, 37pt gradient capsule CTA with the accent
+underglow, top-rim highlight) and its caption no longer apologises with
+"Approximate".
+
+**Small trues-ups**: badge medallion locked/impression filter matched to iOS
+(`brightness 0.94 · opacity 0.85`, lock chip on #070A10 with the fillSoft
+stroke); society crest amber/claret/sea corrected to the Theme tokens the
+app actually resolves (#F4A85C / #E2664E / #1B2D42 — the bunker's were
+bespoke wrong hexes). Course preview left as-is (verified current).
+
+Verified `tsc` + `eslint` + one `next build`.
+
 ## 2026-08-28 — Flags control room: one honest list, history, and the version gate folded in
 
 Full rebuild of /flags (Tom: "super confusing and hard to use" — the audit

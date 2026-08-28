@@ -290,6 +290,11 @@ function PreviewCard({
 }) {
   const hasAction = actionKind !== "dismiss" && actionLabel.trim().length > 0;
   const primaryLabel = hasAction ? actionLabel : dismissLabel || "Got it";
+  // Mirrors AnnouncementCardView.swift at ~0.72 scale: VGlassSheet radius 24
+  // (→17), padding 18 (→13), spacing 14 (→10); h2 title Manrope-Medium 32
+  // (→23, tracking −0.5); eyebrow uiMeta 12 medium tracking 0.8 accentInk;
+  // body postBody 15 (→11) textSecondary; highlights = 14pt check + 12pt text
+  // at spacing 12; VPillButton = 52pt capsule (→37) with the accent underglow.
   return (
     <section className="space-y-3 rounded-xl glass-panel p-5">
       <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
@@ -297,38 +302,45 @@ function PreviewCard({
       </h3>
       {/* Flat 55% black scrim over the app surface — the card floats centred. */}
       <div className="flex items-center justify-center rounded-xl bg-paper p-4">
-        <div className="flex w-full items-center justify-center rounded-lg bg-black/55 px-3 py-5">
-          {/* The floating glass card — SurfaceGlass fill, 12% border, rim light. */}
-          <div className="w-full max-w-[280px] overflow-hidden rounded-[15px] border border-white/12 bg-[rgba(14,24,38,0.72)] shadow-[0_11px_20px_rgba(0,0,0,0.6)] backdrop-blur-md">
-            <div className="space-y-3 px-4 pt-4 pb-2 text-[#F2EFE6]">
+        <div className="flex w-full items-center justify-center rounded-lg bg-black/55 px-4 py-5">
+          {/* VGlassSheet: surfaceGlass fill, 1pt border, top-rim highlight, s2 shadow. */}
+          <div
+            className="w-full max-w-[300px] overflow-hidden rounded-[17px] border border-white/12 bg-[rgba(14,24,38,0.72)] backdrop-blur-xl"
+            style={{
+              boxShadow:
+                "inset 0 1px 0 rgba(255,255,255,0.14), 0 13px 46px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div className="space-y-2.5 px-[13px] pb-1.5 pt-[13px] text-[#F2EFE6]">
               {heroURL && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={heroURL}
                   alt=""
-                  className="aspect-video w-full rounded-[9px] border border-white/12 object-cover"
+                  className="aspect-video w-full rounded-[10px] border border-white/12 object-cover"
                 />
               )}
               {eyebrow.trim() && (
-                <p className="text-[8px] font-medium uppercase tracking-[0.08em] text-[#5BE4C3]">
+                <p className="text-[9px] font-medium uppercase tracking-[0.8px] text-[#5BE4C3]">
                   {eyebrow}
                 </p>
               )}
-              <p className="font-display text-[19px] font-medium leading-tight tracking-tight text-[#F2EFE6]">
+              <p className="font-display text-[23px] font-medium leading-[1.12] tracking-[-0.36px] text-[#F2EFE6]">
                 {title || "Untitled announcement"}
               </p>
               {body.trim() && (
-                <p className="text-[11px] leading-relaxed text-[#9DA9B6]">{body}</p>
+                <p className="text-[11px] leading-normal text-[#9DA9B6]">{body}</p>
               )}
               {highlights.filter((h) => h.trim()).length > 0 && (
-                <ul className="space-y-2 pt-1">
+                <ul className="space-y-[9px] pt-1">
                   {highlights
                     .filter((h) => h.trim())
                     .map((h, i) => (
-                      <li key={i} className="flex items-start gap-2 text-[9px] font-medium text-[#F2EFE6]">
+                      <li key={i} className="flex items-start gap-[9px] text-[9px] font-medium text-[#F2EFE6]">
+                        {/* checkmark.circle.fill — a filled mint circle. */}
                         <CircleCheck
                           aria-hidden
-                          className="mt-px size-3 shrink-0 fill-[#5BE4C3] text-[#0E1826]"
+                          className="mt-px size-2.5 shrink-0 fill-[#5BE4C3] text-[#0E1826]"
                         />
                         <span>{h}</span>
                       </li>
@@ -336,12 +348,12 @@ function PreviewCard({
                 </ul>
               )}
             </div>
-            <div className="space-y-2 px-4 pb-4 pt-2.5">
+            <div className="space-y-[9px] px-[13px] pb-[13px] pt-2.5">
               <button
                 type="button"
                 disabled
-                className="w-full rounded-full border border-white/12 py-2.5 text-center text-[11px] font-semibold text-[#06231C] shadow-[0_7px_15px_rgba(91,228,195,0.4)]"
-                style={{ background: "linear-gradient(135deg, #5BE4C3, #8FE85B)" }}
+                className="h-[37px] w-full rounded-full border border-white/12 text-center text-[11px] font-semibold text-[#06231C] shadow-[0_9px_35px_rgba(91,228,195,0.4)]"
+                style={{ background: "linear-gradient(to bottom right, #5BE4C3, #8FE85B)" }}
               >
                 {primaryLabel}
               </button>
@@ -349,7 +361,7 @@ function PreviewCard({
                 <button
                   type="button"
                   disabled
-                  className="w-full py-1 text-center text-[10.5px] font-semibold text-[#9DA9B6]"
+                  className="h-[26px] w-full text-center text-[10px] font-semibold text-[#9DA9B6]"
                 >
                   {dismissLabel || "Got it"}
                 </button>
@@ -359,7 +371,7 @@ function PreviewCard({
         </div>
       </div>
       <p className="text-[11px] leading-snug text-muted-foreground">
-        Approximate - the iOS card composes the same fields with the app&apos;s native styling.
+        Mirrors the iOS announcement card (glass sheet, 2026-08 spec) at reduced scale.
       </p>
     </section>
   );
