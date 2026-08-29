@@ -36,18 +36,25 @@ const BAND_LABEL: Record<string, string> = {
   "45_54": "45-54",
   "55_64": "55-64",
   "65_plus": "65+",
-  // handicap bands
+  // handicap bands - widened 2026-08-29; the narrow bands below are
+  // superseded but still arriving from 0.4.x clients, so they keep labels.
   scratch_or_better: "Scratch+",
-  "1_5": "1-5",
-  "6_12": "6-12",
-  "13_20": "13-20",
-  "21_28": "21-28",
+  "1_9": "1-9",
+  "10_18": "10-18",
+  "19_28": "19-28",
   "29_plus": "29+",
   no_handicap: "No handicap",
-  // player type
+  dont_know: "Don't know",
+  "1_5": "1-5 (legacy)",
+  "6_12": "6-12 (legacy)",
+  "13_20": "13-20 (legacy)",
+  "21_28": "21-28 (legacy)",
+  // player type - retuned 2026-08-29 to casual/member/professional.
+  casual: "Casual",
   member: "Member",
+  professional: "Professional",
   society: "Society (legacy)",
-  visitor: "Visitor",
+  visitor: "Visitor (legacy)",
   // shared
   prefer_not: "Prefer not to say",
 };
