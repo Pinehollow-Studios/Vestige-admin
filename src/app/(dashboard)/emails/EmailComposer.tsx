@@ -11,6 +11,7 @@ import { AudiencePicker } from "@/components/admin/AudiencePicker";
 import type { PickerUser } from "@/lib/users/roster";
 import type { EmailStarter } from "@/lib/email/starters";
 import { checkEmailCompliance } from "@/lib/email/compliance";
+import { previewEmail } from "@/lib/email/shell";
 import { StarterPicker } from "./StarterPicker";
 import { SendTestButton } from "./SendTestButton";
 import { CompliancePanel } from "./CompliancePanel";
@@ -122,7 +123,13 @@ export function EmailComposer(props: EmailComposerProps) {
   const isCanceled = props.status === "canceled";
   const editable = !isSent && !isCanceled;
 
-  const previewHtml = useMemo(() => render(html, SAMPLE), [html]);
+  // The preview runs the same two steps the senders do, in the same order:
+  // prepend the preheader, then substitute the tokens. So what Jack sees here is
+  // what lands, rather than the stored HTML minus the bits added at send time.
+  const previewHtml = useMemo(
+    () => render(previewEmail(html, preheader), SAMPLE),
+    [html, preheader],
+  );
 
   // Live legal/deliverability checks — re-run on every edit.
   const checks = useMemo(

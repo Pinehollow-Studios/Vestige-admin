@@ -1,4 +1,17 @@
 
+- **2026-09-01** — **One email shell.** `src/lib/email/shell.ts` is now the single
+  source for every Vestige email: both appearances as palette tokens plus the
+  content blocks. `scripts/email-templates/generate.ts` builds the twelve
+  `email_templates` rows from it (dark set APPLIED to prod + dev, identical
+  fingerprints; light set held as a standby; `account_changed` seeded for the
+  first time), and `starters.ts` builds the eight composer starters from it — so
+  a campaign and a password reset are the same email. Gradient buttons are now
+  four-layer (VML / CSS gradient / background-image PNG / solid) because Gmail
+  strips CSS gradients and was rendering them flat. Compliance panel gained six
+  checks; composer preview now injects the preheader the way the senders do.
+  **Open:** both Edge Function fallbacks are still the retired light shell
+  (frozen until 4 Sep). Long-form in `CHANGELOG.md` 2026-09-01.
+
 - **2026-08-28** — **Beta-1 prod wipe EXECUTED.** All 5 app accounts + every
   trace of use + operational history + 235 storage files gone; content, admin
   fabric, waitlist/email spine kept (guard-verified). Kit in

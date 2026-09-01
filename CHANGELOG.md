@@ -5,6 +5,66 @@
 
 ---
 
+## 2026-09-01 — One email shell, applied to prod and dev
+
+**The problem.** Vestige had three email shells. The twelve rows in
+`public.email_templates`, the marketing site's `emailShell.tsx`, and the Bunker's
+own `starters.ts` had each been written separately and drifted. Seven stored
+templates were on a July dark shell; the four security notices seeded on 21 August
+were still on the 2025 white card, using `#3FA889` — a mint in no palette — with a
+decorative gradient built from the *dark* lime on a white ground. The fleet
+rendered as two different brands, and none of the twelve declared its appearance,
+so Outlook and Apple Mail were free to re-tint what was left.
+
+**The shell.** `src/lib/email/shell.ts` is now the single source: both appearances
+as named palette tokens, and the content blocks every email is made of — eyebrow,
+headings, paragraph, steps, stats, panel, seal, code, divider, button, link
+fallback, sign-off. `scripts/email-templates/generate.ts` builds the twelve
+automatic emails from it and emits guarded SQL; `starters.ts` builds the eight
+composer starters from it. A change to the shell now regenerates both instead of
+drifting from one.
+
+**Applied.** The dark set went to prod and dev on 1 September; both projects hold
+12 rows with an identical `md5(string_agg(md5(html)))` fingerprint. Backups of the
+prior 11 rows per project are in
+`~/Documents/VESTIGE/backups/email-templates-2026-09-01/`. A twelfth row,
+`account_changed`, was seeded for the first time — it was a permitted key with no
+row, so if a phone or MFA notice ever fired it rendered an unstyled white
+paragraph. A full light set is generated and held as a standby.
+
+**The gradient, which was the actual complaint.** Tom had seen the mint→lime
+gradient arrive as a flat block in Gmail, which strips CSS gradients outright. The
+button now carries four independent layers: VML `<v:roundrect>` with a real
+gradient fill for Outlook's Word engine (no gradients, no border-radius); a CSS
+`linear-gradient` for Apple Mail and iOS Mail; the `background` **attribute**
+pointing at a gradient PNG, which is the layer Gmail honours and the one that was
+missing; and `bgcolor` solid mint underneath for anything left and for images-off.
+The PNGs are generated from the palette and served from `vestige.golf/brand/`.
+
+**Also covered**, each a real failure mode: `color-scheme` +
+`supported-color-schemes` so nothing force-inverts; Outlook `data-ogsb`/`data-ogsc`
+overrides pinning every surface; the `PixelsPerInch` block for high-DPI Windows;
+`x-apple-disable-message-reformatting`; a preheader on every automatic email; and
+the button's destination printed in plain text underneath.
+
+**Compliance panel** gained six checks, each for something we have shipped at least
+once: dark not declared, a gradient with no image fallback, Gmail's ~102KB clipping
+point, images without alt, house voice (em dashes, exclamation marks, US spellings
+— matched against visible text only, after the first cut fired on `color-scheme` in
+the CSS), and retired palette colours. Negative-tested one case per check.
+
+**Composer preview** was wrong and is fixed: it rendered the stored HTML, but the
+senders *inject* the preheader at send time, so the preview was never what landed.
+It now runs the same two steps in the same order.
+
+**Still open.** `send-welcome` and `auth-email-hook` each fall back to hardcoded
+light HTML when the template read returns nothing, silently and with no log line —
+the most likely explanation for the light welcome email that arrived on 31 August.
+Fixing them is an Edge Function deploy, blocked by the iOS freeze until 4 September.
+The footer's postal address is still a placeholder in the starters.
+
+---
+
 ## 2026-08-28 — Beta-1 prod wipe executed + wipe kit, ghost review account, founding-Pro armed
 
 **The wipe.** Prod was fully reset for beta 1, on Tom's GO after a staged plan.
