@@ -16,7 +16,6 @@
  */
 
 import {
-  ADDRESS_PLACEHOLDER,
   button,
   divider,
   eyebrow,
@@ -44,9 +43,9 @@ const NOTE =
   "You&rsquo;re getting this because you have a Vestige account.";
 
 function marketing(body: string): string {
-  // Campaigns are commercial mail, so they carry the address line. The
-  // placeholder is deliberate: the compliance panel warns until it is replaced.
-  return wrapEmail({ body, footerNote: NOTE, unsubscribe: true, address: ADDRESS_PLACEHOLDER });
+  // The sender identity line comes from the shell by default, so a campaign
+  // cannot go out without it.
+  return wrapEmail({ body, footerNote: NOTE, unsubscribe: true });
 }
 
 export const EMAIL_STARTERS: EmailStarter[] = [

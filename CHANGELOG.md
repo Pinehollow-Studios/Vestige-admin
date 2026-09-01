@@ -57,6 +57,18 @@ the CSS), and retired palette colours. Negative-tested one case per check.
 senders *inject* the preheader at send time, so the preview was never what landed.
 It now runs the same two steps in the same order.
 
+**Postal address, since resolved.** The footer carried `[add postal address]` and
+the compliance panel warned on every starter. The real details were already
+written down in `vestige-marketing/legal/` — terms of service, privacy policy and
+the beta testing agreement all agree, as does the live privacy page. They are now
+a `COMPANY_FOOTER` constant in the shell and appear on **every** email, not only
+campaigns: a UK limited company's business correspondence carries its trading
+disclosures (registered name, number, place of registration, registered office),
+and a password reset from Pinehollow is business correspondence. CAN-SPAM's
+physical-address rule for commercial mail is covered by the same line. All eight
+starters now pass compliance clean, apart from the blank one, which fails on an
+empty subject by design.
+
 **Still open.** `send-welcome` and `auth-email-hook` each fall back to hardcoded
 light HTML when the template read returns nothing, silently and with no log line —
 the most likely explanation for the light welcome email that arrived on 31 August.

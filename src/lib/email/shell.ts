@@ -99,8 +99,24 @@ export const FONT =
 /** The footer strap. Kept identical to the automatic templates. */
 export const FOOTER_STRAP = "Vestige &middot; Every course in England, tracked.";
 
-/** Flagged by the compliance panel until it is replaced with a real address. */
-export const ADDRESS_PLACEHOLDER = "[add postal address]";
+/**
+ * The sender's legal identity, shown quietly in every footer.
+ *
+ * Taken verbatim from the registered office in `vestige-marketing/legal/`
+ * (terms-of-service.md, privacy-policy.md, beta-testing-agreement.md) and the
+ * live privacy page, all of which agree. If the company details ever move, they
+ * move there first and this follows.
+ *
+ * It is on EVERY email, not just campaigns. A UK limited company's business
+ * correspondence carries its trading disclosures - registered name, number,
+ * place of registration and registered office - and a password reset from
+ * Pinehollow is business correspondence. US CAN-SPAM separately requires a
+ * physical address on commercial mail, which the campaigns are.
+ */
+export const COMPANY_FOOTER =
+  "Pinehollow Studios Limited &middot; Registered in England and Wales, " +
+  "company number 17212889 &middot; 82A James Carter Road, Mildenhall, " +
+  "Bury St. Edmunds, IP28 7DE, United Kingdom";
 
 // ── Content blocks ───────────────────────────────────────────────────────────
 // Everything a campaign can contain. Each returns a fragment for the card body,
@@ -314,12 +330,11 @@ export type WrapOptions = {
   /** Marketing email: show the visible unsubscribe link. */
   unsubscribe?: boolean;
   /**
-   * Postal address line. CAN-SPAM needs a real one for any US recipient, so
-   * campaigns pass it (starters pass ADDRESS_PLACEHOLDER, which the compliance
-   * panel then nags about). Omit it entirely for transactional and security
-   * mail, which is exempt — and never let the placeholder reach an inbox.
+   * Overrides the sender identity line. Defaults to COMPANY_FOOTER, which is
+   * what every email should carry; pass `null` only for a surface that genuinely
+   * must not show it.
    */
-  address?: string;
+  address?: string | null;
 };
 
 /**
@@ -333,8 +348,9 @@ export function wrapEmail(opts: WrapOptions): string {
     ? ` <a href="{{unsubscribe_url}}" style="color:${t.ink2};text-decoration:underline;">Unsubscribe</a>.`
     : "";
   const note = opts.footerNote ?? "";
-  const addressLine = opts.address
-    ? `\n    <p style="margin:8px 0 0 0;font-size:12px;line-height:18px;color:${t.ink3};">Pinehollow Studios &middot; ${opts.address}</p>`
+  const address = opts.address === undefined ? COMPANY_FOOTER : opts.address;
+  const addressLine = address
+    ? `\n    <p style="margin:8px 0 0 0;font-size:11px;line-height:17px;color:${t.ink3};">${address}</p>`
     : "";
 
   return `<!doctype html><html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" \
