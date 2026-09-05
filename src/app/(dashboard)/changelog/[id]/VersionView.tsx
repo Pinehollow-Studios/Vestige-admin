@@ -41,6 +41,14 @@ export function VersionView({
           >
             {VERSION_STATUS_LABELS[version.status]}
           </span>
+          {version.build_number != null && (
+            <span
+              className="rounded bg-ink-3/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-ink-3"
+              title="Build number - monotonic for the life of the app, never resets on a version bump"
+            >
+              build {version.build_number}
+            </span>
+          )}
           {version.released_at && (
             <span className="text-xs text-ink-3">{formatDate(version.released_at)}</span>
           )}

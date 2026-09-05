@@ -37,10 +37,19 @@ function isUniqueViolation(message: string): boolean {
  * `version` and the (major,minor,patch) tuple are unique in the DB, so a repeat
  * is reported rather than silently duplicated.
  */
-export async function createVersion(version: string): Promise<ActionResult<string>> {
+export async function createVersion(
+  version: string,
+  buildNumber?: number | null,
+): Promise<ActionResult<string>> {
   const parsed = parseVersion(version);
   if (!parsed) {
     return { ok: false, message: "Use a version like 0.1.2 (or 0.1)." };
+  }
+  // The build number never resets across marketing bumps, so a new entry
+  // continues the count rather than restarting it. The form prefills
+  // the next number; this only guards against a hand-typed nonsense.
+  if (buildNumber != null && (!Number.isInteger(buildNumber) || buildNumber < 1)) {
+    return { ok: false, message: "Build number must be a whole number of 1 or more." };
   }
 
   const admin = await requireAdmin();
@@ -54,6 +63,7 @@ export async function createVersion(version: string): Promise<ActionResult<strin
       minor: parsed.minor,
       patch: parsed.patch,
       status: "draft",
+      build_number: buildNumber ?? null,
       created_by_admin_id: admin.id,
       last_edited_by_admin_id: admin.id,
     })
@@ -62,6 +72,14 @@ export async function createVersion(version: string): Promise<ActionResult<strin
 
   if (error) {
     if (isUniqueViolation(error.message)) {
+      // Two unique keys can collide here: the version string and the build
+      // number. Say which, or the admin is left guessing.
+      if (error.message.includes("build_number")) {
+        return {
+          ok: false,
+          message: `Build ${buildNumber} is already used by another version.`,
+        };
+      }
       return { ok: false, message: `Version ${parsed.version} already exists.` };
     }
     return { ok: false, message: error.message };
@@ -74,6 +92,7 @@ export type VersionPatch = {
   version?: string;
   title?: string | null;
   summary?: string | null;
+  build_number?: number | null;
 };
 
 /**
@@ -99,6 +118,15 @@ export async function updateVersion(
   }
   if (patch.title !== undefined) update.title = patch.title?.trim() || null;
   if (patch.summary !== undefined) update.summary = patch.summary?.trim() || null;
+  if (patch.build_number !== undefined) {
+    if (
+      patch.build_number != null &&
+      (!Number.isInteger(patch.build_number) || patch.build_number < 1)
+    ) {
+      return { ok: false, message: "Build number must be a whole number of 1 or more." };
+    }
+    update.build_number = patch.build_number;
+  }
 
   if (Object.keys(update).length === 0) return { ok: true };
   update.last_edited_by_admin_id = admin.id;
@@ -106,6 +134,9 @@ export async function updateVersion(
   const { error } = await supabase.from("app_versions").update(update).eq("id", id);
   if (error) {
     if (isUniqueViolation(error.message)) {
+      if (error.message.includes("build_number")) {
+        return { ok: false, message: "That build number is already used by another version." };
+      }
       return { ok: false, message: "That version number is already taken." };
     }
     return { ok: false, message: error.message };

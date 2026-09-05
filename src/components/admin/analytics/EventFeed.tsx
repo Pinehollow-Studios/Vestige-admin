@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { eventLabel, eventGroup, GROUP_LABEL, propertyLabel, valueLabel, type EventGroup } from "@/lib/analytics/config";
 import type { AppEventRow } from "@/lib/analytics/queries";
 import { EmptyHint } from "./viz";
+import { formatVersionBuild } from "@/lib/appBuild";
 
 const GROUP_TONE: Record<EventGroup, string> = {
   onboarding: "border-info/40 text-info",
@@ -80,7 +81,7 @@ export function EventFeed({ rows, emptyLabel = "No events yet." }: { rows: AppEv
             <div className="shrink-0 text-right">
               <p className="text-[11px] tabular-nums text-ink-3">{relTime(r.created_at)}</p>
               <p className="text-[10px] text-ink-3/70">
-                {[r.device_model, r.app_version].filter(Boolean).join(" · ")}
+                {[r.device_model, formatVersionBuild(r.app_version, r.app_build)].filter(Boolean).join(" · ")}
               </p>
             </div>
           </li>

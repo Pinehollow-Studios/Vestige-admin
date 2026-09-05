@@ -47,6 +47,7 @@ import {
   workStageLabel,
   workStageTone,
 } from "@/lib/feedback/types";
+import { formatVersionBuildOrDash } from "@/lib/appBuild";
 
 export const dynamic = "force-dynamic";
 
@@ -557,7 +558,7 @@ function SidebarMeta({ report }: { report: FeedbackReport }) {
           {report.ios_version ?? "-"}
         </MetaRow>
         <MetaRow icon={Hash} label="App version">
-          {report.app_version ?? "-"}
+          {formatVersionBuildOrDash(report.app_version, report.app_build)}
         </MetaRow>
         <MetaRow icon={Hash} label="Screen">
           {report.screen ?? "-"}

@@ -24,16 +24,18 @@ import {
   type Appearance,
   button,
   code,
+  divider,
   eyebrow,
   h1,
+  h2,
   linkFallback,
+  milestones,
   p,
   PALETTE,
   panel,
   seal,
   signoff,
   stats,
-  steps,
   wrapEmail,
 } from "../../src/lib/email/shell";
 
@@ -98,8 +100,22 @@ const TEMPLATES: Template[] = [
     name: "Welcome",
     description: "Sent once when a new member finishes onboarding.",
     subject: "Welcome to Vestige",
-    preheader: "This is where your collection begins. 1,795 courses, 47 counties, one map.",
-    tokens: ["first_name", "unsubscribe_url"],
+    preheader: "Your collection starts here. How Vestige works, and what happens next.",
+    // Personal figures come from `send-welcome` at send time (see the token
+    // notes in the README). The stats pair is fully tokenised so the function
+    // can choose the member's own numbers or the England-wide pair; the
+    // template never has to know which.
+    tokens: [
+      "first_name",
+      "username",
+      "app_url",
+      "stat1_value",
+      "stat1_label",
+      "stat2_value",
+      "stat2_label",
+      "founding_number",
+      "unsubscribe_url",
+    ],
     unsubscribe: true,
     footerNote:
       "You&rsquo;re getting this because you created a Vestige account. It&rsquo;s a one-off welcome, not a mailing list.",
@@ -108,22 +124,37 @@ const TEMPLATES: Template[] = [
       h1("Welcome, {{first_name}}.", a) +
       p("Ask most golfers how many courses they&rsquo;ve played and you&rsquo;ll get a shrug, maybe a story about a links in Cornwall. What you won&rsquo;t get is a number. Now you will.", a) +
       stats([
-        { value: "1,795", label: "Courses waiting" },
-        { value: "47", label: "Counties to fill" },
+        { value: "{{stat1_value}}", label: "{{stat1_label}}" },
+        { value: "{{stat2_value}}", label: "{{stat2_label}}" },
       ], a) +
-      p("Every course you play fills in a little more of the country. Three good ways to start:", a) +
-      steps([
-        "Mark the courses you&rsquo;ve already played, and watch the map light up.",
-        "Add a friend or two, and see whose collection runs deepest.",
-        "Log your next round the day you play it.",
-      ], a) +
-      // Window-only: pull this panel when the founding programme closes.
+      p("Every course you mark from here fills in a little more of the map, and the counties tick up as you go.", a) +
+      button("Open Vestige", "{{app_url}}", a) +
+      divider(a) +
+      h2("Two things you can do at a course", a) +
+      p(`<strong style="color:${PALETTE[a].ink};font-weight:600;">Mark it played.</strong> One tap, and a lifetime fact: you&rsquo;ve been there. This is what fills the map, completes counties and counts towards your collection. One per course, no date needed.`, a) +
+      p(`<strong style="color:${PALETTE[a].ink};font-weight:600;">Log a round.</strong> A dated visit, with the holes, a score if you kept one, photos, and who you played with. Log as many as you like at the same course. Tag a friend and the course counts towards their collection too.`, a) +
+      p("From here on you mark courses one at a time, from the map or the course page. That&rsquo;s deliberate. A mark should mean you were there, or nobody&rsquo;s collection means much.", a) +
+      divider(a) +
+      h2("Better with company", a) +
+      p("Add a friend and you can see each other&rsquo;s maps, compare collections and settle who&rsquo;s been to more. Your profile is private until you say otherwise, and the link below is how someone finds you.", a) +
+      p(`<a href="{{app_url}}" style="color:${PALETTE[a].ink};text-decoration:underline;">vestige.golf/u/{{username}}</a>`, a) +
+      // Window-only: pull this panel when the founding programme closes
+      // (after the March 2027 launch), and revisit the beta line at each
+      // release window - it reads as written to a private-beta tester.
       panel(
-        seal("Founding member", a) +
-          '<p style="margin:0;font-size:14px;line-height:21px;">You&rsquo;re one of the first people using Vestige, so a numbered founding badge and six months of Pro are already on your account. The badge stops being given out.</p>' +
-          '<p style="margin:10px 0 0 0;font-size:14px;line-height:21px;">Some of the app is still being built. Shake your phone anywhere in it to send us a note - it attaches what you were looking at, and we reply to you in the app.</p>',
+        seal("Founding member {{founding_number}}", a) +
+          '<p style="margin:0;font-size:14px;line-height:21px;">You&rsquo;re one of the first people using Vestige. A numbered founding badge and six months of Pro are already on your account, and the badge stops being given out at launch.</p>' +
+          '<p style="margin:10px 0 0 0;font-size:14px;line-height:21px;">This is a beta, so parts of the app are still being built and some things will move between versions. If something looks wrong, shake your phone anywhere in the app to send us a note. It attaches what you were looking at, and we reply in the app.</p>',
         a,
       ) +
+      divider(a) +
+      h2("What happens next", a) +
+      milestones([
+        ["Now", "Beta on TestFlight.", "New builds arrive every week or two, and TestFlight updates them for you."],
+        ["Oct 2026", "Public beta.", "Opens to the waiting list at vestige.golf."],
+        ["Jan 2027", "Version 1.0.", "Publicly available, and free. The full app, for anyone who wants in early."],
+        ["Mar 2027", "Launch day.", "Vestige, out in the world, free for everyone."],
+      ], a) +
       p("A vestige is the trace something leaves behind, and every round you play leaves one. This is where you keep them.", a, true) +
       signoff("- Jack and Tom", a),
   },
@@ -285,6 +316,28 @@ on conflict (key) do update set
     updated_at       = now();
 
 select key, length(html) as html_len, updated_at from public.email_templates order by key;
+`,
+    );
+  }
+
+  // The send-welcome Edge Function's fallback, as a module it can import: the
+  // stored dark 'welcome' row byte-for-byte, so a failed email_templates read
+  // is invisible to the recipient. Copy it over
+  // vestige-ios/supabase/functions/send-welcome/welcome_fallback.ts and
+  // redeploy whenever the welcome changes (README: "What the senders add").
+  if (appearance === "dark") {
+    const w = built.find((t) => t.key === "welcome");
+    if (!w) throw new Error("no welcome template to emit a fallback for");
+    writeFileSync(
+      join(dir, "welcome_fallback.ts"),
+      `// GENERATED by vestige-bunker/scripts/email-templates/generate.ts - do not edit.
+// The stored 'welcome' row of public.email_templates, byte-for-byte, for
+// send-welcome to fall back on when the table read returns nothing. To change
+// the welcome: edit the generator, regenerate, apply the SQL, copy this file
+// over supabase/functions/send-welcome/welcome_fallback.ts, redeploy.
+export const WELCOME_FALLBACK_SUBJECT = ${JSON.stringify(w.subject)};
+export const WELCOME_FALLBACK_TOKENS: readonly string[] = ${JSON.stringify(w.tokens)};
+export const WELCOME_FALLBACK_HTML = ${JSON.stringify(w.html)};
 `,
     );
   }

@@ -6,8 +6,32 @@
   `src/lib/analytics/screens.ts`), the setup funnel with a connection-vs-walked-
   away verdict per unfinished account, recent sessions as page sequences, and
   marks by path. Reads the iOS `20260905170000_analytics_coverage_views.sql`
-  views (dev + PROD applied 2026-09-05); empty states until the app update that
-  emits `screen_viewed` ships. Long-form in `CHANGELOG.md` 2026-09-05.
+  views (dev + PROD applied 2026-09-05); empty states until the app
+  update that emits `screen_viewed` ships. Long-form in `CHANGELOG.md` 2026-09-05.
+
+- **2026-09-05** — **The build number, everywhere.** iOS `CFBundleVersion` is now
+  monotonic for the life of the app (never resets on a marketing bump; seeded at
+  **25** from the real App Store Connect history). The bunker reads it wherever it
+  showed a version: `src/lib/appBuild.ts` formats `0.4.4 (25)`, wired into the
+  feedback thread pane + detail, the analytics tester table and event feed, and
+  the user detail's "Last seen". The **changelog** carries it too —
+  `app_versions.build_number`, backfilled 1-24 across the whole release history
+  (an exact 1:1 with the 24 ASC build groups), shown on the version cards and the
+  detail header, editable in `VersionEditor`, and **prefilled on create** with
+  max+1 so a new entry continues the count instead of restarting at 1. Reads the
+  iOS `20260905180000` + `20260905190000` (dev + PROD applied 2026-09-05, both
+  ledgers 293). Long-form in `CHANGELOG.md` 2026-09-05.
+
+- **2026-09-04** — **Welcome reworked + personalised; strap is "collected".**
+  `email_templates.welcome` now carries the member's own figures (courses on
+  their map vs home-county size, founding number, profile link) as tokens that
+  `send-welcome` computes — England-wide pair when they marked nothing. Adds the
+  core loop, a friends beat, one "Open Vestige" button and the four release
+  windows. New shell block `milestones()`. The function's fallback is now
+  GENERATED (`out/dark/welcome_fallback.ts`, imported by the function), closing
+  the 09-01 gap. `FOOTER_STRAP` → "Every golf course in England, collected."
+  fleet-wide. **Dev + PROD applied and deployed** (2026-09-04 11:52 UTC, Tom's
+  go; prod `html` md5-identical to dev). Long-form in `CHANGELOG.md` 2026-09-04.
 
 - **2026-09-01** — **One email shell.** `src/lib/email/shell.ts` is now the single
   source for every Vestige email: both appearances as palette tokens plus the

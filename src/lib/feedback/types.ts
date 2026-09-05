@@ -126,6 +126,9 @@ export type FeedbackReport = {
   screen: string | null;
   breadcrumbs: Array<Record<string, unknown>> | null;
   app_version: string | null;
+  /** Monotonic build number (e.g. "25"), from `20260905180000`. Null for
+   *  reports filed before it. Render with `formatVersionBuild`. */
+  app_build: string | null;
   ios_version: string | null;
   device_model: string | null;
   category_context: Record<string, string> | null;
