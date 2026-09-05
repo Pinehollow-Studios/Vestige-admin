@@ -5,6 +5,65 @@
 
 ---
 
+## 2026-09-05 — Analytics: every tester in a table, every page, and where setup stalls
+
+**Tom:** "Get all of the new data on Bunker on the analytics page … show it in the
+same way that you did at the start of this chat, with the courses and return
+sessions in a table with all of the different users … have it ready for when
+[the update] is pushed." The iOS coverage pass earlier today added
+`screen_viewed` on every page, `onboarding_step_failed` / `onboarding_resumed`
+with the phone's reachability, an on-device outbox that replays events the
+server never saw, and `course_marked_played` from every mark path. None of it
+reaches prod until a build ships; the bunker is ready for it now.
+
+**The read layer** is the iOS migration `20260905170000_analytics_coverage_views.sql`
+(applied to dev, then to prod on Tom's go the same day): `analytics_testers` (one row per
+account — courses, rounds, lists, reactions, friends, return sessions,
+active days, last activity, page views, push, public), `analytics_screens`,
+`analytics_screen_paths` (every session in 30 days with ordered steps),
+`analytics_onboarding_stalls` (unfinished accounts with last step, its
+reachability, failure rows, resumes), `analytics_onboarding_failures`,
+`analytics_onboarding_funnel_v2` (pinned ordinal + offline completions),
+`analytics_marks_by_source`, `analytics_outbox_replays`. Same posture as the
+06-25 set: service-role only, revoked from anon/authenticated. `queries.ts`
+gains a typed read per view.
+
+**The Overview page** (`/analytics`): the sentence strip is replaced by
+**Everyone in the app** — the per-tester table from the launch-night read,
+one row per account with Joined · Version · Courses · Rounds · Lists ·
+Returns · Days · Friends · Reacts · Public · Last active, rows linking to
+`/users/<id>`, unfinished setup badged. Below the existing pulse/activation
+sections: **Pages people open** (views + people, Boards cohorts kept
+separate), **Pages nobody has opened** (the full 43-page list in
+`src/lib/analytics/screens.ts` minus what has been seen, grouped by area —
+this is the "what are they not exploring" answer), **Setting up · step by
+step** (the v2 funnel with an offline count per step, plus a card per
+unfinished account carrying a verdict: *Connection* when a save failed
+offline/transient or the last step was finished offline, *Server refused*,
+*Walked away* when neither, *No data* for pre-tracking accounts), **Recent
+sessions** (each session as a chip sequence of page names and actions, with
+the outbox-replay footnote), and **How courses get marked played**.
+
+**Dictionary** (`config.ts`): `screen_viewed`, `onboarding_step_failed`,
+`onboarding_resumed` added; the seven "(Not wired in the app yet.)" notes on
+now-wired events removed; property labels for the new keys; value labels
+for the four failure reasons and ten operations so a stall reads as a
+sentence; `ONBOARDING_STEPS` re-synced to the pinned funnel order (it was
+missing `friends` and led with `beta`). Page names live in the new
+`screens.ts` — a mirror of the Swift `AnalyticsScreen` enum; a new case there
+is a new row here, or it can never show as unvisited.
+
+**Until the app update ships** every new section renders its honest empty
+state ("arrives with the next app update"); the tester table works today
+because it reads the domain tables. Dev already shows real page paths from a
+simulator session, so the rendering is exercised.
+
+**Verification:** `tsc --noEmit` clean, `eslint` clean on the four touched
+files, `next build` green. Not rendered in a browser against prod (the
+sections need the new events); dev views probed by SQL. No git operations.
+
+---
+
 ## 2026-09-01 — One email shell, applied to prod and dev
 
 **The problem.** Vestige had three email shells. The twelve rows in
