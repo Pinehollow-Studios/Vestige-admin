@@ -17,6 +17,7 @@ import type {
   RecipientState,
   UserPickRow,
 } from "./types";
+import { ADD_PROFILE_PHOTO_MIN_APP_VERSION } from "./types";
 
 export type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -50,6 +51,53 @@ export async function createAnnouncement(title: string): Promise<ActionResult<st
       priority: 0,
       audience_kind: "everyone",
       target: {},
+      is_archived: false,
+      created_by_admin_id: admin.id,
+      last_edited_by_admin_id: admin.id,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/announcements");
+  redirect(`/announcements/${data.id}`);
+}
+
+/**
+ * Create the profile-photo prompt as a ready-to-publish draft (2026-09-05).
+ * The card lets users with no profile photo add one in place
+ * (`action_kind = 'add_profile_photo'`, iOS `AnnouncementProfilePhotoCard`).
+ * Prefilled: the copy, the `has_avatar = false` cohort, and the app-version
+ * floor that renders the in-card picker. Lands in the editor as a draft so the
+ * wording can be tuned and the publish moment chosen there - nothing goes out
+ * until Publish is pressed.
+ */
+export async function createProfilePhotoPrompt(): Promise<ActionResult<string>> {
+  const admin = await requireAdmin();
+  const supabase = await createClient();
+  const slug = await uniqueSlug(supabase, "add-a-profile-photo");
+
+  const { data, error } = await supabase
+    .from("announcements")
+    .insert({
+      slug,
+      kind: "outreach",
+      eyebrow: "Your profile",
+      title: "Add a photo to your profile?",
+      body:
+        "You don't have one yet. A photo helps friends spot you beside your rounds, " +
+        "in comments and on the boards. It takes a few seconds, and you can change it any time.",
+      highlights: [],
+      action_kind: "add_profile_photo",
+      action_label: "Save photo",
+      action_value: "profile_photo",
+      dismiss_label: "Not now",
+      style: "modal_card",
+      is_dismissible: true,
+      priority: 0,
+      audience_kind: "filtered",
+      target: { has_avatar: false },
+      min_app_version: ADD_PROFILE_PHOTO_MIN_APP_VERSION,
       is_archived: false,
       created_by_admin_id: admin.id,
       last_edited_by_admin_id: admin.id,
