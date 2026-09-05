@@ -44,7 +44,10 @@ export default async function ChangelogPage() {
       .select("*")
       .order("major", { ascending: false })
       .order("minor", { ascending: false })
-      .order("patch", { ascending: false }),
+      .order("patch", { ascending: false })
+      // One entry per build (2026-09-06): within a version, newest build
+      // first, with a still-unbuilt draft (no number yet) above them.
+      .order("build_number", { ascending: false, nullsFirst: true }),
     supabase
       .from("app_version_sections")
       .select("*")

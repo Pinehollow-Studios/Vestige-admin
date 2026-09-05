@@ -32,10 +32,11 @@ function isUniqueViolation(message: string): boolean {
 // ── Versions ────────────────────────────────────────────────────────────
 
 /**
- * Create a fresh version (defaults to a draft) and redirect into its editor.
- * The display string is parsed into major/minor/patch for ordering; both
- * `version` and the (major,minor,patch) tuple are unique in the DB, so a repeat
- * is reported rather than silently duplicated.
+ * Create a fresh entry (defaults to a draft) and redirect into its editor.
+ * The display string is parsed into major/minor/patch for ordering. One entry
+ * per BUILD (migration `20260906100000`): the same marketing version may appear
+ * once per build number - 0.4.4 (24) and 0.4.4 (25) are two entries - and the
+ * DB keeps (version, build) unique, with at most one unbuilt draft per version.
  */
 export async function createVersion(
   version: string,
@@ -80,7 +81,13 @@ export async function createVersion(
           message: `Build ${buildNumber} is already used by another version.`,
         };
       }
-      return { ok: false, message: `Version ${parsed.version} already exists.` };
+      return {
+        ok: false,
+        message:
+          buildNumber != null
+            ? `Version ${parsed.version} build ${buildNumber} already exists.`
+            : `Version ${parsed.version} already has an unbuilt draft - give it a build number first.`,
+      };
     }
     return { ok: false, message: error.message };
   }
