@@ -22,6 +22,7 @@ import {
 } from "../actions";
 import {
   ACTION_KINDS,
+  ADD_PROFILE_PHOTO_MIN_APP_VERSION,
   ACTION_KIND_LABELS,
   ANNOUNCEMENT_KINDS,
   AUDIENCE_KINDS,
@@ -111,7 +112,14 @@ export function AnnouncementEditor({
     highlights,
     action_kind: actionKind,
     action_label: actionKind === "dismiss" ? null : actionLabel,
-    action_value: actionKind === "dismiss" ? null : actionValue,
+    // The in-card photo prompt has nowhere to go; a fixed token keeps the
+    // column non-null for readers that expect a value alongside a label.
+    action_value:
+      actionKind === "dismiss"
+        ? null
+        : actionKind === "add_profile_photo"
+          ? "profile_photo"
+          : actionValue,
     dismiss_label: dismissLabel,
     style,
     is_dismissible: isDismissible,
@@ -193,7 +201,21 @@ export function AnnouncementEditor({
               ))}
             </select>
           </Field>
-          {actionKind !== "dismiss" && (
+          {actionKind === "add_profile_photo" && (
+            <div className="space-y-3 rounded-lg border border-rule/70 bg-paper-sunken/30 p-3">
+              <Field label="Save button label" hint="What the user taps once they have picked a photo.">
+                <Input value={actionLabel} onChange={(e) => setActionLabel(e.target.value)} placeholder="Save photo" />
+              </Field>
+              <p className="text-xs leading-relaxed text-ink-3">
+                The card itself carries a Profile photo slot and an optional Cover slot with the app&apos;s
+                picker, camera and crop. Saving uploads the photo and records the announcement as{" "}
+                <span className="font-semibold text-ink-2">acted</span>, so the acted count is the conversion.
+                Target the <span className="font-semibold text-ink-2">Has a profile photo = No</span> cohort and set
+                the minimum app version to {ADD_PROFILE_PHOTO_MIN_APP_VERSION}; older builds show a dismiss-only card.
+              </p>
+            </div>
+          )}
+          {actionKind !== "dismiss" && actionKind !== "add_profile_photo" && (
             <div className="grid grid-cols-2 gap-3 rounded-lg border border-rule/70 bg-paper-sunken/30 p-3">
               <Field label="Button label">
                 <Input value={actionLabel} onChange={(e) => setActionLabel(e.target.value)} placeholder={actionKind === "external_url" ? "Read more" : "Open"} />
@@ -330,6 +352,37 @@ function PreviewCard({
               </p>
               {body.trim() && (
                 <p className="text-[11px] leading-normal text-[#9DA9B6]">{body}</p>
+              )}
+              {actionKind === "add_profile_photo" && (
+                // The two photo slots the app draws inside this card
+                // (AnnouncementProfilePhotoCard.PhotoSlotRow), at preview scale.
+                <div className="space-y-2 pt-1">
+                  {[
+                    { title: "Profile photo", reason: "Next to your rounds, comments and board row.", optional: false },
+                    { title: "Cover", reason: "The banner across the top of your profile.", optional: true },
+                  ].map((slot) => (
+                    <div
+                      key={slot.title}
+                      className="flex items-center gap-2 rounded-[13px] border border-white/12 bg-white/[0.04] p-2"
+                    >
+                      <div className="size-8 shrink-0 rounded-[10px] bg-[#5BE4C3]/15" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-semibold text-[#F2EFE6]">
+                          {slot.title}
+                          {slot.optional && (
+                            <span className="ml-1.5 text-[7px] font-semibold uppercase tracking-[0.7px] text-[#9DA9B6]">
+                              optional
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[9px] leading-snug text-[#9DA9B6]">{slot.reason}</p>
+                      </div>
+                      <span className="rounded-full bg-[#5BE4C3]/15 px-2 py-1 text-[8px] font-semibold text-[#5BE4C3]">
+                        Add
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
               {highlights.filter((h) => h.trim()).length > 0 && (
                 <ul className="space-y-[9px] pt-1">
@@ -551,6 +604,11 @@ function FilteredCohort({
         label="Has logged a round"
         value={target.has_logged_round}
         onChange={(v) => patch({ has_logged_round: v })}
+      />
+      <TristateRow
+        label="Has a profile photo"
+        value={target.has_avatar}
+        onChange={(v) => patch({ has_avatar: v })}
       />
 
       <div className="grid grid-cols-2 gap-3">

@@ -4,12 +4,16 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createAnnouncement } from "./actions";
+import { createAnnouncement, createProfilePhotoPrompt } from "./actions";
 
 /**
- * Create-announcement trigger. Tap → inline title prompt → creates a draft row
- * and the action redirects into the editor (where content + targeting +
- * lifecycle live). Mirrors NewBadgeButton.
+ * Create-announcement triggers. "+ New announcement" → inline title prompt →
+ * creates a blank draft and redirects into the editor (where content +
+ * targeting + lifecycle live). Mirrors NewBadgeButton.
+ *
+ * "Profile photo prompt" (2026-09-05) creates the ready-made in-card photo
+ * prompt as a draft - copy, `has_avatar = false` cohort and app-version floor
+ * prefilled - and opens it in the editor for a final read before Publish.
  */
 export function NewAnnouncementButton() {
   const [open, setOpen] = useState(false);
@@ -25,15 +29,35 @@ export function NewAnnouncementButton() {
     });
   }
 
+  function createPhotoPrompt() {
+    if (pending) return;
+    startTransition(async () => {
+      const result = await createProfilePhotoPrompt();
+      if (!result.ok) toast.error(result.message);
+    });
+  }
+
   if (!open) {
     return (
-      <Button
-        onClick={() => setOpen(true)}
-        size="sm"
-        className="bg-brand text-brand-fg hover:bg-brand-deep"
-      >
-        + New announcement
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={createPhotoPrompt}
+          size="sm"
+          variant="outline"
+          disabled={pending}
+          title="Creates a draft of the in-card 'add a profile photo' prompt, targeted at users without one."
+        >
+          {pending ? "Creating…" : "Profile photo prompt"}
+        </Button>
+        <Button
+          onClick={() => setOpen(true)}
+          size="sm"
+          disabled={pending}
+          className="bg-brand text-brand-fg hover:bg-brand-deep"
+        >
+          + New announcement
+        </Button>
+      </div>
     );
   }
 

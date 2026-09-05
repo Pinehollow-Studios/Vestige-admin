@@ -19,7 +19,19 @@ export type AnnouncementKind =
   | "outreach"
   | "system";
 
-export type AnnouncementActionKind = "dismiss" | "external_url" | "deep_link";
+/**
+ * `add_profile_photo` (2026-09-05, migration `20260905210000`): the app's card
+ * carries the profile-photo + cover slots and a Save in place - no screen or
+ * URL; `action_value` is unused. "Acted" on the receipt means the user saved a
+ * photo, so the acted count IS the conversion. Pair it with the
+ * `has_avatar = false` cohort filter and a `min_app_version` of 0.4.5 (older
+ * builds render an unknown kind as a dismiss-only card).
+ */
+export type AnnouncementActionKind =
+  | "dismiss"
+  | "external_url"
+  | "deep_link"
+  | "add_profile_photo";
 
 export type AnnouncementStyle = "modal_card" | "full_screen";
 
@@ -45,13 +57,18 @@ export const ACTION_KINDS: AnnouncementActionKind[] = [
   "dismiss",
   "external_url",
   "deep_link",
+  "add_profile_photo",
 ];
 
 export const ACTION_KIND_LABELS: Record<AnnouncementActionKind, string> = {
   dismiss: "Dismiss only",
   external_url: "Open a link",
   deep_link: "Go to a screen",
+  add_profile_photo: "Add a profile photo (in the card)",
 };
+
+/** Minimum app version that renders the in-card profile-photo prompt. */
+export const ADD_PROFILE_PHOTO_MIN_APP_VERSION = "0.4.5";
 
 export const STYLES: AnnouncementStyle[] = ["modal_card", "full_screen"];
 
@@ -102,6 +119,9 @@ export type AnnouncementTarget = {
   joined_before?: string; // date string (YYYY-MM-DD)
   privacy_in?: string[]; // 'onlyMe' | 'friendsOnly' | 'everyone'
   has_logged_round?: boolean;
+  /** Has a profile photo (`users.avatar_photo_id` set). `false` = the cohort the
+   *  in-card photo prompt is for. Server key since migration `20260905210000`. */
+  has_avatar?: boolean;
   segment_id?: string; // audience_kind = "segment"
 };
 
