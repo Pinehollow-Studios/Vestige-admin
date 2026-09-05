@@ -280,6 +280,9 @@ function MetaCard({
   isSuperAdmin: boolean;
 }) {
   const [versionStr, setVersionStr] = useState(version.version);
+  const [buildStr, setBuildStr] = useState(
+    version.build_number == null ? "" : String(version.build_number),
+  );
   const [title, setTitle] = useState(version.title ?? "");
   const [summary, setSummary] = useState(version.summary ?? "");
   const [status, setStatus] = useState(version.status);
@@ -287,10 +290,15 @@ function MetaCard({
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  const buildValue = buildStr.trim() === "" ? null : Number(buildStr.trim());
+  const buildValid =
+    buildValue === null || (Number.isInteger(buildValue) && buildValue >= 1);
+
   const dirty =
     versionStr.trim() !== version.version ||
     title.trim() !== (version.title ?? "") ||
-    summary.trim() !== (version.summary ?? "");
+    summary.trim() !== (version.summary ?? "") ||
+    buildValue !== version.build_number;
 
   function save() {
     startTransition(async () => {
@@ -298,6 +306,7 @@ function MetaCard({
         version: versionStr,
         title,
         summary,
+        build_number: buildValue,
       });
       if (!res.ok) toast.error(res.message);
       else toast.success("Saved");
@@ -363,13 +372,28 @@ function MetaCard({
       )}
       <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
         <Field label="Version">
-          <Input
-            value={versionStr}
-            onChange={(e) => setVersionStr(e.target.value)}
-            placeholder="0.1.3"
-            className="h-9"
-            disabled={pending}
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              value={versionStr}
+              onChange={(e) => setVersionStr(e.target.value)}
+              placeholder="0.1.3"
+              className="h-9 min-w-0 flex-1"
+              disabled={pending}
+            />
+            <Input
+              value={buildStr}
+              onChange={(e) => setBuildStr(e.target.value)}
+              placeholder="25"
+              inputMode="numeric"
+              aria-label="Build number"
+              title="Build number - monotonic for the life of the app, never resets on a version bump"
+              className={cn(
+                "h-9 w-14 shrink-0 tabular-nums",
+                !buildValid && "border-alert text-alert",
+              )}
+              disabled={pending}
+            />
+          </div>
         </Field>
         <Field label="Title">
           <Input
@@ -441,7 +465,7 @@ function MetaCard({
           <Button
             onClick={save}
             size="sm"
-            disabled={pending || !dirty}
+            disabled={pending || !dirty || !buildValid}
             className="bg-brand text-brand-fg hover:bg-brand-deep"
           >
             {pending ? "Saving…" : "Save"}

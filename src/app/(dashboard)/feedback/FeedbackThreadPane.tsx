@@ -44,6 +44,7 @@ import { Screenshots } from "./[id]/Screenshots";
 import { ReplyForm } from "./[id]/ReplyForm";
 import { SidePanelControls } from "./[id]/SidePanelControls";
 import { ShipInVersionControl, type ShipVersionOption } from "./[id]/ShipInVersionControl";
+import { formatVersionBuildOrDash } from "@/lib/appBuild";
 
 type Thread = {
   report: FeedbackReport;
@@ -399,7 +400,9 @@ function Diagnostic({ report }: { report: FeedbackReport }) {
       <ul className="space-y-2.5 text-xs text-ink-2">
         <Row icon={Smartphone} label="Device">{report.device_model ?? "-"}</Row>
         <Row icon={Smartphone} label="iOS">{report.ios_version ?? "-"}</Row>
-        <Row icon={Hash} label="App version">{report.app_version ?? "-"}</Row>
+        <Row icon={Hash} label="App version">
+          {formatVersionBuildOrDash(report.app_version, report.app_build)}
+        </Row>
         <Row icon={Hash} label="Screen">{report.screen ?? "-"}</Row>
       </ul>
     </Card>

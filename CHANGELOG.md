@@ -64,6 +64,129 @@ sections need the new events); dev views probed by SQL. No git operations.
 
 ---
 
+## 2026-09-05 — The build number, everywhere
+
+**What changed.** iOS `CFBundleVersion` became **monotonic for the life of the
+app** on 2026-09-05 (Tom's call): it counts every binary ever uploaded to App
+Store Connect and never resets on a marketing bump — 0.4.4 (25) → 0.4.5 (26) →
+… → 1.0.0 (31). Until that point every marketing version shipped exactly one
+build, all of them numbered `1`, so `app_version` alone identified a binary.
+It no longer does, and the bunker is where that difference has to be visible:
+a bug report from 0.4.4 (1) and one from 0.4.4 (25) are reports against
+materially different apps.
+
+**One formatter, four read surfaces.** `src/lib/appBuild.ts` —
+`formatVersionBuild` / `formatVersionBuildOrDash` / `buildSortKey` — renders
+`0.4.4 (25)`, falling back to the bare version for rows that predate the
+column, and to an em dash when there is nothing. Wired into the feedback
+thread pane, the feedback detail page, the analytics tester table, the
+analytics event feed, and the user detail's "Last seen" row. Both feedback
+surfaces load the report through `admin_feedback_thread`'s `to_jsonb(r)`, so
+the new column arrived with no query change; `getEvents` and the `TesterRow` /
+`AppEventRow` / `FeedbackReport` types gained the field explicitly.
+
+**Crashes are deliberately untouched.** `crash_reports.release_name` has
+carried `0.4.4+25` since the Sentry slice and is also the filter key
+(`queries.ts` matches on it), so it keeps Sentry's own `version+build` form
+rather than being prettified into `0.4.4 (25)` — the value on screen has to be
+the one you can paste into Sentry.
+
+**The changelog carries the build now.** New `app_versions.build_number`
+(iOS migration `20260905190000`), unique where present, `>= 1`, NULL while a
+version is a draft because nothing has been built yet. It is:
+
+- **shown** on each version card on `/changelog` and in the detail header;
+- **editable** in `VersionEditor`, beside the version field, with Save blocked
+  on a non-integer;
+- **prefilled on create** — `NewVersionButton` takes a `suggestedBuild` prop
+  derived from the loaded versions as max + 1. This is the important one: the
+  failure mode this surface exists to prevent is somebody typing `1` for a new
+  marketing version, which is exactly what all 24 previous releases did.
+
+**The whole history was backfilled, 1-24.** `app_versions` holds exactly 24
+released rows on prod and they correspond one-for-one, in the same order, with
+the 24 build groups in App Store Connect — so the mapping is exact rather than
+inferred: `0.1=1 … 0.4.4=24`, and the next upload is 25. Verified gapless.
+
+**The caveat, recorded so nobody "corrects" it later.** Those binaries actually
+shipped with `CFBundleVersion = 1` — every one of them. So 1-24 are
+**reconstructed ordinals**: they identify each binary correctly and give the
+history a continuous, sortable spine, but they do not match the number App
+Store Connect shows against an old build (which reads 1), nor the Sentry
+release tag those builds emitted (`0.2.1+1`). That divergence is the deliberate
+price of a coherent sequence; the alternative — writing `1` twenty-four times —
+is accurate and useless. It is stated in the migration header, in the column
+comment, and on the `AppVersion.build_number` type.
+
+**Also corrected:** the 2026-09-04 welcome-email entry in `CLAUDE.md` claimed
+"prod pending Tom's go". Prod's `email_templates.welcome` html is md5-identical
+to dev's and was applied 2026-09-04 11:52 UTC; the line was stale and would
+have had someone re-apply a live template.
+
+**Verification:** `tsc --noEmit` clean, `eslint` clean on every touched file,
+`next build` compiled successfully. Both databases verified at ledger 293 with
+the telemetry columns, the changelog column, the numbered history, the
+build-keyed analytics views and all three `p_app_build` RPCs present. Not
+exercised in a browser against prod.
+
+---
+
+## 2026-09-04 — The welcome, reworked and personalised; "collected" on every strap
+
+**What changed.** The account welcome (`email_templates.welcome`, sent by the
+`send-welcome` Edge Function when a member finishes onboarding) was a short note:
+a greeting, two England-wide numbers, three tips and the founding panel. Tom asked
+for more to it. It now carries, in order: the greeting and the Cornwall line; the
+member's **own** two numbers (courses on their map against the size of their home
+county); one gradient button, "Open Vestige"; the core loop explained as the two
+things you can do at a course (mark played vs log a round, and why marks are one
+at a time after onboarding); a friends beat with their `vestige.golf/u/<username>`
+link; the founding-member panel, now numbered, with the beta and shake-to-report
+note folded in; and the four release windows (now / Oct 2026 / Jan 2027 /
+Mar 2027) in the site's own words — January is "Version 1.0", never the launch.
+
+**Personalisation without branching HTML.** The template never has to know what
+the function found. `send-welcome` computes the figures and hands them over as
+tokens: `stat1_value/label` and `stat2_value/label` (the member's numbers when
+they marked anything in onboarding, otherwise the England-wide "1,795 courses
+waiting / 47 counties to fill" pair, so a zero never reads as a zero),
+`founding_number` ("#12" from the founding badge's payload serial, or empty),
+`username` and `app_url` (the profile universal link — the AASA claims `/u/*`, so
+it opens the app when installed). The bases match the app's own screens: courses
+on the map is club-grouped like `profile_stats_for_user.played_count`, a county's
+size is club-grouped like `county_completion_for_user`. Every read is best-effort
+and logged; a failure degrades to the England pair, never a blocked send.
+
+**One new shell block.** `milestones()` — dated waypoints (bold month · label ·
+line). It is the road-ahead beat; nothing else in the shell could set a date
+without leaning on `steps`' numerals.
+
+**The fallback is now generated.** The dark run writes
+`out/dark/welcome_fallback.ts` — the stored row byte-for-byte as a module — and
+`send-welcome` imports it instead of hand-building a second copy of the shell.
+The 1 September "known gap" (a hand-mirrored fallback that drifted to a light
+shell) cannot recur for the welcome; `auth-email-hook` still hand-builds its
+shell and had its strap edited in step.
+
+**The strap.** `FOOTER_STRAP` read "Every course in England, tracked." — "track"
+is a retired word in the house voice, and the site's tagline is "Every golf course
+in England, collected." Every email now says the latter: this shell (all twelve
+templates + the eight starters), both Edge Function fallbacks, and the marketing
+site's `emailShell.tsx`.
+
+**Applied.** Dev: the twelve dark rows re-applied (`apply-dark-dev.sql` via
+`env-guard.sh dev`, backup in
+`~/Documents/VESTIGE/backups/email-templates-2026-09-04/dev-before.json`) and
+`send-welcome` redeployed. **Prod: applied on Tom's go the same day** (12:52 UTC)
+— `send-welcome` v15 deployed first, then `apply-dark-prod.sql` through
+`env-guard.sh prod` (backup `prod-before.json` beside the dev one); all twelve
+rows stamped and the token-bearing rows md5-identical to dev. Verified: `tsc`, `eslint`, the
+generator runs clean, all nine tokens resolve in a sample render, and the
+club-grouped/England figures were checked against three real dev members
+(county sizes and 1,795 / 47 match).
+
+---
+
 ## 2026-09-01 — One email shell, applied to prod and dev
 
 **The problem.** Vestige had three email shells. The twelve rows in

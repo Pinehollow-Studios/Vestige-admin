@@ -64,6 +64,12 @@ export default async function ChangelogPage() {
   const versions = ((versionsRes.data as AppVersion[] | null) ?? [])
     .slice()
     .sort(compareVersionsDesc);
+  // One past the highest build already recorded. Build numbers are monotonic
+  // for the life of the app and never reset on a marketing bump, so a new
+  // entry continues the count — the create form prefills this rather than
+  // leaving a blank somebody would fill with "1".
+  const suggestedBuild =
+    versions.reduce((max, v) => Math.max(max, v.build_number ?? 0), 0) + 1;
   const sections = (sectionsRes.data as AppVersionSection[] | null) ?? [];
   const changes = (changesRes.data as AppVersionChange[] | null) ?? [];
 
@@ -108,7 +114,7 @@ export default async function ChangelogPage() {
       <SectionHeader
         eyebrow="Operations"
         title="Changelog"
-        actions={<NewVersionButton />}
+        actions={<NewVersionButton suggestedBuild={suggestedBuild} />}
       />
 
       {versionsRes.error && !notConfigured && (
@@ -209,6 +215,14 @@ function ReleaseCard({
             {isCurrent && (
               <span className="inline-flex items-center rounded-full bg-brand/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
                 Current
+              </span>
+            )}
+            {version.build_number != null && (
+              <span
+                className="rounded bg-ink-3/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-ink-3"
+                title="Build number - monotonic for the life of the app, never resets on a version bump"
+              >
+                build {version.build_number}
               </span>
             )}
             {version.released_at && (

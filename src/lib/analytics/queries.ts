@@ -62,6 +62,7 @@ export type EventVolumeRow = {
 
 export type ByVersionRow = {
   app_version: string;
+  app_build: string | null;
   events: number;
   users: number;
   last_at: string | null;
@@ -104,6 +105,7 @@ export type AppEventRow = {
   properties: Record<string, unknown> | null;
   session_id: string | null;
   app_version: string | null;
+  app_build: string | null;
   device_model: string | null;
   client_timestamp: string | null;
   created_at: string;
@@ -314,7 +316,7 @@ export async function getEvents(
   let q = supabase
     .from("app_events")
     .select(
-      "id, user_id, event_name, properties, session_id, app_version, device_model, client_timestamp, created_at",
+      "id, user_id, event_name, properties, session_id, app_version, app_build, device_model, client_timestamp, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(opts.limit ?? 200);
@@ -459,6 +461,7 @@ export type TesterRow = {
   display_name: string | null;
   joined_at: string;
   app_version: string | null;
+  app_build: string | null;
   is_public: boolean;
   is_founding_member: boolean;
   onboarded: boolean;

@@ -34,6 +34,7 @@ import {
   type ScreenPathRow,
   type OnboardingStallRow,
 } from "@/lib/analytics/queries";
+import { formatVersionBuildOrDash } from "@/lib/appBuild";
 
 export const dynamic = "force-dynamic";
 
@@ -558,7 +559,7 @@ function TestersTable({ rows }: { rows: TesterRow[] }) {
                   </p>
                 </div>
                 <Num muted>{shortDate(t.joined_at)}</Num>
-                <Num muted>{t.app_version ?? "—"}</Num>
+                <Num muted>{formatVersionBuildOrDash(t.app_version, t.app_build)}</Num>
                 <Num strong={t.courses > 0}>{t.courses}</Num>
                 <Num strong={t.rounds > 0}>{t.rounds}</Num>
                 <Num>{t.lists}</Num>

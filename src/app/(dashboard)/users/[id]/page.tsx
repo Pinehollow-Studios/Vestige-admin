@@ -10,6 +10,7 @@ import { avatarURL } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { kindLabel, workStageLabel, type FeedbackKind, type FeedbackWorkStage } from "@/lib/feedback/types";
 import { UserActions } from "./UserActions";
+import { formatVersionBuild } from "@/lib/appBuild";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ type UserRow = {
   home_club_id: string | null;
   home_county_id: string | null;
   last_seen_app_version: string | null;
+  last_seen_app_build: string | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -38,7 +40,7 @@ type UserRow = {
 const USER_COLUMNS =
   "id, username, display_name, bio, avatar_photo_id, privacy, account_status, " +
   "is_admin_hidden_from_public_leaderboards, admin_hidden_at, is_founding_member, " +
-  "analytics_opt_out, home_club_id, home_county_id, last_seen_app_version, created_at, updated_at";
+  "analytics_opt_out, home_club_id, home_county_id, last_seen_app_version, last_seen_app_build, created_at, updated_at";
 
 type ReportRow = { id: string; kind: FeedbackKind; work_stage: FeedbackWorkStage; body: string; created_at: string };
 type FlagRow = { id: string; flag_kind: string; state: string; triggered_at: string };
@@ -320,7 +322,10 @@ export default async function UserHubPage({ params }: { params: Promise<{ id: st
               <Row label="Home club" value={clubName ?? (user.home_club_id ? "-" : "Not set")} />
               <Row label="Home county" value={countyName ?? (user.home_county_id ? "-" : "Not set")} />
               <Row label="Analytics" value={user.analytics_opt_out ? "Opted out" : "Opted in"} />
-              <Row label="Last seen" value={user.last_seen_app_version ?? "-"} />
+              <Row
+                label="Last seen"
+                value={formatVersionBuild(user.last_seen_app_version, user.last_seen_app_build) ?? "-"}
+              />
               <Row label="Joined" value={formatDate(user.created_at)} />
               {user.is_admin_hidden_from_public_leaderboards && (
                 <Row label="Hidden at" value={formatDate(user.admin_hidden_at)} />

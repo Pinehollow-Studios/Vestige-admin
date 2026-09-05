@@ -104,6 +104,17 @@ export type AppVersion = {
   title: string | null;
   summary: string | null;
   status: AppVersionStatus;
+  /**
+   * Monotonic `CFBundleVersion` this version shipped as — the build number
+   * that never resets across marketing bumps (`20260905190000`). Null while
+   * a version is still a draft: nothing has been built yet.
+   *
+   * 1-24 are reconstructed ordinals for releases before 2026-09-05, which
+   * all literally shipped as build 1; they give the history a continuous
+   * spine but do not match what App Store Connect shows for those builds.
+   * 25 onward are real.
+   */
+  build_number: number | null;
   released_at: string | null;
   created_at: string;
   updated_at: string;
