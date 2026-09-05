@@ -95,6 +95,46 @@ export const EVENT_CATALOG: Record<string, EventMeta> = {
     group: "onboarding",
     description: "Reopened the app mid-setup and picked up where they left off.",
   },
+  onboarding_privacy_set: {
+    label: "Chose their privacy",
+    group: "onboarding",
+    description: "The visibility tier picked on the Privacy step (kept-default counts too).",
+  },
+  app_opened: {
+    label: "Opened the app",
+    group: "lifecycle",
+    description: "The app came to the front — a cold launch or a return from the background.",
+  },
+  notification_opened: {
+    label: "Tapped a notification",
+    group: "social",
+    description: "Opened a notification inside the app (inbox row or live banner).",
+  },
+  tutorial_seen: {
+    label: "Saw a first-visit tip",
+    group: "discovery",
+    description: "Dismissed one of the one-time tutorial cards.",
+  },
+  deep_link_opened: {
+    label: "Arrived by link",
+    group: "social",
+    description: "Opened the app from a vestige.golf or vestige:// link — invites land here.",
+  },
+  signed_out: {
+    label: "Signed out",
+    group: "lifecycle",
+    description: "Signed out of the app.",
+  },
+  wall_shown: {
+    label: "Hit a wall",
+    group: "lifecycle",
+    description: "Saw the offline, update-required or suspended screen.",
+  },
+  round_intent_chosen: {
+    label: "Mark or log?",
+    group: "play",
+    description: "On an unplayed course, chose to just mark it played or to log a full round.",
+  },
   // ── Finding courses ────────────────────────────────────────────────────
   course_viewed: {
     label: "Viewed a course",
@@ -310,6 +350,9 @@ export const PROPERTY_LABEL: Record<string, string> = {
   // 2026-09-05 coverage pass
   screen: "page",
   context: "where",
+  navigates: "opens a page",
+  page: "tip",
+  choice: "chose",
   tab: "tab",
   operation: "saving",
   reason: "because",
@@ -378,6 +421,16 @@ export const VALUE_LABEL: Record<string, string> = {
   completion_stamp: "finishing setup",
   // tabs
   shell: "over everything",
+  // app_opened.kind / wall_shown.kind / round_intent_chosen.choice
+  launch: "Cold launch",
+  foreground: "Back from background",
+  update_required: "Update required",
+  suspended: "Suspended",
+  log_round: "Log a round",
+  log_chooser: "Log-flow chooser",
+  add_to_list: "Add-to-list search",
+  onboarding_seeding: "Setup search",
+  chrome: "Search icon",
   // friend actions
   request_sent: "Request sent",
   request_accepted: "Request accepted",
