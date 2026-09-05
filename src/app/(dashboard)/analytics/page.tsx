@@ -499,7 +499,7 @@ export default async function AnalyticsOverviewPage() {
 // ── Testers table — every account, one row ────────────────────────────────
 
 const TESTER_COLUMNS =
-  "minmax(150px,1.6fr) 72px 56px 60px 56px 48px 72px 56px 56px 60px 52px 84px";
+  "minmax(150px,1.6fr) 72px 56px 60px 56px 48px 72px 56px 56px 60px 52px 84px 84px";
 
 function TestersTable({ rows }: { rows: TesterRow[] }) {
   if (rows.length === 0) return <EmptyHint>No accounts yet.</EmptyHint>;
@@ -516,7 +516,7 @@ function TestersTable({ rows }: { rows: TesterRow[] }) {
   );
   return (
     <div className="overflow-x-auto rounded-xl border border-rule/50">
-      <div style={{ minWidth: 960 }}>
+      <div style={{ minWidth: 1040 }}>
         <div
           className="grid items-center gap-3 border-b border-rule/60 bg-paper-sunken/40 px-3 py-2"
           style={{ gridTemplateColumns: TESTER_COLUMNS }}
@@ -532,7 +532,8 @@ function TestersTable({ rows }: { rows: TesterRow[] }) {
           {head("Friends", "right", "Accepted friendships")}
           {head("Reacts", "right", "Reactions given")}
           {head("Public", "right", "Profile visible to everyone")}
-          {head("Last active")}
+          {head("Last active", "right", "Last recorded action in the app")}
+          {head("Last opened", "right", "Last time the app came to the front — from sign-in refreshes and push registration, so it works on builds that record nothing else")}
         </div>
         <ol>
           {rows.map((t) => (
@@ -569,6 +570,7 @@ function TestersTable({ rows }: { rows: TesterRow[] }) {
                 <Num>{t.reactions}</Num>
                 <Num muted>{t.is_public ? "yes" : "no"}</Num>
                 <Num muted>{t.last_event_at ? relDay(t.last_event_at) : "never"}</Num>
+                <Num muted>{t.last_opened_at ? relDay(t.last_opened_at) : t.last_event_at ? relDay(t.last_event_at) : "never"}</Num>
               </Link>
             </li>
           ))}

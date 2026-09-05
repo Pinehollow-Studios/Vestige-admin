@@ -480,6 +480,11 @@ export type TesterRow = {
   last_event_at: string | null;
   screen_views: number;
   distinct_screens: number;
+  /** Appended by `20260905200000`; null until it is applied to the env. */
+  last_opened_at: string | null;
+  auth_token_rotations: number | null;
+  push_token_seen_at: string | null;
+  app_opens: number | null;
 };
 
 /** One row per account — the beta-scale "who did what" table. Oldest first. */
