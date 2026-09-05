@@ -97,7 +97,7 @@ export const FONT =
   "Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 /** The footer strap. Kept identical to the automatic templates. */
-export const FOOTER_STRAP = "Vestige &middot; Every course in England, tracked.";
+export const FOOTER_STRAP = "Vestige &middot; Every golf course in England, collected.";
 
 /**
  * The sender's legal identity, shown quietly in every footer.
@@ -212,6 +212,31 @@ export function stats(
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ` +
     `style="margin:28px 0 0 0;"><tr>${cells}</tr></table>`
+  );
+}
+
+/**
+ * Dated waypoints - a bold month, a short label, one line. The road-ahead
+ * beat in the welcome and the progress notes. The month is ink on light,
+ * for the same AA reason `steps` is.
+ */
+export function milestones(
+  items: Array<[when: string, label: string, body: string]>,
+  a: Appearance = "dark",
+): string {
+  const t = PALETTE[a];
+  const rows = items
+    .map(
+      ([when, label, body], i) =>
+        `<tr><td style="padding:${i === 0 ? "0" : "10px"} 0 0 0;font-size:14px;line-height:21px;color:${t.ink2};">` +
+        `<span style="color:${t.step};font-weight:700;">${when}</span>` +
+        `<span style="color:${t.ink3};">&nbsp;&nbsp;&middot;&nbsp;&nbsp;</span>` +
+        `<span style="color:${t.ink};font-weight:600;">${label}</span> ${body}</td></tr>`,
+    )
+    .join("");
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ` +
+    `style="margin:14px 0 0 0;">${rows}</table>`
   );
 }
 

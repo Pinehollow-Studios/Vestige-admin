@@ -65,11 +65,30 @@ add them and it would double up:
   `{{new_email}}` and `{{token}}` are substituted at send time, and anything
   unresolved is stripped.
 
-## Known gap
+### The welcome's personal tokens
 
-`send-welcome` and `auth-email-hook` each carry hardcoded fallback HTML, used when
-the `email_templates` read returns nothing. Both fallbacks are still the retired
-light shell, and they fire silently with no log line — which is the most likely
-explanation for a light welcome email arriving on 31 August 2026. Replacing them
-with this shell needs an Edge Function deploy, which is blocked by the iOS freeze
-until 4 September.
+`send-welcome` works out the member's own figures at send time and hands them
+to the template as tokens, so the stored HTML never has to branch:
+
+| Token | What the function puts in it |
+|---|---|
+| `{{first_name}}` | First word of `display_name`, or "there". |
+| `{{username}}` | Their handle, for the profile link. |
+| `{{app_url}}` | `https://vestige.golf/u/<username>` — a universal link, so it opens the app when installed and the web profile when not. |
+| `{{stat1_value}}` / `{{stat1_label}}` | Courses on their map (club-grouped, the same base as the profile's played count). If they marked nothing in onboarding, the England-wide course count labelled "Courses waiting". |
+| `{{stat2_value}}` / `{{stat2_label}}` | The size of their home county ("Courses in Surrey", club-grouped like the county sheet). No home county → England's course count; no marks at all → the county count labelled "Counties to fill". |
+| `{{founding_number}}` | "#12" from the founding badge's serial, or empty. |
+
+Every figure is best-effort — a failed read degrades to the England-wide pair,
+never to a blocked send or a wrong zero.
+
+## The welcome fallback
+
+`send-welcome` falls back to built-in HTML when the `email_templates` read returns
+nothing. Since 4 September 2026 that fallback is **generated here**: the dark run
+also writes `out/dark/welcome_fallback.ts`, the stored `welcome` row byte-for-byte
+as a module. After changing the welcome, copy it over
+`vestige-ios/supabase/functions/send-welcome/welcome_fallback.ts` and redeploy the
+function, so a failed read is invisible to the recipient rather than a stale
+email. (`auth-email-hook` still hand-builds its fallback shell; it carries the
+same footer strap and is edited in step.)
