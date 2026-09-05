@@ -1,4 +1,14 @@
 
+- **2026-09-05** — **Analytics Overview: every tester in a table + coverage-pass
+  reads.** `/analytics` now leads with one row per account (courses · rounds ·
+  lists · return sessions · days · friends · reacts · public · last active),
+  then pages opened, pages NOBODY has opened (43-page mirror in
+  `src/lib/analytics/screens.ts`), the setup funnel with a connection-vs-walked-
+  away verdict per unfinished account, recent sessions as page sequences, and
+  marks by path. Reads the iOS `20260905170000_analytics_coverage_views.sql`
+  views (dev + PROD applied 2026-09-05); empty states until the app update that
+  emits `screen_viewed` ships. Long-form in `CHANGELOG.md` 2026-09-05.
+
 - **2026-09-01** — **One email shell.** `src/lib/email/shell.ts` is now the single
   source for every Vestige email: both appearances as palette tokens plus the
   content blocks. `scripts/email-templates/generate.ts` builds the twelve

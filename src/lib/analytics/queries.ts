@@ -450,3 +450,192 @@ export async function getTesterWeek(
     }))
     .sort((a, b) => (a.last_seen < b.last_seen ? 1 : -1));
 }
+
+// ── 2026-09-05 coverage-pass views (`20260905170000_analytics_coverage_views.sql`) ──
+
+export type TesterRow = {
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  joined_at: string;
+  app_version: string | null;
+  is_public: boolean;
+  is_founding_member: boolean;
+  onboarded: boolean;
+  has_avatar: boolean;
+  analytics_opt_out: boolean;
+  courses: number;
+  rounds: number;
+  lists: number;
+  reactions: number;
+  friends: number;
+  feedback_reports: number;
+  has_push: boolean;
+  sessions: number;
+  return_sessions: number;
+  active_days: number;
+  last_event_at: string | null;
+  screen_views: number;
+  distinct_screens: number;
+};
+
+/** One row per account — the beta-scale "who did what" table. Oldest first. */
+export async function getTesters(supabase: SupabaseClient): Promise<TesterRow[]> {
+  const { data, error } = await supabase
+    .from("analytics_testers")
+    .select("*")
+    .order("joined_at", { ascending: true });
+  if (error) {
+    console.error("analytics.getTesters", error.message);
+    return [];
+  }
+  return (data as TesterRow[]) ?? [];
+}
+
+export type ScreenRow = {
+  screen: string;
+  context: string | null;
+  views: number;
+  users: number;
+  sessions: number;
+  views_7d: number;
+  users_7d: number;
+  last_at: string | null;
+};
+
+/** Page views by screen (+ sub-surface), all time with a 7-day column. */
+export async function getScreens(supabase: SupabaseClient): Promise<ScreenRow[]> {
+  const { data, error } = await supabase
+    .from("analytics_screens")
+    .select("*")
+    .order("views", { ascending: false });
+  if (error) {
+    console.error("analytics.getScreens", error.message);
+    return [];
+  }
+  return (data as ScreenRow[]) ?? [];
+}
+
+export type PathStep = {
+  at: string;
+  event: string;
+  screen: string | null;
+  context: string | null;
+  step: string | null;
+  source: string | null;
+  discovery: string | null;
+};
+
+export type ScreenPathRow = {
+  session_id: string;
+  user_id: string | null;
+  username: string | null;
+  display_name: string | null;
+  started_at: string;
+  ended_at: string;
+  events: number;
+  screens: number;
+  path: string;
+  steps: PathStep[];
+};
+
+/** The most recent sessions (last 30 days in SQL) with their ordered steps. */
+export async function getScreenPaths(supabase: SupabaseClient, limit = 20): Promise<ScreenPathRow[]> {
+  const { data, error } = await supabase
+    .from("analytics_screen_paths")
+    .select("*")
+    .order("started_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error("analytics.getScreenPaths", error.message);
+    return [];
+  }
+  return (data as ScreenPathRow[]) ?? [];
+}
+
+export type OnboardingStallRow = {
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  joined_at: string;
+  last_step: string | null;
+  last_step_index: number | null;
+  last_step_online: boolean | null;
+  last_step_at: string | null;
+  last_event_at: string | null;
+  resumes: number;
+  failures: number;
+  failure_details:
+    | { step: string | null; operation: string | null; reason: string | null; is_online: boolean | null; at: string }[]
+    | null;
+  ever_offline: boolean | null;
+};
+
+/** Everyone who has not finished onboarding, with where they stopped and why. */
+export async function getOnboardingStalls(supabase: SupabaseClient): Promise<OnboardingStallRow[]> {
+  const { data, error } = await supabase
+    .from("analytics_onboarding_stalls")
+    .select("*")
+    .order("joined_at", { ascending: false });
+  if (error) {
+    console.error("analytics.getOnboardingStalls", error.message);
+    return [];
+  }
+  return (data as OnboardingStallRow[]) ?? [];
+}
+
+export type FunnelV2Row = { step: string; step_index: number; users: number; users_offline: number };
+
+/** The onboarding funnel with the pinned step ordinal + offline completions.
+ *  Ordered by the dashboard's canonical step list (`ONBOARDING_STEPS`), since
+ *  older rows carry pre-repair ordinals. */
+export async function getOnboardingFunnelV2(supabase: SupabaseClient): Promise<FunnelV2Row[]> {
+  const { data, error } = await supabase.from("analytics_onboarding_funnel_v2").select("*");
+  if (error) {
+    console.error("analytics.getOnboardingFunnelV2", error.message);
+    return [];
+  }
+  const rows = (data as FunnelV2Row[] | null) ?? [];
+  const order = ["started", ...ONBOARDING_STEPS, "completed"] as readonly string[];
+  const rank = (step: string) => {
+    const i = order.indexOf(step);
+    return i === -1 ? 900 : i;
+  };
+  return rows.slice().sort((a, b) => rank(a.step) - rank(b.step));
+}
+
+export type MarksBySourceRow = { source: string; discovery_source: string; marks: number; users: number };
+
+/** `course_marked_played` by the path that created it. */
+export async function getMarksBySource(supabase: SupabaseClient): Promise<MarksBySourceRow[]> {
+  const { data, error } = await supabase
+    .from("analytics_marks_by_source")
+    .select("*")
+    .order("marks", { ascending: false });
+  if (error) {
+    console.error("analytics.getMarksBySource", error.message);
+    return [];
+  }
+  return (data as MarksBySourceRow[]) ?? [];
+}
+
+export type OutboxReplayRow = {
+  event_name: string;
+  replayed: number;
+  users: number;
+  avg_delay_minutes: number | null;
+  last_at: string | null;
+};
+
+/** Rows that arrived late — replayed from a device's analytics outbox. */
+export async function getOutboxReplays(supabase: SupabaseClient): Promise<OutboxReplayRow[]> {
+  const { data, error } = await supabase
+    .from("analytics_outbox_replays")
+    .select("*")
+    .order("replayed", { ascending: false });
+  if (error) {
+    console.error("analytics.getOutboxReplays", error.message);
+    return [];
+  }
+  return (data as OutboxReplayRow[]) ?? [];
+}

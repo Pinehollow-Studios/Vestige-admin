@@ -17,7 +17,10 @@
  *
  * Regenerated against `AnalyticsEvents.swift` as of the 2026-08-28
  * instrumentation repairs (paywall_restored added; course_bucketed /
- * feed_viewed / session_started / friend_request_* removed).
+ * feed_viewed / session_started / friend_request_* removed), then again for
+ * the 2026-09-05 coverage pass (screen_viewed, onboarding_step_failed,
+ * onboarding_resumed; seven formerly call-site-less events now wired).
+ * Page names live in `screens.ts`.
  */
 
 export type EventGroup =
@@ -81,6 +84,17 @@ export const EVENT_CATALOG: Record<string, EventMeta> = {
     group: "onboarding",
     description: "Made it through the whole setup flow into the app.",
   },
+  onboarding_step_failed: {
+    label: "A setup step failed to save",
+    group: "onboarding",
+    description:
+      "Something during setup didn't save — with why (offline, a timeout, cancelled, or the server said no) and whether the phone was online.",
+  },
+  onboarding_resumed: {
+    label: "Came back to setup",
+    group: "onboarding",
+    description: "Reopened the app mid-setup and picked up where they left off.",
+  },
   // ── Finding courses ────────────────────────────────────────────────────
   course_viewed: {
     label: "Viewed a course",
@@ -90,17 +104,22 @@ export const EVENT_CATALOG: Record<string, EventMeta> = {
   curated_list_viewed: {
     label: "Viewed a curated list",
     group: "discovery",
-    description: "Opened one of the editorial lists. (Not wired in the app yet.)",
+    description: "Opened one of the editorial lists, with how much of it they've played.",
   },
   course_search_performed: {
     label: "Searched",
     group: "discovery",
-    description: "Ran a course search. (Not wired in the app yet.)",
+    description: "Ran a course search (counts only — never the words typed).",
   },
   map_region_explored: {
-    label: "Explored the map",
+    label: "Opened a county",
     group: "discovery",
-    description: "Browsed into a county on the map. (Not wired in the app yet.)",
+    description: "Browsed into a county on the map, with their completion of it.",
+  },
+  screen_viewed: {
+    label: "Opened a page",
+    group: "discovery",
+    description: "Landed on a page of the app — the navigation heatmap. Which page is in the details.",
   },
   // ── Playing & collecting ───────────────────────────────────────────────
   course_marked_played: {
@@ -131,7 +150,7 @@ export const EVENT_CATALOG: Record<string, EventMeta> = {
   round_deleted: {
     label: "Deleted a round",
     group: "play",
-    description: "Removed a logged round. (Not wired in the app yet.)",
+    description: "Removed one of their own logged rounds.",
   },
   // ── Friends & feed ─────────────────────────────────────────────────────
   profile_viewed: {
@@ -145,14 +164,14 @@ export const EVENT_CATALOG: Record<string, EventMeta> = {
     description: "Sent, accepted, declined or removed a friend connection.",
   },
   invite_shared: {
-    label: "Shared an invite",
+    label: "Opened the invite share sheet",
     group: "social",
-    description: "Shared the app with someone. (Not wired in the app yet.)",
+    description: "Tapped to share their invite link (we can't see whether it was sent).",
   },
   feedback_submitted: {
     label: "Sent feedback",
     group: "social",
-    description: "Filed a bug or suggestion in-app. (Not wired in the app yet.)",
+    description: "Filed a bug or suggestion in-app.",
   },
   // ── Vestige Pro ────────────────────────────────────────────────────────
   paywall_shown: {
@@ -225,12 +244,12 @@ export const EVENT_CATALOG: Record<string, EventMeta> = {
   data_exported: {
     label: "Exported their data",
     group: "lifecycle",
-    description: "(Not wired in the app yet.)",
+    description: "Ran the self-service personal-data export.",
   },
   account_deleted: {
     label: "Deleted their account",
     group: "lifecycle",
-    description: "(Not wired in the app yet.)",
+    description: "Started the in-app account deletion.",
   },
 };
 
@@ -288,6 +307,24 @@ export const PROPERTY_LABEL: Record<string, string> = {
   state: "state",
   storefront: "storefront",
   is_founding: "founding",
+  // 2026-09-05 coverage pass
+  screen: "page",
+  context: "where",
+  tab: "tab",
+  operation: "saving",
+  reason: "because",
+  is_online: "online",
+  had_account: "had an account",
+  collected: "collected in setup",
+  total: "total",
+  completion_pct: "completion",
+  completion_fraction: "completion",
+  from_full_map: "from the full map",
+  outcome: "outcome",
+  has_screenshot: "with screenshot",
+  kind: "kind",
+  played_count: "played",
+  total_count: "of",
 };
 
 export function propertyLabel(key: string): string {
@@ -323,6 +360,24 @@ export const VALUE_LABEL: Record<string, string> = {
   friends_only: "Friends only",
   everyone: "Everyone",
   friendsOnly: "Friends only", // pre-repair rows
+  // failure reasons (onboarding_step_failed.reason)
+  offline: "No connection",
+  transient: "Connection dropped",
+  cancelled: "Left the page",
+  server: "Server refused",
+  // operations (onboarding_step_failed.operation)
+  create_profile: "creating the profile",
+  mark_played: "marking a course",
+  create_wishlist: "creating the wishlist",
+  update_privacy: "saving privacy",
+  upload_avatar: "uploading the photo",
+  upload_cover: "uploading the cover",
+  demographics: "saving about-you",
+  seed_mark: "marking a course",
+  friend_request: "sending a friend request",
+  completion_stamp: "finishing setup",
+  // tabs
+  shell: "over everything",
   // friend actions
   request_sent: "Request sent",
   request_accepted: "Request accepted",
@@ -339,20 +394,25 @@ export function valueLabel(value: string): string {
  *  (mirrors `OnboardingStep` in the iOS `AnalyticsEvents.swift`; the old
  *  8-step list silently dropped six steps from the funnel). */
 export const ONBOARDING_STEPS = [
-  "beta",
-  "name",
-  "username",
-  "avatar",
-  "cover",
-  "home",
-  "demographics",
-  "privacy",
-  "permissions",
-  "courses",
+  // The pinned funnel order (`Step.analyticsStepIndex`, iOS 2026-08-28),
+  // re-synced 2026-09-05: collect leads, friends sits after privacy, beta
+  // closes before the recap. Retired steps (username / cover / home) stay
+  // at the end so old rows still label.
   "collect",
+  "name",
+  "avatar",
+  "courses",
+  "privacy",
+  "friends",
+  "demographics",
+  "permissions",
   "founding_badge",
   "pro",
+  "beta",
   "recap",
+  "username",
+  "cover",
+  "home",
 ] as const;
 
 export const ONBOARDING_STEP_LABEL: Record<string, string> = {
@@ -366,7 +426,8 @@ export const ONBOARDING_STEP_LABEL: Record<string, string> = {
   privacy: "Privacy",
   permissions: "Permissions",
   courses: "Courses played",
-  collect: "Collection reveal",
+  friends: "Friends",
+  collect: "First courses",
   founding_badge: "Founding badge",
   pro: "Pro gift",
   recap: "Recap",
