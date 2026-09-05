@@ -45,7 +45,7 @@ export default async function FlagsPage() {
         .limit(400),
       supabase
         .from("app_version_config")
-        .select("min_supported_version, recommended_version, update_url")
+        .select("min_supported_version, min_supported_build, recommended_version, recommended_build, update_url")
         .eq("id", 1)
         .maybeSingle(),
       listPickerUsers(),
@@ -59,7 +59,9 @@ export default async function FlagsPage() {
 
   const version = versionRes.data as {
     min_supported_version: string;
+    min_supported_build: number | null;
     recommended_version: string | null;
+    recommended_build: number | null;
     update_url: string | null;
   } | null;
 
@@ -89,7 +91,10 @@ export default async function FlagsPage() {
         <AppVersionForm
           initial={{
             min: version?.min_supported_version ?? "0.0.0",
+            minBuild: version?.min_supported_build != null ? String(version.min_supported_build) : "",
             recommended: version?.recommended_version ?? "",
+            recommendedBuild:
+              version?.recommended_build != null ? String(version.recommended_build) : "",
             updateUrl: version?.update_url ?? "",
           }}
         />

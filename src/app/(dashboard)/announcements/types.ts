@@ -67,8 +67,13 @@ export const ACTION_KIND_LABELS: Record<AnnouncementActionKind, string> = {
   add_profile_photo: "Add a profile photo (in the card)",
 };
 
-/** Minimum app version that renders the in-card profile-photo prompt. */
-export const ADD_PROFILE_PHOTO_MIN_APP_VERSION = "0.4.5";
+/**
+ * First binary that renders the in-card profile-photo prompt: 0.4.4 (25).
+ * Builds are monotonic for the life of the app (migration `20260905180000`),
+ * so the floor is a build number, not a marketing version - the marketing
+ * version alone could not tell 0.4.4 (1) from 0.4.4 (25).
+ */
+export const ADD_PROFILE_PHOTO_MIN_APP_BUILD = 25;
 
 export const STYLES: AnnouncementStyle[] = ["modal_card", "full_screen"];
 
@@ -150,6 +155,14 @@ export type AnnouncementRow = {
   audience_kind: AnnouncementAudienceKind;
   min_app_version: string | null;
   max_app_version: string | null;
+  /**
+   * Build bounds (migration `20260905220000`), paired with the version bounds:
+   * a build floor bites for a client ON `min_app_version` (or alone when that
+   * is null). Optional because the columns are absent until that migration
+   * reaches the connected project.
+   */
+  min_app_build?: number | null;
+  max_app_build?: number | null;
   target: AnnouncementTarget;
   /**
    * Opt-out of the account-age gate (migration `20260827120000`): off means
@@ -320,17 +333,32 @@ export function audienceSummary(
       base = targetCount !== undefined ? `Segment · ${targetCount.toLocaleString()}` : "A saved segment";
       break;
   }
-  const bounds = versionBoundsLabel(row.min_app_version, row.max_app_version);
+  const withBuilds = row as { min_app_build?: number | null; max_app_build?: number | null };
+  const bounds = versionBoundsLabel(
+    row.min_app_version,
+    row.max_app_version,
+    withBuilds.min_app_build ?? null,
+    withBuilds.max_app_build ?? null,
+  );
   return bounds ? `${base} · ${bounds}` : base;
 }
 
-/** Short label for a min/max app-version pair, or null when unbounded. */
+/**
+ * Short label for a min/max app-version pair (with optional build numbers,
+ * rendered as `0.4.4 (25)`), or null when unbounded.
+ */
 export function versionBoundsLabel(
   min: string | null,
   max: string | null,
+  minBuild: number | null = null,
+  maxBuild: number | null = null,
 ): string | null {
-  if (min && max) return min === max ? `v${min}` : `v${min}-${max}`;
-  if (min) return `v${min}+`;
-  if (max) return `≤v${max}`;
+  const fmt = (v: string | null, b: number | null) =>
+    v && b != null ? `v${v} (${b})` : v ? `v${v}` : b != null ? `build ${b}` : null;
+  const lo = fmt(min, minBuild);
+  const hi = fmt(max, maxBuild);
+  if (lo && hi) return lo === hi ? lo : `${lo}-${hi}`;
+  if (lo) return `${lo}+`;
+  if (hi) return `≤${hi}`;
   return null;
 }
