@@ -17,7 +17,7 @@ import type {
   RecipientState,
   UserPickRow,
 } from "./types";
-import { ADD_PROFILE_PHOTO_MIN_APP_VERSION } from "./types";
+import { ADD_PROFILE_PHOTO_MIN_APP_BUILD } from "./types";
 
 export type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -97,7 +97,11 @@ export async function createProfilePhotoPrompt(): Promise<ActionResult<string>> 
       priority: 0,
       audience_kind: "filtered",
       target: { has_avatar: false },
-      min_app_version: ADD_PROFILE_PHOTO_MIN_APP_VERSION,
+      // Build-only floor: the first binary with the in-card picker. Older
+      // builds would render the kind as a dismiss-only card, so they are
+      // simply not targeted.
+      min_app_version: null,
+      min_app_build: ADD_PROFILE_PHOTO_MIN_APP_BUILD,
       is_archived: false,
       created_by_admin_id: admin.id,
       last_edited_by_admin_id: admin.id,
@@ -127,6 +131,8 @@ export type AnnouncementPatch = {
   audience_kind?: AnnouncementAudienceKind;
   min_app_version?: string | null;
   max_app_version?: string | null;
+  min_app_build?: number | null;
+  max_app_build?: number | null;
   target?: AnnouncementTarget;
   deliver_to_new_accounts?: boolean;
 };
@@ -173,6 +179,8 @@ export async function updateAnnouncement(
   if (patch.max_app_version !== undefined) {
     update.max_app_version = patch.max_app_version?.trim() || null;
   }
+  if (patch.min_app_build !== undefined) update.min_app_build = patch.min_app_build;
+  if (patch.max_app_build !== undefined) update.max_app_build = patch.max_app_build;
   if (patch.target !== undefined) update.target = patch.target;
   if (patch.deliver_to_new_accounts !== undefined) {
     update.deliver_to_new_accounts = patch.deliver_to_new_accounts;

@@ -22,7 +22,7 @@ import {
 } from "../actions";
 import {
   ACTION_KINDS,
-  ADD_PROFILE_PHOTO_MIN_APP_VERSION,
+  ADD_PROFILE_PHOTO_MIN_APP_BUILD,
   ACTION_KIND_LABELS,
   ANNOUNCEMENT_KINDS,
   AUDIENCE_KINDS,
@@ -94,6 +94,11 @@ export function AnnouncementEditor({
   const [audienceKind, setAudienceKind] = useState<AnnouncementAudienceKind>(row.audience_kind);
   const [minVersion, setMinVersion] = useState(row.min_app_version ?? "");
   const [maxVersion, setMaxVersion] = useState(row.max_app_version ?? "");
+  // Build bounds (20260905220000). Kept as strings for the inputs; parsed on
+  // save. Coalesced because the columns are absent until that migration
+  // reaches the connected project.
+  const [minBuild, setMinBuild] = useState(row.min_app_build != null ? String(row.min_app_build) : "");
+  const [maxBuild, setMaxBuild] = useState(row.max_app_build != null ? String(row.max_app_build) : "");
   const [target, setTarget] = useState<AnnouncementTarget>(row.target ?? {});
   // Coalesced: until migration 20260827120000 reaches the connected project,
   // the column is absent and the row carries no value.
@@ -127,6 +132,11 @@ export function AnnouncementEditor({
     audience_kind: audienceKind,
     min_app_version: minVersion || null,
     max_app_version: maxVersion || null,
+    // Sent only when they differ from the row, so saves keep working against
+    // a project without the build columns yet (an untouched field never
+    // reaches the UPDATE).
+    ...(parseBuild(minBuild) !== (row.min_app_build ?? null) ? { min_app_build: parseBuild(minBuild) } : {}),
+    ...(parseBuild(maxBuild) !== (row.max_app_build ?? null) ? { max_app_build: parseBuild(maxBuild) } : {}),
     target: audienceKind === "filtered" || audienceKind === "segment" ? target : {},
     // Sent only when actually changed, so saves keep working against a
     // project that doesn't have the column yet (prod until 20260827120000
@@ -211,7 +221,7 @@ export function AnnouncementEditor({
                 picker, camera and crop. Saving uploads the photo and records the announcement as{" "}
                 <span className="font-semibold text-ink-2">acted</span>, so the acted count is the conversion.
                 Target the <span className="font-semibold text-ink-2">Has a profile photo = No</span> cohort and set
-                the minimum app version to {ADD_PROFILE_PHOTO_MIN_APP_VERSION}; older builds show a dismiss-only card.
+                the minimum build to {ADD_PROFILE_PHOTO_MIN_APP_BUILD}; older builds are not targeted (they would only see a dismiss-only card).
               </p>
             </div>
           )}
@@ -263,6 +273,10 @@ export function AnnouncementEditor({
             setMinVersion={setMinVersion}
             maxVersion={maxVersion}
             setMaxVersion={setMaxVersion}
+            minBuild={minBuild}
+            setMinBuild={setMinBuild}
+            maxBuild={maxBuild}
+            setMaxBuild={setMaxBuild}
             target={target}
             setTarget={setTarget}
             counties={counties}
@@ -478,6 +492,10 @@ function TargetingBuilder({
   setMinVersion,
   maxVersion,
   setMaxVersion,
+  minBuild,
+  setMinBuild,
+  maxBuild,
+  setMaxBuild,
   target,
   setTarget,
   counties,
@@ -492,6 +510,10 @@ function TargetingBuilder({
   setMinVersion: (v: string) => void;
   maxVersion: string;
   setMaxVersion: (v: string) => void;
+  minBuild: string;
+  setMinBuild: (v: string) => void;
+  maxBuild: string;
+  setMaxBuild: (v: string) => void;
   target: AnnouncementTarget;
   setTarget: (t: AnnouncementTarget) => void;
   counties: CountyOption[];
@@ -524,14 +546,22 @@ function TargetingBuilder({
           App-version window (optional)
         </p>
         <p className="text-xs text-muted-foreground/80">
-          Applied on top of the audience. Marketing versions like 0.1.1. Leave blank for no bound.
+          Applied on top of the audience. Marketing versions like 0.4.4; build numbers like 25 (monotonic, so a
+          build on its own is a valid floor). A build bound only bites for a client on that exact version - or
+          alone when no version is set. Leave blank for no bound.
         </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Minimum version">
-            <Input value={minVersion} onChange={(e) => setMinVersion(e.target.value)} placeholder="0.1.1" />
+            <Input value={minVersion} onChange={(e) => setMinVersion(e.target.value)} placeholder="0.4.4" />
           </Field>
           <Field label="Maximum version">
-            <Input value={maxVersion} onChange={(e) => setMaxVersion(e.target.value)} placeholder="0.2.0" />
+            <Input value={maxVersion} onChange={(e) => setMaxVersion(e.target.value)} placeholder="0.5.0" />
+          </Field>
+          <Field label="Minimum build">
+            <Input inputMode="numeric" value={minBuild} onChange={(e) => setMinBuild(e.target.value)} placeholder="25" />
+          </Field>
+          <Field label="Maximum build">
+            <Input inputMode="numeric" value={maxBuild} onChange={(e) => setMaxBuild(e.target.value)} placeholder="(none)" />
           </Field>
         </div>
       </div>
@@ -688,6 +718,12 @@ function FilteredCohort({
       </div>
     </div>
   );
+}
+
+/** "25" → 25; blank or non-numeric → null (no bound). */
+function parseBuild(raw: string): number | null {
+  const n = parseInt(raw.trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 function TristateRow({
