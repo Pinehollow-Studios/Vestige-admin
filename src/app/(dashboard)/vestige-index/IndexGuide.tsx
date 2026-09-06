@@ -52,7 +52,7 @@ export function IndexGuideContent({ weights }: { weights: IndexWeights }) {
         </Table>
       </Block>
 
-      <Block title="Setting — what the number means">
+      <Block title="Setting: what the number means">
         <Table>
           {RUNGS.map(([band, meaning]) => (
             <tr key={band}>
@@ -62,16 +62,16 @@ export function IndexGuideContent({ weights }: { weights: IndexWeights }) {
           ))}
         </Table>
         <p className="mt-2 text-[11px] text-ink-3">
-          The land and the views — not condition or difficulty. 50 is average, not half marks.
+          The land and the views, not condition or difficulty. 50 is average, not half marks.
           Blank is better than a guess.
         </p>
       </Block>
 
-      <Block title="Age — from the founding year">
+      <Block title="Age: from the founding year">
         <AgeBandsTable />
       </Block>
 
-      <Block title="Ranking — from the published lists">
+      <Block title="Ranking: from the published lists">
         <Table head={["Position", "Score"]}>
           {[1, 10, 25, 50, 100, 200].map((r) => (
             <tr key={r}>
@@ -81,7 +81,7 @@ export function IndexGuideContent({ weights }: { weights: IndexWeights }) {
           ))}
         </Table>
         <p className="mt-2 text-[11px] text-ink-3">
-          {RANKING_SOURCES.map((s) => s.publisher).join(" · ")} — best position in each, averaged.
+          {RANKING_SOURCES.map((s) => s.publisher).join(" · ")}. Best position in each, averaged.
           No ranking is normal; its weight moves to the other two.
         </p>
       </Block>

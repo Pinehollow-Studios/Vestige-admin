@@ -189,7 +189,7 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
                             {provisional && (
                               <span
                                 className="inline-flex shrink-0 items-center rounded-full border border-amber/30 bg-amber/5 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-amber"
-                                title="No hand-scored axes yet — Index running on the provisional tier seed"
+                                title="No hand-scored axes yet. Index running on the provisional tier seed"
                               >
                                 Seed
                               </span>
@@ -230,7 +230,7 @@ export function IndexTable({ rows, weights }: { rows: IndexRow[]; weights: Index
                       {showProjected ? (
                         <span
                           className="font-display text-base font-semibold tabular-nums text-amber"
-                          title="Projected from your edits — save to apply"
+                          title="Projected from your edits, save to apply"
                         >
                           {projected}
                         </span>

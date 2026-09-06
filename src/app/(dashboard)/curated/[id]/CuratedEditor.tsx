@@ -448,7 +448,7 @@ function CourseSection({ row, courses }: { row: CuratedListRow; courses: Curated
       ]
         .filter(Boolean)
         .join(" · ");
-      toast.success(`Reordered ${reordered} courses${tail ? ` — ${tail}` : ""}`);
+      toast.success(`Reordered ${reordered} courses${tail ? `: ${tail}` : ""}`);
       if (missing.length > 0) {
         toast.message("Missing from this list", {
           description: missing

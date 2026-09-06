@@ -105,13 +105,13 @@ export function DestinationPicker({
             Lands on the tab from build{" "}
             <span className="font-semibold text-ink-2">{TAB_DESTINATION_MIN_APP_BUILD}</span> onward. On
             0.4.4 (25) and earlier a broadcast tap goes straight to the entity resolver, which has no idea what
-            a tab is — those users still get the notification, it just opens the{" "}
+            a tab is, so those users still get the notification: it just opens the{" "}
             <span className="font-semibold text-ink-2">inbox</span> instead. That degrades cleanly, so{" "}
             <span className="font-semibold text-ink-2">leave the build fields blank to reach everyone</span>.
           </p>
           <p className="text-xs leading-relaxed text-ink-3">
             Only set <span className="font-semibold text-ink-2">Minimum build</span> if landing on the tab is
-            essential — and note it excludes more than you would expect: a build bound also drops anyone we
+            essential, and note it excludes more than you would expect: a build bound also drops anyone we
             have never seen a build number from, which is every user who has not opened the app since builds
             started being recorded.
           </p>
@@ -139,7 +139,7 @@ export function DestinationPicker({
 
       {destination.kind === "membership" && (
         <p className="rounded-lg border border-rule/70 bg-paper-sunken/30 p-3 text-xs leading-relaxed text-ink-3">
-          Opens the Vestige Pro page (the founding-window clock + roadmap). The page is killable — while
+          Opens the Vestige Pro page (the founding-window clock + roadmap). The page is killable, so while
           <span className="font-semibold text-ink-2"> pro_page_enabled</span> is off the tap does nothing, so
           check the flag before sending.
         </p>
@@ -154,7 +154,7 @@ export function DestinationPicker({
             disabled={disabled}
           />
           <p className="text-xs text-muted-foreground/80">
-            Opens in Safari. Must start with http:// or https:// — the app refuses any other scheme.
+            Opens in Safari. Must start with http:// or https://, because the app refuses any other scheme.
           </p>
         </div>
       )}
