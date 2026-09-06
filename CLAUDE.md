@@ -1,3 +1,23 @@
+- **2026-09-06** — **Tap destination is a chooser, not a URL field.** Composing a
+  notification (`/notifications/[id]`) now picks where the tap lands: **a tab**
+  (Home / Feed / Club / You), **a course** (searchable), **someone's profile**
+  (searchable), **the Pro page**, **a web link**, or a **custom link** escape
+  hatch — with the preview column reading it back in English ("Tap → the Feed
+  tab", "Tap → Woodhall Spa"). The vocabulary and the parser live in
+  `notifications/destinations.ts` and mirror the iOS resolution ORDER exactly:
+  tab token first (`DockTab.init?(deepLinkToken:)`), then the entity shapes
+  `DeepLinkHandler` knows. `/announcements` now imports the same `TAB_TOKENS`
+  rather than keeping a second list — that second list is how the two surfaces
+  drifted, and it is why `feed` was never offered there. **Lists and societies
+  are deliberately not options** (`vestige://list/<id>` resolves to a USER list
+  only, so a curated id lands on not-found; societies are shelved) — both still
+  round-trip untouched through Custom. **A tab destination needs app build 26+**
+  (on 0.4.4 (25) a broadcast tap goes straight to `DeepLinkHandler`, which
+  resolves entities only, so it lands on the inbox) — so broadcasts also gain
+  **Minimum / Maximum build** beside the version pair, reading the iOS
+  `20260906130000` (dev AND PROD applied 2026-09-06, both ledgers 299). Long-form
+  in `CHANGELOG.md` 2026-09-06.
+
 
 - **2026-09-05** — **Analytics Overview: every tester in a table + coverage-pass
   reads.** `/analytics` now leads with one row per account (courses · rounds ·

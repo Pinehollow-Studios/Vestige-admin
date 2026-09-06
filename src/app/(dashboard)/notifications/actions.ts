@@ -48,6 +48,8 @@ export type BroadcastPatch = {
   audience_kind?: BroadcastAudienceKind;
   min_app_version?: string | null;
   max_app_version?: string | null;
+  min_app_build?: number | null;
+  max_app_build?: number | null;
   is_critical?: boolean;
   target?: BroadcastTarget;
 };
@@ -84,6 +86,10 @@ export async function updateBroadcast(id: string, patch: BroadcastPatch): Promis
   if (patch.audience_kind !== undefined) update.audience_kind = patch.audience_kind;
   if (patch.min_app_version !== undefined) update.min_app_version = patch.min_app_version?.trim() || null;
   if (patch.max_app_version !== undefined) update.max_app_version = patch.max_app_version?.trim() || null;
+  // Build bounds are integers server-side; a blank or non-numeric field means
+  // "no bound", never 0 — which would be a floor every build clears.
+  if (patch.min_app_build !== undefined) update.min_app_build = patch.min_app_build ?? null;
+  if (patch.max_app_build !== undefined) update.max_app_build = patch.max_app_build ?? null;
   if (patch.is_critical !== undefined) update.is_critical = patch.is_critical;
   if (patch.target !== undefined) update.target = patch.target;
 

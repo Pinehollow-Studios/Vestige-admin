@@ -91,6 +91,11 @@ export type BroadcastRow = {
   target: BroadcastTarget;
   min_app_version: string | null;
   max_app_version: string | null;
+  /** Build bounds (migration `20260906130000`). Paired with the version bound,
+   *  or standing alone when that is null. A user whose last-seen build is
+   *  unknown fails any build bound. */
+  min_app_build: number | null;
+  max_app_build: number | null;
   is_critical: boolean;
   status: BroadcastStatus;
   scheduled_at: string | null;
@@ -141,13 +146,36 @@ export function audienceSummary(
       base = targetCount !== undefined ? `Segment · ${targetCount.toLocaleString()}` : "A saved segment";
       break;
   }
-  const bounds = versionBoundsLabel(row.min_app_version, row.max_app_version);
+  // Cast rather than widen the Pick: `emails/campaigns` re-exports this helper
+  // and its rows have no build columns, so they read as absent and are skipped.
+  const withBuilds = row as { min_app_build?: number | null; max_app_build?: number | null };
+  const bounds = versionBoundsLabel(
+    row.min_app_version,
+    row.max_app_version,
+    withBuilds.min_app_build ?? null,
+    withBuilds.max_app_build ?? null,
+  );
   return bounds ? `${base} · ${bounds}` : base;
 }
 
-export function versionBoundsLabel(min: string | null, max: string | null): string | null {
-  if (min && max) return min === max ? `v${min}` : `v${min}-${max}`;
-  if (min) return `v${min}+`;
-  if (max) return `≤v${max}`;
+/**
+ * Short label for a min/max app-version pair (with optional build numbers,
+ * rendered as `0.4.4 (26)`), or null when unbounded. Same shape as the
+ * announcements helper — a build-only bound must still show, or a broadcast
+ * gated to build 26+ would read as "Everyone" on its card.
+ */
+export function versionBoundsLabel(
+  min: string | null,
+  max: string | null,
+  minBuild: number | null = null,
+  maxBuild: number | null = null,
+): string | null {
+  const fmt = (v: string | null, b: number | null) =>
+    v && b != null ? `v${v} (${b})` : v ? `v${v}` : b != null ? `build ${b}` : null;
+  const lo = fmt(min, minBuild);
+  const hi = fmt(max, maxBuild);
+  if (lo && hi) return lo === hi ? lo : `${lo}-${hi}`;
+  if (lo) return `${lo}+`;
+  if (hi) return `≤${hi}`;
   return null;
 }

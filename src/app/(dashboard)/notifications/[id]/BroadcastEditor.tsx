@@ -32,6 +32,8 @@ import {
 } from "../types";
 import { IOSNotification, VestigeInboxRow } from "../_components/previews";
 import { SegmentAudiencePicker } from "@/components/admin/SegmentAudiencePicker";
+import { DestinationPicker } from "./DestinationPicker";
+import { destinationSummary, parseDestination } from "../destinations";
 
 const SELECT_CLS =
   "flex h-9 w-full rounded-lg border border-input bg-paper-sunken/40 px-3 py-1 text-sm transition-colors focus-visible:border-brand/60 focus-visible:bg-paper-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30";
@@ -41,21 +43,33 @@ const TEXTAREA_CLS =
 export function BroadcastEditor({
   row,
   initialTargetUsers,
+  initialCourseName,
   counties,
   isSuperAdmin,
 }: {
   row: BroadcastRow;
   initialTargetUsers: UserPickRow[];
+  /** Name behind a saved `vestige://course/<id>` destination, resolved on the
+   *  server so the picker opens showing the course rather than a bare UUID. */
+  initialCourseName: string | null;
   counties: CountyOption[];
   isSuperAdmin: boolean;
 }) {
   const [title, setTitle] = useState(row.title);
   const [body, setBody] = useState(row.body);
   const [destinationURL, setDestinationURL] = useState(row.destination_url ?? "");
+  const [destinationLine, setDestinationLine] = useState(() =>
+    destinationSummary(parseDestination(row.destination_url), initialCourseName),
+  );
   const [isCritical, setIsCritical] = useState(row.is_critical);
   const [audienceKind, setAudienceKind] = useState<BroadcastAudienceKind>(row.audience_kind);
   const [minVersion, setMinVersion] = useState(row.min_app_version ?? "");
   const [maxVersion, setMaxVersion] = useState(row.max_app_version ?? "");
+  // Build bounds (migration `20260906130000`). Strings for the inputs, parsed
+  // on save. Coalesced because the columns are absent until that migration
+  // reaches the connected project.
+  const [minBuild, setMinBuild] = useState(row.min_app_build != null ? String(row.min_app_build) : "");
+  const [maxBuild, setMaxBuild] = useState(row.max_app_build != null ? String(row.max_app_build) : "");
   const [target, setTarget] = useState<BroadcastTarget>(row.target ?? {});
 
   const [pending, startTransition] = useTransition();
@@ -72,6 +86,11 @@ export function BroadcastEditor({
     audience_kind: audienceKind,
     min_app_version: minVersion || null,
     max_app_version: maxVersion || null,
+    // Sent only when they differ from the row, so a save still works against a
+    // project without the build columns yet (prod until `20260906130000` lands
+    // there) — an untouched field never reaches the UPDATE.
+    ...(parseBuild(minBuild) !== (row.min_app_build ?? null) ? { min_app_build: parseBuild(minBuild) } : {}),
+    ...(parseBuild(maxBuild) !== (row.max_app_build ?? null) ? { max_app_build: parseBuild(maxBuild) } : {}),
     target: audienceKind === "filtered" || audienceKind === "segment" ? target : {},
   };
 
@@ -123,9 +142,7 @@ export function BroadcastEditor({
           <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-3">In the app</p>
           <VestigeInboxRow title={title} body={body} icon={<Send className="size-4" />} />
         </div>
-        <p className="text-xs text-ink-3">
-          {destinationURL ? `Tap → ${destinationURL}` : "Tap → opens the inbox"}
-        </p>
+        <p className="text-xs text-ink-3">{destinationLine}</p>
         <DeliveryCard
           row={row}
           pending={pending}
@@ -151,14 +168,15 @@ export function BroadcastEditor({
               disabled={isCanceled}
             />
           </Field>
-          <Field label="Tap destination" hint="Optional deep link or web URL. Blank → opens the inbox.">
-            <Input
-              value={destinationURL}
-              onChange={(e) => setDestinationURL(e.target.value)}
-              placeholder="vestige://course/<id> · https://vestige.golf/… · https://…"
-              disabled={isCanceled}
-            />
-          </Field>
+          <DestinationPicker
+            value={row.destination_url}
+            initialCourseName={initialCourseName}
+            disabled={isCanceled}
+            onChange={(url, summary) => {
+              setDestinationURL(url ?? "");
+              setDestinationLine(summary);
+            }}
+          />
           {editable && (
             <label className="flex items-start gap-2 rounded-lg border border-alert/30 bg-alert/5 p-2.5 text-sm text-ink-2">
               <input
@@ -204,14 +222,23 @@ export function BroadcastEditor({
                 App-version window (optional)
               </p>
               <p className="text-xs text-muted-foreground/80">
-                Applied on top of the audience, against each user&apos;s last-seen version. Marketing versions like 0.2.4.
+                Applied on top of the audience, against each user&apos;s last-seen version and build. Marketing
+                versions like 0.4.4; build numbers like 26 (monotonic, so a build on its own is a valid floor).
+                A build bound only bites for a client on that exact version - or alone when no version is set,
+                and a user we have never seen a build from fails any build bound. Leave blank for no bound.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Minimum version">
-                  <Input value={minVersion} onChange={(e) => setMinVersion(e.target.value)} placeholder="0.2.4" />
+                  <Input value={minVersion} onChange={(e) => setMinVersion(e.target.value)} placeholder="0.4.4" />
                 </Field>
                 <Field label="Maximum version">
                   <Input value={maxVersion} onChange={(e) => setMaxVersion(e.target.value)} placeholder="" />
+                </Field>
+                <Field label="Minimum build">
+                  <Input inputMode="numeric" value={minBuild} onChange={(e) => setMinBuild(e.target.value)} placeholder="26" />
+                </Field>
+                <Field label="Maximum build">
+                  <Input inputMode="numeric" value={maxBuild} onChange={(e) => setMaxBuild(e.target.value)} placeholder="(none)" />
                 </Field>
               </div>
             </div>
@@ -639,6 +666,13 @@ function IndividualsPicker({
 }
 
 // ── Layout helpers ─────────────────────────────────────────────────────
+
+/** Blank / non-numeric / zero → no bound. Never 0, which would be a floor
+ *  every build clears and a ceiling none does. */
+function parseBuild(raw: string): number | null {
+  const n = parseInt(raw.trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
