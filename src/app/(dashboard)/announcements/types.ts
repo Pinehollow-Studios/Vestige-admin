@@ -10,6 +10,8 @@
  * `admin_announcement_stats` / `admin_announcement_recipients` RPCs.
  */
 
+import { TAB_TOKENS } from "../notifications/destinations";
+
 // ── Vocabulary ──────────────────────────────────────────────────────
 
 export type AnnouncementKind =
@@ -96,13 +98,19 @@ export const AUDIENCE_LABELS: Record<AnnouncementAudienceKind, string> = {
   individuals: "Hand-picked people",
 };
 
-/** In-app deep-link tokens the app understands (action_kind = deep_link). */
-export const DEEP_LINK_TOKENS: { value: string; label: string }[] = [
-  { value: "home", label: "Home" },
-  { value: "explore", label: "Atlas / Explore" },
-  { value: "club", label: "Club" },
-  { value: "you", label: "You (profile)" },
-];
+/**
+ * In-app tab tokens the app understands (`action_kind = deep_link`).
+ *
+ * One list, shared with the broadcast destination picker
+ * (`../notifications/destinations`), because ONE parser resolves both
+ * surfaces app-side (`DockTab.init?(deepLinkToken:)`) — a second copy here is
+ * how the two drifted in the first place. `feed` is new to this dropdown: the
+ * app has always routed it on the announcement path, the picker just never
+ * offered it. `explore` is gone from the list but still parses as an alias —
+ * it routed to `.map` exactly like `home`, so listing both implied two
+ * destinations where there is one.
+ */
+export const DEEP_LINK_TOKENS = TAB_TOKENS;
 
 export const PRIVACY_OPTIONS: { value: string; label: string }[] = [
   { value: "onlyMe", label: "Only me" },

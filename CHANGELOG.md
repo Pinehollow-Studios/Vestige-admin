@@ -3062,3 +3062,62 @@ actually happening in the platform without leaving the browser.
 - No schema changes — every new query reads existing tables or RPCs
   that already live in `Vestige-ios/supabase/migrations/`.
 - TypeScript clean, ESLint clean, `next build` green.
+
+## 2026-09-06 — Tap destination becomes a chooser
+
+Composing an admin notification let you type a destination URL by hand. You had
+to know that a course link is `vestige://course/<uuid>` and then go and find the
+UUID; nothing validated it; and the one destination Jack actually asked for —
+"go look at the feed" — did not work at all.
+
+**The picker.** `Tap destination` is now a kind select plus whatever that kind
+needs: **A tab in the app** (Home / Feed / Club / You), **A course page**
+(type-ahead against `/api/courses/search`, stores the UUID, shows the name),
+**Someone's profile** (type-ahead against the service-role `searchUsers`, stores
+the handle — a user with no username can't be linked and is shown disabled),
+**The Vestige Pro page**, **A web link**, **Custom link (advanced)**. The sticky
+preview column reads the choice back in English instead of echoing a URL.
+
+**One vocabulary, because two was the bug.** `notifications/destinations.ts`
+holds the tokens, `parseDestination`, `buildDestination` and `destinationSummary`,
+and mirrors the app's resolution ORDER: a tab token is tried first (the iOS
+`DockTab.init?(deepLinkToken:)`, including its percent-decode, lowercase-then-
+strip-scheme and legacy aliases), and only then the entity shapes
+`DeepLinkHandler` resolves. `/announcements` now imports `TAB_TOKENS` from it
+instead of keeping its own list — the duplicate list is precisely why `feed` was
+never offered on the announcement dropdown even though the app has always routed
+it, and why `explore` sat there as a second entry for a destination identical to
+`home`. `explore` is off the dropdown but still parses, and the announcement
+editor canonicalises a legacy alias for display only, so a saved row shows its
+tab rather than an empty select and its stored value is left alone.
+
+**What is deliberately not offered.** Lists and societies. `vestige://list/<id>`
+resolves to a **user** list (`ListReference.user`), so a curated-list id would
+author a link that lands on a not-found page; societies are shelved behind
+`societiesEnabled`. Offering either would be authoring a broken tap. Both still
+round-trip verbatim through Custom link, which is the property that matters:
+opening an older broadcast in the editor and saving it must not rewrite its
+destination.
+
+**Build floor — and broadcasts can now express one.** The announcement path has
+honoured tab tokens since it shipped, but the **broadcast** path went straight to
+`DeepLinkHandler`, which resolves entities only, so `vestige://feed` fell through
+and landed on the inbox. That is fixed in the app build after 0.4.4 (25), i.e.
+build **26**, and the picker says so inline. `admin_broadcasts` could only bound
+delivery by marketing version — not by build — so "0.4.4 (26) and up" was
+inexpressible if the fix shipped under an unchanged version. Tom's call
+(2026-09-06) was to close that: iOS migration `20260906130000` adds
+`min_app_build` / `max_app_build` and forks `broadcast_targets_user` to honour
+them, mirroring what `20260905220000` gave announcements. The editor grows
+**Minimum build** / **Maximum build** beside the version pair, sent only when
+changed so a save still works against prod until the migration lands there, and
+`versionBoundsLabel` now renders a build-only bound (`build 26+`) so a gated
+broadcast can't read as "Everyone" on its card.
+
+**Verification.** `tsc --noEmit` clean, `eslint` clean on all six touched files
+(the two type-aheads were restructured onto the debounced-handler pattern
+`IndividualsPicker` already uses next door, rather than setting state in an
+effect), `next build` green. The parser was compiled out and exercised against
+46 cases covering tab aliases, both URL shapes for every entity, uppercase and
+percent-encoded input, and a round-trip proving list / society / web / custom
+destinations survive parse→build byte-identical. No schema change.

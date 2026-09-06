@@ -47,6 +47,7 @@ import {
   type RecipientState,
   type UserPickRow,
 } from "../types";
+import { tabTokenFor } from "../../notifications/destinations";
 
 const SELECT_CLS =
   "flex h-9 w-full rounded-lg border border-input bg-paper-sunken/40 px-3 py-1 text-sm transition-colors focus-visible:border-brand/60 focus-visible:bg-paper-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30";
@@ -236,7 +237,11 @@ export function AnnouncementEditor({
                 </Field>
               ) : (
                 <Field label="Screen" hint="Where the button takes the user.">
-                  <select className={SELECT_CLS} value={actionValue} onChange={(e) => setActionValue(e.target.value)}>
+                  {/* Canonicalise for display only: a row saved with a legacy
+                      alias ("explore", "activity", "myvestige") still resolves
+                      app-side, and showing it as its tab beats an empty select.
+                      The stored value is left alone until the admin picks. */}
+                  <select className={SELECT_CLS} value={tabTokenFor(actionValue) ?? ""} onChange={(e) => setActionValue(e.target.value)}>
                     <option value="">Select a screen…</option>
                     {DEEP_LINK_TOKENS.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { MessageFunnel } from "@/components/admin/MessageFunnel";
 import { BroadcastEditor } from "./BroadcastEditor";
+import { parseDestination } from "../destinations";
 import type { BroadcastRow, CountyOption, UserPickRow } from "../types";
 
 type PushFunnel = { recipients: number; accepted: number; failed: number; opened: number };
@@ -55,6 +56,19 @@ export default async function BroadcastEditorPage({
 
   const counties: CountyOption[] = (countyRowsRes.data ?? []).map((c) => ({ id: c.id, name: c.name }));
 
+  // A saved course destination carries only the UUID, so resolve its name here
+  // — the picker then opens reading "Woodhall Spa" instead of a hex string.
+  const destination = parseDestination(row.destination_url as string | null);
+  let initialCourseName: string | null = null;
+  if (destination.kind === "course" && destination.courseId) {
+    const { data: course } = await supabase
+      .from("courses")
+      .select("name")
+      .eq("id", destination.courseId)
+      .maybeSingle();
+    initialCourseName = (course?.name as string | undefined) ?? null;
+  }
+
   // Delivery funnel — only meaningful once the broadcast has been sent.
   const funnelRes = row.status === "sent" ? await supabase.rpc("admin_broadcast_funnel", { p_broadcast_id: id }) : null;
   const f = (funnelRes?.data?.[0] ?? null) as PushFunnel | null;
@@ -85,6 +99,7 @@ export default async function BroadcastEditorPage({
       <BroadcastEditor
         row={row as BroadcastRow}
         initialTargetUsers={targetUsers}
+        initialCourseName={initialCourseName}
         counties={counties}
         isSuperAdmin={admin.role === "super_admin"}
       />
