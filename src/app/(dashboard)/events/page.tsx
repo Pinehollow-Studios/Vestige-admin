@@ -97,7 +97,7 @@ export default async function EventsPage() {
         <div className="rounded-xl glass-panel p-8 text-center text-sm text-ink-3">
           <p className="font-medium text-ink-2">No events yet.</p>
           <p className="mt-1">
-            Create one, give it a window, publish it — the app&apos;s Clubhouse picks it up
+            Create one, give it a window, publish it, and the app&apos;s Clubhouse picks it up
             straight away.
           </p>
         </div>

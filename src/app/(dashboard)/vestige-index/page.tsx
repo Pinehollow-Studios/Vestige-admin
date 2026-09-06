@@ -143,7 +143,7 @@ async function CountyLanding({
       <TableToolbar
         initialQuery={initialQuery}
         searchPlaceholder="Search every course by name…"
-        countLabel={`${totalCourses.toLocaleString()} courses across ${counties.length} counties — pick a county or search`}
+        countLabel={`${totalCourses.toLocaleString()} courses across ${counties.length} counties. Pick a county or search`}
       />
 
       {aggRes.error ? (

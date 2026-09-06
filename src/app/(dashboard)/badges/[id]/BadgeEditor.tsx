@@ -351,7 +351,7 @@ function EffectPicker({
       </div>
       {resolved !== effect && (
         <p className="text-[11px] text-amber">
-          Renders as <b>{EFFECT_LABELS[resolved]}</b> at {cap(tier)} tier — flair climbs with rarity.
+          Renders as <b>{EFFECT_LABELS[resolved]}</b> at {cap(tier)} tier. Flair climbs with rarity.
         </p>
       )}
     </div>

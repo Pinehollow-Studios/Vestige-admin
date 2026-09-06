@@ -110,7 +110,7 @@ export function EventEditor({
       : { state: "missing", label: "Window invalid", hint: "The end must come after the start." },
     coverURL
       ? { state: "ok", label: "Cover image" }
-      : { state: "warn", label: "No cover image", hint: "Event cards lead the Clubhouse — give it a strong 16:9." },
+      : { state: "warn", label: "No cover image", hint: "Event cards lead the Clubhouse, so give it a strong 16:9." },
     wantsSet && courses.length === 0
       ? { state: "missing", label: "No course set", hint: "Hunts, sweeps and markers need courses. Races don't." }
       : { state: "ok", label: courses.length > 0 ? `${courses.length} courses in the set` : "Whole of England counts" },
@@ -124,10 +124,10 @@ export function EventEditor({
             ? { state: "ok", label: "Prize wired up" }
             : { state: "info", label: "No prize (optional)" },
     status === "live"
-      ? { state: "ok", label: "Published — live on iOS" }
+      ? { state: "ok", label: "Published, live on iOS" }
       : status === "ended"
-        ? { state: "warn", label: "Window closed — needs Close & award" }
-        : { state: "info", label: `${STATUS_LABELS[status]} — not visible to users yet` },
+        ? { state: "warn", label: "Window closed, needs Close & award" }
+        : { state: "info", label: `${STATUS_LABELS[status]}, not visible to users yet` },
   ];
 
   return (
@@ -160,7 +160,7 @@ export function EventEditor({
 
       <EditorSection
         title="The shape"
-        hint="Every shape scores the same way — distinct courses played inside the window, against the set if there is one."
+        hint="Every shape scores the same way: distinct courses played inside the window, against the set if there is one."
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Kind" hint="Changes how the app frames it, not how it scores.">
@@ -213,13 +213,13 @@ export function EventEditor({
         </Field>
       </EditorSection>
 
-      <EditorSection title="Cover image" hint="16:9 — pick any photo, the cropper opens to frame it.">
+      <EditorSection title="Cover image" hint="16:9. Pick any photo, the cropper opens to frame it.">
         <CoverEditor row={row} coverURL={coverURL} />
       </EditorSection>
 
       <EditorSection
         title="The prize"
-        hint="Optional. Pick a badge and who receives it — minted by Close & award once the window shuts."
+        hint="Optional. Pick a badge and who receives it, minted by Close & award once the window shuts."
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Badge">
@@ -258,7 +258,7 @@ export function EventEditor({
             <PrizeCardPreview badge={selectedBadge} awardRule={values.award_rule ?? null} />
             {!selectedBadge.is_published && (
               <p className="text-xs text-alert">
-                Draft — publish it in /badges before the close, or winners receive a badge the app hides.
+                Draft: publish it in /badges before the close, or winners receive a badge the app hides.
               </p>
             )}
           </div>
@@ -267,7 +267,7 @@ export function EventEditor({
 
       <EditorSection
         title="Clubhouse card"
-        hint="How this event appears on the What's-on shelf — 300×128, no poster image (the app dropped that)."
+        hint="How this event appears on the What's-on shelf: 300×128, no poster image (the app dropped that)."
       >
         <ClubhouseEventCardPreview
           title={values.title}
@@ -356,7 +356,7 @@ function PublishSection({ row }: { row: EventRow }) {
     >
       <div className="flex flex-wrap items-end gap-3">
         <Button
-          onClick={() => run(() => setEventPublishState(row.id, new Date().toISOString()), "Published — live on iOS")}
+          onClick={() => run(() => setEventPublishState(row.id, new Date().toISOString()), "Published, live on iOS")}
           disabled={pending || Boolean(row.published_at && !row.is_archived)}
           className="bg-brand text-brand-fg hover:bg-brand-deep"
         >
@@ -404,7 +404,7 @@ function FinalizeSection({ row, hasBadge }: { row: EventRow; hasBadge: boolean }
     startTransition(async () => {
       const res = await finalizeEvent(row.id);
       if (!res.ok) toast.error(res.message);
-      else toast.success(res.data ? `Closed — ${res.data} badge${res.data === 1 ? "" : "s"} minted` : "Closed — no badges to mint");
+      else toast.success(res.data ? `Closed. ${res.data} badge${res.data === 1 ? "" : "s"} minted` : "Closed. No badges to mint");
     });
   }
 
@@ -414,7 +414,7 @@ function FinalizeSection({ row, hasBadge }: { row: EventRow; hasBadge: boolean }
       hint={
         hasBadge
           ? "The window has shut. Closing mints the prize badge per the award rule and files the event under Honours."
-          : "The window has shut. No badge is attached — closing simply files the event under Honours."
+          : "The window has shut. No badge is attached, so closing simply files the event under Honours."
       }
     >
       <Button onClick={finalize} disabled={pending} className="bg-brand text-brand-fg hover:bg-brand-deep">
@@ -529,7 +529,7 @@ function CourseSetSection({
   return (
     <EditorSection
       title="The course set"
-      hint="Leave empty for an open race — any England course counts. Add courses (or a whole county) to fence the hunt."
+      hint="Leave empty for an open race: any England course counts. Add courses (or a whole county) to fence the hunt."
       actions={<EventCoursePicker eventId={row.id} alreadyOnSet={onSetIds} />}
     >
       <div className="flex flex-wrap items-end gap-2">
@@ -557,7 +557,7 @@ function CourseSetSection({
 
       {courses.length === 0 ? (
         <div className="rounded-lg border border-rule/70 bg-paper-sunken/30 p-6 text-center text-sm text-ink-3">
-          No set — the whole of England counts.
+          No set. The whole of England counts.
         </div>
       ) : (
         <ul className="divide-y rounded-lg border text-sm">

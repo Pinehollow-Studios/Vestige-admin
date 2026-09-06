@@ -1,3 +1,22 @@
+## Copy rules
+
+**No em dashes in user-facing copy.** Any string a person reads on a screen or
+in an inbox is written without `—`. That covers JSX text, `label` / `hint` /
+`title` / `placeholder` props, toast and error messages, the label maps in
+`types.ts` files, and the email copy in `src/lib/email/shell.ts`.
+Recast instead: a colon for a gloss ("Race: most courses in the window"), a
+comma for an aside, a full stop for two thoughts, or "so" / "and" where the
+clause needs joining.
+
+Exempt, deliberately:
+
+- **Code comments and JSDoc.** Not rendered, so they keep the em dash.
+- **The null placeholder `"—"`** in tables and stat tiles (`value ?? "—"`,
+  `<option>— skip —</option>`). That is a typographic device standing in for
+  an absent value, not prose.
+
+The rule is convention only, not linted. When touching a file with user-facing
+strings, sweep any em dash you find in one.
 
 - **2026-09-05** — **Analytics Overview: every tester in a table + coverage-pass
   reads.** `/analytics` now leads with one row per account (courses · rounds ·
@@ -106,6 +125,14 @@
   migration `20260827150000` applied dev + prod same day (0.4.x content
   converted; verified on prod). `tsc`/`eslint`/`build` green.
   Long-form in `CHANGELOG.md` 2026-08-27.
+
+- **2026-08-25** — **Em dashes swept from user-facing copy.** Replacements across
+  events (`types.ts` kind/status labels, `EventEditor` hints, toasts and publish
+  states, the empty state), the Index guide/table/page, the curated reorder
+  toast, and the badge effect note. The email sweep was dropped: `starters.ts`
+  was rebuilt on `shell.ts` (2026-09-01) and its remaining em dashes are all in
+  comments. Comments and the `"—"` null placeholders left alone; see the Copy
+  rules above.
 
 - **2026-08-18** — **Index panels stripped to the numbers.** The guide is now
   tables only (axes ordered by weight, Setting rubric, Age bands, rank→score,

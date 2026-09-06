@@ -60,10 +60,10 @@ export type AwardRule = "winner" | "top_three" | "all_qualifiers";
 export type EventStatus = "live" | "scheduled" | "draft" | "ended" | "awarded" | "archived";
 
 export const KIND_LABELS: Record<EventKind, string> = {
-  race: "Race — most courses in the window",
-  hunt: "Hunt — play courses from a set",
-  sweep: "Sweep — a county's courses",
-  marker: "Marker — one round, narrow window",
+  race: "Race: most courses in the window",
+  hunt: "Hunt: play courses from a set",
+  sweep: "Sweep: a county's courses",
+  marker: "Marker: one round, narrow window",
 };
 
 export const AWARD_LABELS: Record<AwardRule, string> = {
@@ -76,7 +76,7 @@ export const STATUS_LABELS: Record<EventStatus, string> = {
   live: "Live",
   scheduled: "Scheduled",
   draft: "Draft",
-  ended: "Ended — needs awarding",
+  ended: "Ended, needs awarding",
   awarded: "Awarded",
   archived: "Archived",
 };
