@@ -3,7 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createServiceClient } from "@/lib/supabase/admin";
-import type { ModerationAction, ModerationCategory, ModerationTier, SweepRow, TestResult } from "./types";
+import type {
+  ModerationAction,
+  ModerationCategory,
+  ModerationTier,
+  PhotoQueueRow,
+  ProfileMediaRow,
+  SafetyHealth,
+  SweepRow,
+  TestResult,
+  TextScanRow,
+} from "./types";
 
 export type ActionResult<T = void> = { ok: true; data?: T } | { ok: false; message: string };
 
@@ -266,4 +276,178 @@ export async function grantUsernameRepick(userId: string, message: string): Prom
 
   revalidatePath("/moderation");
   return { ok: true };
+}
+
+/**
+ * Avatars and cover banners, as the review pipeline sees them.
+ *
+ * `pending` means the verifier has not run yet — usually seconds, but a row
+ * stuck there means `process-avatar` is unhealthy, which is worth seeing.
+ * `flagged` means the bytes were not a real image, or the re-encode failed:
+ * either way a human should look before anything is deleted.
+ */
+export async function profileMediaQueue(state?: string): Promise<ActionResult<ProfileMediaRow[]>> {
+  let supabase;
+  try {
+    ({ supabase } = await adminClient());
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
+  }
+
+  const { data, error } = await supabase.rpc("admin_profile_media_queue", {
+    p_state: state ?? null,
+  });
+  if (error) return { ok: false, message: friendly(error.message) };
+  return { ok: true, data: (data ?? []) as ProfileMediaRow[] };
+}
+
+/**
+ * Remove a profile picture or cover. Deletes the object, clears the pointer
+ * that makes it render, records the act with the path, and tells the user why
+ * through their feedback thread.
+ */
+export async function removeProfileMedia(objectPath: string, message: string): Promise<ActionResult> {
+  if (!message.trim()) return { ok: false, message: "Say why — the user is told." };
+
+  let supabase, adminId;
+  try {
+    ({ supabase, adminId } = await adminClient());
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
+  }
+
+  // The bytes go first, through the Storage API — Postgres refuses a direct
+  // DELETE on storage.objects, and doing it in this order means we never tell a
+  // user their picture was removed while it is still being served. It matters
+  // most for covers, which have no pointer to clear: deleting the object is the
+  // only thing that takes one off other people's screens.
+  const { error: storageError } = await supabase.storage.from("avatars").remove([objectPath]);
+  if (storageError) {
+    return { ok: false, message: `Couldn't delete the file: ${storageError.message}` };
+  }
+
+  const { error } = await supabase.rpc("admin_remove_profile_media", {
+    p_object_path: objectPath,
+    p_message: message,
+    p_admin_id: adminId,
+  });
+  if (error) return { ok: false, message: friendly(error.message) };
+
+  revalidatePath("/moderation");
+  return { ok: true };
+}
+
+/** The classifier's kill switch, thresholds, and how much is waiting. */
+export async function safetyHealth(): Promise<ActionResult<SafetyHealth>> {
+  let supabase;
+  try {
+    ({ supabase } = await adminClient());
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
+  }
+
+  const { data, error } = await supabase.rpc("admin_content_safety_health");
+  if (error) return { ok: false, message: friendly(error.message) };
+  return { ok: true, data: data as SafetyHealth };
+}
+
+/**
+ * Change a severity threshold.
+ *
+ * `rejectAt: null` means never auto-remove — which is where every category
+ * starts, deliberately, so the first week produces real numbers before anything
+ * is taken down automatically. SelfHarm cannot be given a reject threshold at
+ * all: the database refuses it, because a self-harm score is a safeguarding
+ * signal that should reach a person rather than trigger a takedown.
+ */
+export async function setThreshold(
+  category: string,
+  flagAt: number,
+  rejectAt: number | null,
+): Promise<ActionResult> {
+  let supabase, adminId;
+  try {
+    ({ supabase, adminId } = await adminClient());
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
+  }
+
+  const { error } = await supabase.rpc("admin_set_moderation_threshold", {
+    p_category: category,
+    p_flag_at: flagAt,
+    p_reject_at: rejectAt,
+    p_admin_id: adminId,
+  });
+  if (error) {
+    if (error.message.includes("self_harm_never_rejects")) {
+      return { ok: false, message: "Self-harm can never auto-remove — it should reach a person." };
+    }
+    if (error.message.includes("ordered")) {
+      return { ok: false, message: "The remove level has to be at or above the flag level." };
+    }
+    return { ok: false, message: friendly(error.message) };
+  }
+
+  revalidatePath("/moderation");
+  return { ok: true };
+}
+
+/** Photos the classifier has flagged or rejected, plus anything not yet
+ *  scored — an unscored photo is the signal that the pipeline is unhealthy. */
+export async function photoQueue(): Promise<ActionResult<PhotoQueueRow[]>> {
+  let supabase;
+  try {
+    ({ supabase } = await adminClient());
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
+  }
+  const { data, error } = await supabase.rpc("admin_photo_classification_queue", { p_limit: 100 });
+  if (error) return { ok: false, message: friendly(error.message) };
+  return { ok: true, data: (data ?? []) as PhotoQueueRow[] };
+}
+
+/**
+ * Hide or restore a photo.
+ *
+ * Rejecting takes it off every surface and requires a message, which the user
+ * gets in their feedback thread — a photo vanishing with no explanation is how
+ * you lose someone's trust. The file itself is kept, so a mistake is reversible
+ * by setting the state back.
+ */
+export async function setPhotoState(
+  photoId: string,
+  state: "approved" | "rejected",
+  message?: string,
+): Promise<ActionResult> {
+  if (state === "rejected" && !message?.trim()) {
+    return { ok: false, message: "Say why — the user is told." };
+  }
+  let supabase, adminId;
+  try {
+    ({ supabase, adminId } = await adminClient());
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
+  }
+  const { error } = await supabase.rpc("admin_set_photo_moderation", {
+    p_photo_id: photoId,
+    p_state: state,
+    p_message: message ?? null,
+    p_admin_id: adminId,
+  });
+  if (error) return { ok: false, message: friendly(error.message) };
+  revalidatePath("/moderation");
+  return { ok: true };
+}
+
+/** Text the classifier flagged, plus anything not yet scanned. */
+export async function textScanQueue(): Promise<ActionResult<TextScanRow[]>> {
+  let supabase;
+  try {
+    ({ supabase } = await adminClient());
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Service-role not configured" };
+  }
+  const { data, error } = await supabase.rpc("admin_text_scan_queue", { p_limit: 100 });
+  if (error) return { ok: false, message: friendly(error.message) };
+  return { ok: true, data: (data ?? []) as TextScanRow[] };
 }
