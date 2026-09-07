@@ -9,6 +9,13 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   grantUsernameRepick,
+  profileMediaQueue,
+  photoQueue,
+  removeProfileMedia,
+  safetyHealth,
+  setPhotoState,
+  textScanQueue,
+  setThreshold,
   resetField,
   resolveFlag,
   runSweep,
@@ -29,8 +36,14 @@ import {
   type SweepRow,
   type ModerationCategory,
   type ModerationTier,
+  type PhotoQueueRow,
+  type ProfileMediaRow,
+  type SafetyCategory,
+  type SafetyHealth,
+  type SafetyScores,
   type TermRow,
   type TestResult,
+  type TextScanRow,
 } from "./types";
 
 const CATEGORY_TONE: Record<ModerationCategory, string> = {
@@ -111,6 +124,14 @@ export function ModerationBoard({
       <TestBox />
 
       <SweepPanel />
+
+      <ClassifierPanel />
+
+      <ProfileMediaPanel />
+
+      <PhotoQueuePanel />
+
+      <TextScanPanel />
 
       <AddTermForm
         pending={pending}
@@ -850,6 +871,490 @@ function SweepPanel() {
                   </Button>
                 )}
               </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Avatars and cover banners.
+ *
+ * Until 2026-09-07 nothing had ever looked at one — they skip the `photos`
+ * table by design, so they skipped its processing and its moderation queue with
+ * it, while sitting next to their owner's name on every leaderboard and feed
+ * post in the app. A trigger on `storage.objects` now records every upload (the
+ * one hook that catches cover banners too, which have no database column at
+ * all), and `process-avatar` verifies the bytes are a real image and re-encodes
+ * them.
+ *
+ * `verified` here means "these bytes are genuinely an image", NOT "someone has
+ * judged the picture". Judging it is the Azure classifier in phase 2, which
+ * writes into the `scores` column this panel already reads.
+ */
+function ProfileMediaPanel() {
+  const [rows, setRows] = useState<ProfileMediaRow[] | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function load(state?: string) {
+    startTransition(async () => {
+      const res = await profileMediaQueue(state);
+      if (res.ok) setRows(res.data ?? []);
+      else toast.error(res.message);
+    });
+  }
+
+  const visible = useMemo(() => {
+    if (!rows) return [];
+    return showAll ? rows : rows.filter((r) => r.state === "pending" || r.state === "flagged");
+  }, [rows, showAll]);
+
+  const counts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of rows ?? []) map.set(r.state, (map.get(r.state) ?? 0) + 1);
+    return map;
+  }, [rows]);
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-ink-3/20 p-4">
+      <header className="flex flex-wrap items-start gap-2">
+        <div className="space-y-0.5">
+          <h2 className="font-heading text-sm font-semibold">Profile pictures</h2>
+          <p className="text-xs text-ink-3">
+            Every avatar and cover banner, verified byte by byte. <em>Verified</em> means the file is
+            genuinely an image and has been re-encoded — not that anyone has judged the picture.
+          </p>
+        </div>
+        <div className="ml-auto flex gap-1.5">
+          <Button size="sm" variant="secondary" className="h-8" disabled={pending} onClick={() => load()}>
+            Load
+          </Button>
+          {rows && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs"
+              onClick={() => setShowAll((v) => !v)}
+            >
+              {showAll ? "Needs attention only" : `Show all ${rows.length}`}
+            </Button>
+          )}
+        </div>
+      </header>
+
+      {rows && (
+        <div className="flex flex-wrap gap-1.5 text-[11px] text-ink-3">
+          <span>{counts.get("verified") ?? 0} verified</span>
+          <span>· {counts.get("pending") ?? 0} pending</span>
+          <span>· {counts.get("flagged") ?? 0} flagged</span>
+          <span>· {counts.get("rejected") ?? 0} removed</span>
+        </div>
+      )}
+
+      {rows && visible.length === 0 && (
+        <p className="text-xs text-emerald-300">
+          {showAll ? "Nothing here." : "Nothing needs attention — every picture is verified."}
+        </p>
+      )}
+
+      {visible.length > 0 && (
+        <ul className="space-y-2">
+          {visible.map((row) => (
+            <li
+              key={row.object_path}
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-ink-3/15 p-3 text-xs"
+            >
+              <span
+                className={cn(
+                  "rounded-full border px-1.5 py-0.5 text-[10px] uppercase",
+                  row.state === "flagged"
+                    ? "border-red-500/40 bg-red-500/10 text-red-300"
+                    : row.state === "pending"
+                      ? "border-amber/40 bg-amber/10 text-amber"
+                      : "border-ink-3/20 text-ink-3",
+                )}
+              >
+                {row.state}
+              </span>
+              <span className="text-ink-2">{row.kind}</span>
+              <span className="text-ink-3">
+                {/* An object can outlive its account: a deleted user's picture
+                    stays in a public bucket, and this is where it shows up. */}
+                {row.username ? `@${row.username}` : "no account (orphaned)"}
+              </span>
+              {row.detected_mime && <span className="font-mono text-ink-3">{row.detected_mime}</span>}
+              {row.scores ? (
+                <SeverityChips scores={row.scores as SafetyScores} />
+              ) : (
+                <span className="text-amber" title="The classifier has not scored this yet — the reconciliation pass will pick it up">
+                  unscored
+                </span>
+              )}
+              {row.size_bytes != null && (
+                <span className="text-ink-3">{Math.round(row.size_bytes / 1024)} KB</span>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto h-7 text-xs"
+                disabled={pending}
+                onClick={() => {
+                  const message = window.prompt(
+                    "What should the user be told? They get this in their feedback thread.",
+                    "We had to remove your profile picture — it didn't pass our content rules. You can set a new one in Edit profile.",
+                  );
+                  if (!message) return;
+                  startTransition(async () => {
+                    const res = await removeProfileMedia(row.object_path, message);
+                    if (res.ok) {
+                      toast.success("Removed and the user told");
+                      const refreshed = await profileMediaQueue();
+                      if (refreshed.ok) setRows(refreshed.data ?? []);
+                    } else {
+                      toast.error(res.message);
+                    }
+                  });
+                }}
+              >
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** Azure's four severities, shown only when one is non-zero — a row of four
+ *  zeroes on every picture would be noise, and "clean" says it in one word. */
+function SeverityChips({ scores }: { scores: SafetyScores }) {
+  const sev = scores.severities;
+  if (!sev) return null;
+  const hits = (Object.entries(sev) as [SafetyCategory, number][]).filter(([, v]) => v > 0);
+  if (hits.length === 0) return <span className="text-emerald-300">clean</span>;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {hits.map(([category, severity]) => (
+        <span
+          key={category}
+          className="rounded-full border border-amber/40 bg-amber/10 px-1.5 py-0.5 text-[10px] text-amber"
+        >
+          {category} {severity}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * The classifier: its kill switch, how much is waiting, and the severity
+ * thresholds.
+ *
+ * Every category starts with **no** remove level — the classifier writes scores
+ * and raises flags and takes nothing down. That is deliberate for the first
+ * week: it produces real severity numbers on real golf content, and the
+ * thresholds then get set from evidence rather than a guess. Self-harm can
+ * never be given a remove level at all; the database refuses it.
+ */
+function ClassifierPanel() {
+  const [health, setHealth] = useState<SafetyHealth | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function load() {
+    startTransition(async () => {
+      const res = await safetyHealth();
+      if (res.ok && res.data) setHealth(res.data);
+      else if (!res.ok) toast.error(res.message);
+    });
+  }
+
+  function change(category: string, flagAt: number, rejectAt: number | null) {
+    startTransition(async () => {
+      const res = await setThreshold(category, flagAt, rejectAt);
+      if (res.ok) {
+        toast.success(`${category} updated`);
+        const refreshed = await safetyHealth();
+        if (refreshed.ok && refreshed.data) setHealth(refreshed.data);
+      } else {
+        toast.error(res.message);
+      }
+    });
+  }
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-ink-3/20 p-4">
+      <header className="flex flex-wrap items-start gap-2">
+        <div className="space-y-0.5">
+          <h2 className="font-heading text-sm font-semibold">Classifier</h2>
+          <p className="text-xs text-ink-3">
+            Judges what a word list cannot — intent rather than words. It never blocks a post; it
+            scores, and above a threshold it raises a flag.
+          </p>
+        </div>
+        <Button size="sm" variant="secondary" className="ml-auto h-8" disabled={pending} onClick={load}>
+          Load
+        </Button>
+      </header>
+
+      {health && (
+        <>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[10px] uppercase",
+                health.enabled
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                  : "border-ink-3/30 text-ink-3",
+              )}
+            >
+              {health.enabled ? "on" : "off"}
+            </span>
+            <span className="text-ink-3">
+              {/* The only alarm this layer needs. A number that climbs means
+                  Azure is unreachable, the quota is spent, or the switch is
+                  off — and it shows without anyone configuring monitoring. */}
+              {health.unscored_profile_media} waiting to be scored
+            </span>
+            {health.oldest_unscored_at && (
+              <span className="text-amber">
+                oldest since {new Date(health.oldest_unscored_at).toLocaleString("en-GB")}
+              </span>
+            )}
+          </div>
+
+          <ul className="space-y-1.5">
+            {(Object.entries(health.thresholds) as [SafetyCategory, { flag_at: number; reject_at: number | null }][])
+              .map(([category, rule]) => (
+                <li key={category} className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="w-20 font-medium">{category}</span>
+                  <label className="flex items-center gap-1 text-ink-3">
+                    flag at
+                    <select
+                      value={rule.flag_at}
+                      disabled={pending}
+                      onChange={(e) => change(category, Number(e.target.value), rule.reject_at)}
+                      className="h-7 rounded-md border border-ink-3/20 bg-transparent px-1 text-xs"
+                    >
+                      {[0, 2, 4, 6].map((v) => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-1 text-ink-3">
+                    remove at
+                    <select
+                      value={rule.reject_at ?? ""}
+                      disabled={pending || category === "SelfHarm"}
+                      onChange={(e) =>
+                        change(category, rule.flag_at, e.target.value === "" ? null : Number(e.target.value))
+                      }
+                      className="h-7 rounded-md border border-ink-3/20 bg-transparent px-1 text-xs disabled:opacity-40"
+                    >
+                      <option value="">never</option>
+                      {[2, 4, 6].map((v) => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  </label>
+                  {category === "SelfHarm" && (
+                    <span className="text-[11px] text-ink-3">
+                      never auto-removes — this should reach a person
+                    </span>
+                  )}
+                </li>
+              ))}
+          </ul>
+          <p className="text-[11px] text-ink-3">
+            Severity runs 0, 2, 4, 6. Everything starts on <strong>never remove</strong> on purpose —
+            give it a week of real scores before lowering anything.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Round and course photos, as the classifier sees them.
+ *
+ * Shows anything flagged or rejected, plus anything not yet scored — an
+ * unscored photo is not a content problem, it is the signal that the pipeline
+ * is unhealthy, and it belongs on the same screen so one glance covers both.
+ */
+function PhotoQueuePanel() {
+  const [rows, setRows] = useState<PhotoQueueRow[] | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function load() {
+    startTransition(async () => {
+      const res = await photoQueue();
+      if (res.ok) setRows(res.data ?? []);
+      else toast.error(res.message);
+    });
+  }
+
+  function act(id: string, state: "approved" | "rejected", message?: string) {
+    startTransition(async () => {
+      const res = await setPhotoState(id, state, message);
+      if (res.ok) {
+        toast.success(state === "rejected" ? "Hidden, and the user told" : "Restored");
+        const refreshed = await photoQueue();
+        if (refreshed.ok) setRows(refreshed.data ?? []);
+      } else {
+        toast.error(res.message);
+      }
+    });
+  }
+
+  const waiting = (rows ?? []).filter((r) => !r.classified).length;
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-ink-3/20 p-4">
+      <header className="flex flex-wrap items-start gap-2">
+        <div className="space-y-0.5">
+          <h2 className="font-heading text-sm font-semibold">Round photos</h2>
+          <p className="text-xs text-ink-3">
+            Anything the classifier flagged, plus anything it has not reached yet. Hiding a photo
+            keeps the file, so it can be put back.
+          </p>
+        </div>
+        <Button size="sm" variant="secondary" className="ml-auto h-8" disabled={pending} onClick={load}>
+          Load
+        </Button>
+      </header>
+
+      {rows && (
+        <p className="text-[11px] text-ink-3">
+          {rows.length} needing attention{waiting > 0 && ` · ${waiting} not yet scored`}
+        </p>
+      )}
+
+      {rows && rows.length === 0 && (
+        <p className="text-xs text-emerald-300">Nothing flagged, and everything has been scored.</p>
+      )}
+
+      {rows && rows.length > 0 && (
+        <ul className="space-y-2">
+          {rows.map((row) => (
+            <li
+              key={row.id}
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-ink-3/15 p-3 text-xs"
+            >
+              <span
+                className={cn(
+                  "rounded-full border px-1.5 py-0.5 text-[10px] uppercase",
+                  row.state === "rejected"
+                    ? "border-red-500/40 bg-red-500/10 text-red-300"
+                    : row.state === "flagged"
+                      ? "border-amber/40 bg-amber/10 text-amber"
+                      : "border-ink-3/20 text-ink-3",
+                )}
+              >
+                {row.state}
+              </span>
+              <span className="text-ink-2">{row.kind}</span>
+              <span className="font-mono text-[10px] text-ink-3">{row.id.slice(0, 8)}</span>
+              {row.scores ? <SeverityChips scores={row.scores} /> : (
+                <span className="text-amber">not yet scored</span>
+              )}
+              <div className="ml-auto flex gap-1.5">
+                {row.state !== "rejected" ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs"
+                    disabled={pending}
+                    onClick={() => {
+                      const message = window.prompt(
+                        "What should the user be told? They get this in their feedback thread.",
+                        "We had to hide one of your photos — it didn't pass our content rules.",
+                      );
+                      if (!message) return;
+                      act(row.id, "rejected", message);
+                    }}
+                  >
+                    Hide
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs"
+                    disabled={pending}
+                    onClick={() => act(row.id, "approved")}
+                  >
+                    Restore
+                  </Button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Text the classifier flagged — the second opinion on comments, notes, bios and
+ * list titles.
+ *
+ * There is no button here on purpose. This layer never removes anything: the
+ * word list keeps the blocking decision, and what lands here is a judgement
+ * call about a real person's words. Acting on one means going to the content
+ * itself — or to the user, through Safeguarding.
+ */
+function TextScanPanel() {
+  const [rows, setRows] = useState<TextScanRow[] | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function load() {
+    startTransition(async () => {
+      const res = await textScanQueue();
+      if (res.ok) setRows(res.data ?? []);
+      else toast.error(res.message);
+    });
+  }
+
+  const flagged = (rows ?? []).filter((r) => r.verdict === "flag");
+  const waiting = (rows ?? []).filter((r) => !r.scores).length;
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-ink-3/20 p-4">
+      <header className="flex flex-wrap items-start gap-2">
+        <div className="space-y-0.5">
+          <h2 className="font-heading text-sm font-semibold">Text the classifier flagged</h2>
+          <p className="text-xs text-ink-3">
+            Comments, round notes, bios and list titles that read badly to the classifier but contain
+            no blocked word. It never removes anything — this is a second opinion, for you to judge.
+          </p>
+        </div>
+        <Button size="sm" variant="secondary" className="ml-auto h-8" disabled={pending} onClick={load}>
+          Load
+        </Button>
+      </header>
+
+      {rows && (
+        <p className="text-[11px] text-ink-3">
+          {flagged.length} flagged{waiting > 0 && ` · ${waiting} not yet scanned`}
+        </p>
+      )}
+
+      {rows && flagged.length === 0 && (
+        <p className="text-xs text-emerald-300">Nothing flagged.</p>
+      )}
+
+      {flagged.length > 0 && (
+        <ul className="space-y-2">
+          {flagged.map((row) => (
+            <li key={row.id} className="space-y-1.5 rounded-xl border border-ink-3/15 p-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-ink-3">
+                <span className="font-mono text-ink-2">{row.surface}</span>
+                {row.username && <span>· @{row.username}</span>}
+                <span>· {new Date(row.created_at).toLocaleString("en-GB")}</span>
+              </div>
+              <p className="text-sm text-ink-1">{row.excerpt}</p>
+              {row.scores && <SeverityChips scores={row.scores} />}
             </li>
           ))}
         </ul>

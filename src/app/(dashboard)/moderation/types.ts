@@ -101,3 +101,59 @@ export type SweepRow = {
   outcome: "flag" | "block";
   matches: { term: string; category: ModerationCategory; pass: "bounded" | "compact" }[];
 };
+
+/** One avatar or cover object, as the review pipeline sees it. */
+export type ProfileMediaRow = {
+  object_path: string;
+  user_id: string | null;
+  username: string | null;
+  kind: "avatar" | "cover";
+  state: "pending" | "verified" | "flagged" | "rejected";
+  detected_mime: string | null;
+  size_bytes: number | null;
+  scores: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type SafetyCategory = "Hate" | "SelfHarm" | "Sexual" | "Violence";
+
+export type ThresholdRow = {
+  category: SafetyCategory;
+  flag_at: number;
+  /** null = never auto-remove. SelfHarm is constrained to always be null. */
+  reject_at: number | null;
+  note: string | null;
+};
+
+export type SafetyHealth = {
+  enabled: boolean;
+  unscored_profile_media: number;
+  oldest_unscored_at: string | null;
+  thresholds: Record<SafetyCategory, { flag_at: number; reject_at: number | null }>;
+};
+
+/** Azure severities as they come back, plus what the thresholds made of them. */
+export type SafetyScores = {
+  severities?: Record<SafetyCategory, number>;
+  reasons?: { category: SafetyCategory; severity: number; level: "flag" | "reject" }[];
+  at?: string;
+};
+
+export type PhotoQueueRow = {
+  id: string;
+  kind: string;
+  state: "pending" | "approved" | "flagged" | "rejected";
+  scores: SafetyScores | null;
+  created_at: string;
+  classified: boolean;
+};
+
+export type TextScanRow = {
+  id: string;
+  surface: string;
+  username: string | null;
+  excerpt: string | null;
+  verdict: "clean" | "flag" | null;
+  scores: SafetyScores | null;
+  created_at: string;
+};
